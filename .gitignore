@@ -37,8 +37,8 @@ yarn-error.*
 *.tsbuildinfo
 
 # generated native folders
-/ios
-/android
+/mobile/ios
+/mobile/android
 
 # Claude Code
 .claude/
