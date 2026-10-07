@@ -30,7 +30,7 @@ Quando houver tokens/segredos, preferir SecureStore. Nunca armazenar senha root/
 
 ## Configuração e verificações
 
-Entrada `expo-router/entry`, plugin `expo-router`, scheme `luxfamilia` e alias `@/*` para `src/*`. TypeScript inclui tipos gerados do Expo. Sem configuração Babel/Metro personalizada enquanto o padrão atender ao projeto.
+Entrada `expo-router/entry`, plugin `expo-router`, scheme `piplup` e alias `@/*` para `src/*`. TypeScript inclui tipos gerados do Expo. Sem configuração Babel/Metro personalizada enquanto o padrão atender ao projeto.
 
 Executar lint e typecheck antes de concluir alterações. Adicionar testes de comportamento quando a primeira feature os justificar. Não gerar/editar `ios/` e `android/` manualmente; configuração nativa pertence ao app config e plugins. Novos módulos nativos podem exigir development build.
 

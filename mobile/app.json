@@ -1,17 +1,19 @@
 {
   "expo": {
-    "name": "Lux Família",
-    "slug": "Projeto-Integrador-FatecID-5Sem",
+    "name": "piplup",
+    "slug": "piplup",
     "version": "1.0.0",
     "orientation": "portrait",
-    "scheme": "luxfamilia",
+    "scheme": "piplup",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "dark",
     "backgroundColor": "#0F1118",
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "bundleIdentifier": "br.edu.fatecid.piplup"
     },
     "android": {
+      "package": "br.edu.fatecid.piplup",
       "adaptiveIcon": {
         "backgroundColor": "#E6F4FE",
         "foregroundImage": "./assets/android-icon-foreground.png",

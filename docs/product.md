@@ -2,7 +2,7 @@
 
 ## Propósito e atores
 
-Permitir que um responsável consulte e altere, pelo celular, configurações parentais existentes em computadores Lenovo Lux. A conta gerenciada pertence à criança/dependente. O mobile é uma interface remota; a aplicação das restrições pertence ao GNOME/Lux.
+O piplup permite que um responsável consulte e altere, pelo celular, configurações parentais existentes em computadores Lenovo Lux. A conta gerenciada pertence à criança/dependente. O mobile é uma interface remota; a aplicação das restrições pertence ao GNOME/Lux.
 
 ## Escopo desta entrega
 
