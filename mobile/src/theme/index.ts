@@ -3,6 +3,7 @@ import { colors } from './colors';
 
 export * from './colors';
 export * from './spacing';
+export * from './typography';
 
 export const navigationTheme: Theme = {
   ...DarkTheme,

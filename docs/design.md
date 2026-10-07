@@ -2,7 +2,7 @@
 
 ## Fonte e limites
 
-Referência autorizada: [Controle Parental Lux.pdf](../prototypes/Controle%20Parental%20Lux.pdf), 11 páginas. HTML originais não estão disponíveis. O PDF permite observar hierarquia, cores e componentes, mas não recuperar com segurança medidas CSS, família tipográfica completa ou interações. As telas e tokens existentes foram preservados nesta entrega.
+Referências autorizadas: [Controle Parental Lux.pdf](../prototypes/Controle%20Parental%20Lux.pdf), 11 páginas, e o protótipo HTML agrupado em [`prototypes/Controle Parental Lux.html`](../prototypes/Controle%20Parental%20Lux.html). O HTML foi decodificado do bundle para conferir textos e hierarquia das telas; seu CSS e as interações simuladas não são código de produção nem definem medidas React Native. As telas preservam os tokens existentes.
 
 ## Variantes e convenção inicial
 
@@ -46,19 +46,34 @@ A fonte executável permanece em `mobile/src/theme/colors.ts` e `spacing.ts`. Va
 | Sucesso | `colors.success` | `#4CAF7A` |
 | Perigo | `colors.danger` | `#E5483D` |
 
-Na página 5, preenchimentos vetoriais incluem `#161826` (fundo dos aparelhos), `#232532` (superfícies), `#E1483A` (acento) e `#E9E9ED` (texto claro). São referências extraídas do PDF, não equivalentes exatos dos tokens existentes. Validar com os HTML antes de substituir a paleta; nenhuma alteração visual nesta entrega.
+Na página 5, preenchimentos vetoriais incluem `#161826` (fundo dos aparelhos), `#232532` (superfícies), `#E1483A` (acento) e `#E9E9ED` (texto claro). São referências extraídas do PDF, não equivalentes exatos dos tokens existentes. O login preserva a paleta escura e vermelha já definida no app.
 
 Escala existente de espaçamento: `xs=4`, `sm=8`, `md=12`, `lg=16`, `xl=24`, `xxl=32`. Radius: `sm=8`, `md=12`, `lg=16`, `pill=999`. O PDF evidencia espaçamento/raios recorrentes, mas não confirma esses números em unidades React Native.
 
-O placeholder usa título de 20 com peso 600. Ainda não há escala tipográfica normalizada; preservar fonte nativa até identificar a família/medidas originais. Recursos do PDF incluem fontes Type3 sem identificação suficiente. Não adicionar fontes por suposição.
+Escala tipográfica local usada no login, em unidades React Native:
+
+| Chave | Valor | Uso |
+| --- | --- | --- |
+| `brand` | 20 | Nome piplup |
+| `title` | 29 | Título da tela |
+| `body` | 14 | Texto de apoio |
+| `label` | 12 | Rótulos e mensagens auxiliares |
+| `input` | 16 | Campos de entrada |
+| `button` | 15 | Ação principal |
+
+Esses valores adaptam a hierarquia do protótipo para React Native; não são conversões exatas das medidas CSS. A fonte nativa permanece em uso. Os recursos do PDF incluem fontes Type3 sem identificação suficiente para escolher outra família.
+
+## Login piplup
+
+O login usa a hierarquia observada no HTML: marca no topo, “Bem-vindo de volta”, texto de apoio, campos de e-mail e senha, ação principal contornada e ação secundária. A marca passa a ser `piplup`; o fundo escuro e o acento vermelho mantêm os tokens existentes. A tipografia permanece nativa. O feedback de validação local substitui as mensagens de autenticação do protótipo, que não representam um contrato real.
 
 ## React Native Reusables
 
 Foram consultados [instalação](https://reactnativereusables.com/docs/installation), [Text](https://reactnativereusables.com/docs/components/text), [Button](https://reactnativereusables.com/docs/components/button) e [Card](https://reactnativereusables.com/docs/components/card).
 
-Componentes adotados inicialmente: nenhum. As telas preservadas usam apenas o `Screen` existente com `View` e `Text` nativos. Não há Button, Input, Card ou Dialog necessários nesta estrutura. A instalação e o sistema de estilos/contexto do Text não trazem benefício atual que justifique substituir o texto nativo existente.
+O login usa wrappers locais `Button` e `Input`, adaptados dos componentes [Button](https://github.com/founded-labs/react-native-reusables/blob/main/packages/registry/src/nativewind/components/ui/button.tsx) e [Input](https://github.com/founded-labs/react-native-reusables/blob/main/packages/registry/src/nativewind/components/ui/input.tsx) do React Native Reusables. O Button mantém a ação contornada e recebe um `label`; o Input preserva as props, callbacks, estilo e ref de `TextInput`, com estado inválido baseado nos tokens do app. As adaptações usam `Pressable`, `TextInput` e `StyleSheet`; não instalaram NativeWind/Uniwind nem adicionaram dependências. Nenhum contexto genérico de Text foi criado.
 
-Ao implementar a primeira tela, avaliar Button/Input para formulário, Card para superfícies reutilizadas e Dialog para confirmação. São candidatos, não componentes instalados. Definir a integração de estilos apenas nessa ocasião e adicionar somente o que a tela consumir. Customizações devem preservar contorno, paleta, hierarquia e estados observados.
+Card e Dialog continuam como candidatos para telas futuras, sem adoção nesta tela. Customizações devem preservar contorno, paleta, hierarquia e estados observados.
 
 ## Estados, acessibilidade e pendências
 
@@ -66,4 +81,4 @@ O PDF mostra erro, sucesso, sincronização em andamento, falha de comunicação
 
 Mensagens do PDF sobre chaves guardadas apenas no celular, fila offline, prazos e fechamento automático não são decisões de segurança ou garantias técnicas. Revisar o texto após definir contratos e validar a integração. Ações normais e destrutivas compartilham a cor vermelha no código atual; quando existirem, diferenciá-las por texto/contexto e confirmação apropriada.
 
-TODO: obter HTML, confirmar tema com o grupo, medir tipografia/espaçamento, validar contraste e registrar componentes efetivamente adotados. Não inventar um design system completo a partir de medidas de impressão.
+TODO: confirmar o tema final com o grupo e validar contraste e acessibilidade. Não inferir especificações de produção apenas das medidas de impressão.
