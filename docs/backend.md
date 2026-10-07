@@ -2,6 +2,8 @@
 
 Backend technology: TBD
 
+O MySQL local é disponibilizado pelo `docker-compose.yml` na raiz. A API ainda não está implementada; quando a tecnologia do backend for definida e existir um serviço executável, sua entrega deverá incluir um Dockerfile e consumir as variáveis de conexão local sem expor credenciais ao mobile ou ao Lux Agent. Ainda não há Dockerfile do backend.
+
 ## Responsabilidades esperadas
 
 Disponibilizar API ao mobile, acessar MySQL, autenticar responsáveis/dispositivos, validar autorização dos vínculos e intermediar consultas/comandos ao Lux. A aplicação das restrições pertence ao GNOME; sucesso de transporte não deve ser confundido com aplicação confirmada no computador.
