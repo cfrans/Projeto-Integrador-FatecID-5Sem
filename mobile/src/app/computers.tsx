@@ -1,5 +1,5 @@
-import { Screen } from '@/components/Screen';
+import { ComputersScreen } from '@/features/devices/ComputersScreen';
 
-export default function ComputersScreen() {
-  return <Screen title="Computadores pareados" />;
+export default function ComputersRoute() {
+  return <ComputersScreen />;
 }
