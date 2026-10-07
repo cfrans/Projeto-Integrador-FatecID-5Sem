@@ -6,7 +6,7 @@ O piplup permite que um responsável consulte e altere, pelo celular, configura�
 
 ## Escopo desta entrega
 
-Organização do repositório, configuração Expo, preservação das telas/layouts existentes, documentação, referência visual e uma fonte de dados simulada independente do Linux.
+Configuração Expo e perfis EAS, execução no Expo Go e preservação das rotas/layouts existentes. Quatro telas oferecem um fluxo demonstrativo de login, início, computadores e pareamento com dados simulados; o pareamento aparece na própria tela e mantém o computador fictício apenas em memória. O MySQL local está configurado para desenvolvimento futuro do backend, sem API conectada ao mobile ou integração com Linux.
 
 ## Funcionalidades candidatas
 

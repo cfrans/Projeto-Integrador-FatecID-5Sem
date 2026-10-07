@@ -14,8 +14,7 @@ Decisões relevantes estão nestes documentos por enquanto. Criar `docs/decision
 
 ## Próximos passos
 
-1. Definir com o grupo a primeira funcionalidade e o MVP viável.
-2. Fornecer os HTML originais para conferir medidas e tokens do PDF.
-3. Implementar uma feature mobile com mock; consultar o protótipo e avaliar o componente Reusables efetivamente necessário.
-4. Escolher tecnologia do backend e acordar o contrato HTTP.
-5. Investigar capacidades e permissões do GNOME no Lux em paralelo ao desenvolvimento mobile.
+1. Validar as quatro telas demonstrativas em Expo Go num dispositivo, inclusive o fluxo de pareamento simulado.
+2. Definir com o grupo o MVP e os comportamentos que dependem de autenticação e disponibilidade do computador.
+3. Escolher a tecnologia do backend e acordar o contrato HTTP antes de conectar o mobile.
+4. Investigar capacidades e permissões do GNOME no Lux antes de prometer controles reais.

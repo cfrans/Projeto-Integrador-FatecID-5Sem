@@ -4,7 +4,11 @@ Projeto Integrador acadêmico: interface mobile para consultar e alterar remotam
 
 ## Estado atual
 
-Bootstrap com Expo SDK 57, React Native, TypeScript e Expo Router. As 12 telas placeholder e os layouts existentes foram preservados. Não há autenticação real, backend, banco ou integração Linux. Stack e abas estão declarados; os placeholders ainda não oferecem botões/links para percorrer o fluxo.
+O piplup usa Expo SDK 57, React Native, TypeScript e Expo Router. Quatro telas demonstrativas compõem o fluxo atual: login, início, computadores e pareamento simulado. No login, qualquer e-mail com formato válido e senha não vazia segue para início; use dados fictícios, pois não há autenticação e as credenciais não são verificadas nem enviadas.
+
+Em `/home`, a lista vem de um mock com três computadores de exemplo. `/computers` mostra a lista e também permite abrir `/qr-scan`. Essa tela não ativa a câmera nem lê QR Code: o botão adiciona um quarto computador fictício, de forma idempotente e somente em memória até o processo do app reiniciar. A confirmação aparece na própria tela e leva a `/computers`; ao voltar para `/home`, a lista é atualizada. As outras oito rotas e os layouts existentes permanecem como placeholders, fora do fluxo implementado.
+
+Não há autenticação real, API/backend conectado ao mobile nem integração Linux. O MySQL local está configurado para desenvolvimento futuro do backend e não é acessado pelo app.
 
 ## Executar o mobile
 
@@ -17,6 +21,8 @@ npx expo start
 ```
 
 Use o QR Code do Expo Go em um dispositivo compatível ou as opções do terminal para emulador Android/iOS. iOS local requer macOS. Se a rede impedir a conexão, inicie com `npx expo start --tunnel`. O QR do Expo é apenas para desenvolvimento, não pareamento de um Lux. O app ainda não usa `expo-dev-client`.
+
+Em CI, use `npm ci` para instalar a partir do `package-lock.json`.
 
 ```bash
 npm run lint
@@ -37,7 +43,7 @@ npx eas-cli@latest login
 npx eas-cli@latest build:configure
 ```
 
-Os perfis em `mobile/eas.json` permitem builds remotos após essa configuração. O perfil `development` gera APK Android debug para distribuição interna; ele não inclui `expo-dev-client`, então o fluxo de desenvolvimento em dispositivo permanece no Expo Go. Um cliente nativo de desenvolvimento poderá ser configurado quando houver necessidade. Este perfil não estabelece um fluxo debug funcional para iOS.
+Os perfis em `mobile/eas.json` permitem builds remotos após essa configuração. O perfil `development` gera APK Android debug para distribuição interna; ele não inclui `expo-dev-client`, então o fluxo de desenvolvimento em dispositivo permanece no Expo Go. Um cliente nativo de desenvolvimento poderá ser configurado quando houver necessidade, seguindo a [documentação de development builds](https://docs.expo.dev/develop/development-builds/introduction/). Este perfil não estabelece um fluxo debug funcional para iOS.
 
 ```bash
 npx eas-cli@latest build --platform android --profile development
@@ -47,17 +53,37 @@ npx eas-cli@latest build --platform android --profile production
 
 `preview` gera APK Android interno para instalação direta. `production` gera Android App Bundle (AAB), formato destinado à publicação na Play Store. Build de produção iOS requer credenciais Apple. Esses comandos são instruções para uso futuro; nenhum build remoto foi iniciado nesta configuração.
 
+Referências: [configuração do EAS](https://docs.expo.dev/build/eas-json/) e [builds APK para Android](https://docs.expo.dev/build-reference/apk/).
+
+## MySQL local
+
+O mobile não usa esse banco. Para preparar o serviço destinado ao desenvolvimento futuro do backend, siga [Banco de dados](docs/database.md). Na raiz, copie o arquivo de exemplo e preencha as senhas locais em `.env`:
+
+```bash
+cp .env.example .env
+```
+
+Depois, inicie e confira o serviço:
+
+```bash
+docker compose config --quiet
+docker compose up -d
+docker compose ps
+```
+
+Para parar o serviço, execute `docker compose down`; os dados do volume são preservados.
+
 ## Organização
 
 ```text
 AGENTS.md
 docs/              produto, arquitetura, convenções e design
-prototypes/        PDF original de referência visual
+prototypes/        PDF e HTML agrupado, referências visuais
 mobile/            aplicação Expo e dependências próprias
 backend/README.md  responsabilidades; tecnologia TBD
 lux-agent/README.md responsabilidades; tecnologia TBD
 ```
 
-O caminho previsto é Mobile → Backend/API → Lux Agent → GNOME. MySQL pertence ao backend. O mobile pode desenvolver funcionalidades com mocks sem depender do Lux; o primeiro contrato e sua implementação vazia estão em `mobile/src/features/devices/services/devices.ts` e `mobile/src/mocks/devices.ts`, ainda sem conexão às telas preservadas.
+O caminho futuro é Mobile → Backend/API → Lux Agent → GNOME. MySQL pertence ao backend. Hoje, Home e computadores leem o mock em `mobile/src/mocks/devices.ts` via o contrato interno de listagem. O login e o pareamento não usam API: a demonstração de pareamento é uma operação local separada do contrato de listagem.
 
 Consulte [o índice da documentação](docs/README.md) para decisões, pendências e próximos passos. Referência de compatibilidade: [Expo SDK 57](https://docs.expo.dev/versions/v57.0.0/).
