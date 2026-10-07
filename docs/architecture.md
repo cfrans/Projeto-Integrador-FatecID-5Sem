@@ -25,9 +25,11 @@ O mock do Lux Agent permitirá desenvolver e testar o backend sem um computador 
 
 Uma alteração aceita pelo mock é um resultado simulado, não evidência de que o GNOME oferece ou aplicou aquela operação. As capacidades reais continuam sujeitas à investigação descrita em [integração Lux](lux-integration.md).
 
-Uma feature consome um contrato assíncrono independente da origem dos dados. A exportação `devices` atualmente seleciona `mockDevices`; uma implementação HTTP futura deve cumprir `DevicesSource` e substituir essa seleção, preservando os consumidores. Sem provider, store global ou servidor de mocks.
+Uma feature consome um contrato assíncrono independente da origem dos dados. A exportação `devices` atualmente seleciona `mockDevices`; uma implementação HTTP futura deve cumprir `DevicesSource` e substituir essa seleção, preservando os consumidores. A Home já lista os computadores por esse serviço, sem importar o mock diretamente. Sem provider, store global ou servidor de mocks.
 
-O único contrato inicial é a listagem de computadores com `id` e `name`. É provisório e interno ao mobile; não define endpoints ou modelo de persistência. As telas existentes ainda não o consomem para respeitar a preservação solicitada.
+O contrato provisório interno ao mobile é `listPairedComputers(): Promise<PairedComputer[]>`, com `id`, `name`, `status` (`online` ou `offline`), `managedUser` e `lastSeen` (data ISO 8601 ou `null`). Esses campos permitem a Home mostrar o status e a conta gerenciada; não definem endpoints ou modelo de persistência. O contrato não afirma que esses campos já existam no backend ou no Agent.
+
+O mock atual fornece três computadores de exemplo, com status online/offline e conta gerenciada, apenas para apresentar os estados da Home e da lista. Esses dados são fictícios e não representam pareamentos reais, autenticação, conectividade com um computador ou capacidades do GNOME. Fluxo de pareamento e persistência simulada serão definidos separadamente.
 
 ## Provisório / TBD
 

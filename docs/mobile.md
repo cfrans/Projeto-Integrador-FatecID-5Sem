@@ -4,21 +4,24 @@ Expo + React Native + TypeScript estrito + Expo Router. Dependências e comandos
 
 ## Organização
 
-- `src/app`: somente rotas/layouts; as rotas existentes compõem `Screen` e não contêm regras ou HTTP.
-- `src/components/Screen.tsx`: estrutura compartilhada dos placeholders existentes.
+- `src/app`: somente rotas/layouts; cada rota compõe sua tela de feature ou o `Screen` para placeholders, sem regras ou HTTP.
+- `src/components/Screen.tsx`: estrutura compartilhada dos placeholders ainda não implementados.
 - `src/theme`: tokens e tema de navegação já existentes; preservados para evitar reorganização estética.
-- `src/features/devices/services/devices.ts`: contrato inicial e seleção da fonte de computadores.
-- `src/mocks/devices.ts`: implementação simulada do mesmo contrato.
+- `src/features/devices`: Home, cartão de computador e serviço com o contrato provisório de listagem.
+- `src/mocks/devices.ts`: implementação simulada do serviço, com três computadores fictícios.
+- `src/components/ui`: componentes de interface compartilhados usados pelas features.
 
 Criar hooks, stores, lib ou outras features apenas quando houver responsabilidade concreta. UI de uma única feature permanece nela. Estado local permanece em React até haver necessidade real de compartilhamento global.
 
 ## Rotas preservadas
 
-`/`, `/home`, `/computers`, `/qr-scan`, `/pairing-done`, `/access-request`, `/sync-failure`, `/about` e `/restrictions/{browsers,apps,install,age}`. Stack principal e Tabs de restrições foram mantidos. São 12 placeholders de título, sem fluxo interativo entre as telas. A existência de uma rota não confirma viabilidade da funcionalidade.
+`/`, `/home`, `/computers`, `/qr-scan`, `/pairing-done`, `/access-request`, `/sync-failure`, `/about` e `/restrictions/{browsers,apps,install,age}`. Stack principal e Tabs de restrições foram mantidos. Login e Home já usam telas de feature; as outras rotas ainda são placeholders, sem fluxo interativo completo. A existência de uma rota não confirma viabilidade da funcionalidade.
 
 ## Dados e mock
 
-Consumidores futuros chamam `devices.listPairedComputers()`, que retorna `Promise<PairedComputer[]>`. O mock retorna lista vazia, sem inventar computadores vinculados, credenciais ou capacidades do GNOME. Para usar API real, implementar `DevicesSource` via HTTP no serviço da feature e trocar a seleção exportada. A tela não deve importar `src/mocks`.
+Consumidores chamam `devices.listPairedComputers()`, que retorna `Promise<PairedComputer[]>`. O contrato provisório traz `id`, `name`, `status` (`online`/`offline`), `managedUser` e `lastSeen` em ISO 8601 ou `null`. A Home consome o serviço, atualiza a lista ao recuperar foco e apresenta carregamento, erro com nova tentativa, lista e estado vazio; ela não importa `src/mocks`.
+
+O mock fornece três registros fictícios para demonstrar a listagem e os estados de conexão. Eles não representam pareamento, autenticação ou conexão Linux reais. Para usar API real, implementar `DevicesSource` via HTTP no serviço da feature e trocar a seleção exportada.
 
 Ainda não há base URL, cliente HTTP, autenticação ou fallback automático para mock. Endpoints e erros dependem do contrato acordado com o backend.
 

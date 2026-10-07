@@ -73,7 +73,7 @@ Foram consultados [instalação](https://reactnativereusables.com/docs/installat
 
 O login usa wrappers locais `Button` e `Input`, adaptados dos componentes [Button](https://github.com/founded-labs/react-native-reusables/blob/main/packages/registry/src/nativewind/components/ui/button.tsx) e [Input](https://github.com/founded-labs/react-native-reusables/blob/main/packages/registry/src/nativewind/components/ui/input.tsx) do React Native Reusables. O Button mantém a ação contornada e recebe um `label`; o Input preserva as props, callbacks, estilo e ref de `TextInput`, com estado inválido baseado nos tokens do app. As adaptações usam `Pressable`, `TextInput` e `StyleSheet`; não instalaram NativeWind/Uniwind nem adicionaram dependências. Nenhum contexto genérico de Text foi criado.
 
-Card e Dialog continuam como candidatos para telas futuras, sem adoção nesta tela. Customizações devem preservar contorno, paleta, hierarquia e estados observados.
+A Home usa `Card`, adaptado do [Card do React Native Reusables](https://github.com/founded-labs/react-native-reusables/blob/main/packages/registry/src/nativewind/components/ui/card.tsx) com `View`, `StyleSheet` e os tokens existentes, sem novas dependências. O `DeviceCard` pertence à feature de dispositivos e apresenta nome, conta gerenciada, status textual e última conexão; sua composição pode ser reutilizada na lista. `Dialog` não foi adicionado. Customizações preservam contorno, paleta, hierarquia e estados observados.
 
 ## Estados, acessibilidade e pendências
 

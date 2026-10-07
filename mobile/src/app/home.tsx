@@ -1,5 +1,5 @@
-import { Screen } from '@/components/Screen';
+import { HomeScreen as DevicesHomeScreen } from '@/features/devices/HomeScreen';
 
 export default function HomeScreen() {
-  return <Screen title="Menu principal" />;
+  return <DevicesHomeScreen />;
 }
