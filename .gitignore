@@ -15,8 +15,17 @@ expo-env.d.ts
 *.jks
 *.p8
 *.p12
+*.pfx
+*.keystore
 *.key
 *.mobileprovision
+credentials.json
+
+# build artifacts
+*.apk
+*.aab
+*.ipa
+coverage/
 
 # Metro
 .metro-health-check*
@@ -25,15 +34,19 @@ expo-env.d.ts
 npm-debug.*
 yarn-debug.*
 yarn-error.*
+*.log
 
 # macOS
 .DS_Store
+Thumbs.db
 *.pem
 
 # local env files
 .env
-!.env.example
+.env.*
 .env*.local
+!.env.example
+!.env.*.example
 
 # typescript
 *.tsbuildinfo
