@@ -12,4 +12,9 @@ export type DevicesSource = {
   listPairedComputers(): Promise<PairedComputer[]>;
 };
 
+export type PairingDemoSource = {
+  simulatePairing(): Promise<PairedComputer>;
+};
+
 export const devices: DevicesSource = mockDevices;
+export const pairingDemo: PairingDemoSource = mockDevices;

@@ -6,11 +6,15 @@ type ButtonProps = Omit<PressableProps, 'children'> & {
   style?: StyleProp<ViewStyle>;
 };
 
-export function Button({ label, style, ...props }: ButtonProps) {
+export function Button({ label, style, disabled = false, accessibilityState, ...props }: ButtonProps) {
+  const isDisabled = disabled || Boolean(accessibilityState?.disabled);
+
   return (
     <Pressable
       accessibilityRole="button"
-      style={({ pressed }) => [styles.button, pressed && styles.pressed, style]}
+      accessibilityState={{ ...accessibilityState, disabled: isDisabled }}
+      disabled={isDisabled}
+      style={({ pressed }) => [styles.button, pressed && styles.pressed, style, isDisabled && styles.disabled]}
       {...props}
     >
       <Text style={styles.label}>{label}</Text>
@@ -31,5 +35,6 @@ const styles = StyleSheet.create({
     backgroundColor: 'transparent',
   },
   pressed: { opacity: 0.72 },
+  disabled: { opacity: 0.5 },
   label: { color: colors.accentText, fontSize: typography.button, fontWeight: '500' },
 });

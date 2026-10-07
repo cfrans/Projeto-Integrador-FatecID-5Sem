@@ -7,21 +7,23 @@ Expo + React Native + TypeScript estrito + Expo Router. Dependências e comandos
 - `src/app`: somente rotas/layouts; cada rota compõe sua tela de feature ou o `Screen` para placeholders, sem regras ou HTTP.
 - `src/components/Screen.tsx`: estrutura compartilhada dos placeholders ainda não implementados.
 - `src/theme`: tokens e tema de navegação já existentes; preservados para evitar reorganização estética.
-- `src/features/devices`: Home, cartão de computador e serviço com o contrato provisório de listagem.
-- `src/mocks/devices.ts`: implementação simulada do serviço, com três computadores fictícios.
+- `src/features/auth`: login demonstrativo; valida somente o formato do e-mail e a presença da senha, sem autenticação.
+- `src/features/devices`: Home, lista e cartão de computador, com serviço provisório de listagem.
+- `src/features/pairing`: tela visual de pareamento demonstrativo; não ativa câmera nem verifica QR.
+- `src/mocks/devices.ts`: listagem de três computadores fictícios e serviço de pareamento simulado.
 - `src/components/ui`: componentes de interface compartilhados usados pelas features.
 
 Criar hooks, stores, lib ou outras features apenas quando houver responsabilidade concreta. UI de uma única feature permanece nela. Estado local permanece em React até haver necessidade real de compartilhamento global.
 
 ## Rotas preservadas
 
-`/`, `/home`, `/computers`, `/qr-scan`, `/pairing-done`, `/access-request`, `/sync-failure`, `/about` e `/restrictions/{browsers,apps,install,age}`. Stack principal e Tabs de restrições foram mantidos. Login e Home já usam telas de feature; as outras rotas ainda são placeholders, sem fluxo interativo completo. A existência de uma rota não confirma viabilidade da funcionalidade.
+`/`, `/home`, `/computers` e `/qr-scan` formam o fluxo demonstrativo de login, início, computadores e pareamento. Login, Home, lista e pareamento usam telas de feature. `/pairing-done`, `/access-request`, `/sync-failure`, `/about` e `/restrictions/{browsers,apps,install,age}` continuam como oito rotas placeholder, fora do fluxo implementado. Stack principal e Tabs foram preservados; a existência de uma rota não confirma viabilidade da funcionalidade.
 
 ## Dados e mock
 
 Consumidores chamam `devices.listPairedComputers()`, que retorna `Promise<PairedComputer[]>`. O contrato provisório traz `id`, `name`, `status` (`online`/`offline`), `managedUser` e `lastSeen` em ISO 8601 ou `null`. A Home consome o serviço, atualiza a lista ao recuperar foco e apresenta carregamento, erro com nova tentativa, lista e estado vazio; ela não importa `src/mocks`.
 
-O mock fornece três registros fictícios para demonstrar a listagem e os estados de conexão. Eles não representam pareamento, autenticação ou conexão Linux reais. Para usar API real, implementar `DevicesSource` via HTTP no serviço da feature e trocar a seleção exportada.
+O mock fornece três registros fictícios para demonstrar a listagem e os estados de conexão. `pairingDemo.simulatePairing()` adiciona um quarto registro fictício, idempotente e mantido apenas em memória até o app ser reiniciado. Cada retorno da listagem e do pareamento é uma cópia dos dados internos. O fluxo não lê QR, autentica ou conecta ao Lux; a simulação não é contrato HTTP. Para usar API real na listagem, implementar `DevicesSource` via HTTP no serviço da feature e trocar a seleção exportada.
 
 Ainda não há base URL, cliente HTTP, autenticação ou fallback automático para mock. Endpoints e erros dependem do contrato acordado com o backend.
 

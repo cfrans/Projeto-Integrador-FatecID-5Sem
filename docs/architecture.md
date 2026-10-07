@@ -29,7 +29,7 @@ Uma feature consome um contrato assíncrono independente da origem dos dados. A 
 
 O contrato provisório interno ao mobile é `listPairedComputers(): Promise<PairedComputer[]>`, com `id`, `name`, `status` (`online` ou `offline`), `managedUser` e `lastSeen` (data ISO 8601 ou `null`). Esses campos permitem a Home mostrar o status e a conta gerenciada; não definem endpoints ou modelo de persistência. O contrato não afirma que esses campos já existam no backend ou no Agent.
 
-O mock atual fornece três computadores de exemplo, com status online/offline e conta gerenciada, apenas para apresentar os estados da Home e da lista. Esses dados são fictícios e não representam pareamentos reais, autenticação, conectividade com um computador ou capacidades do GNOME. Fluxo de pareamento e persistência simulada serão definidos separadamente.
+O mock atual fornece três computadores de exemplo, com status online/offline e conta gerenciada, apenas para apresentar os estados da Home e da lista. O serviço local `pairingDemo.simulatePairing()` acrescenta um quarto computador fictício, sem duplicá-lo em chamadas repetidas. A alteração vive somente na memória do processo e a lista retorna cópias dos registros. Esses dados não representam pareamentos reais, autenticação, conectividade com um computador ou capacidades do GNOME; o método de demonstração não define contrato HTTP.
 
 ## Provisório / TBD
 

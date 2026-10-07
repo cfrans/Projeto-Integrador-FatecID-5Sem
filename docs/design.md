@@ -67,6 +67,12 @@ Esses valores adaptam a hierarquia do protótipo para React Native; não são co
 
 O login usa a hierarquia observada no HTML: marca no topo, “Bem-vindo de volta”, texto de apoio, campos de e-mail e senha, ação principal contornada e ação secundária. A marca passa a ser `piplup`; o fundo escuro e o acento vermelho mantêm os tokens existentes. A tipografia permanece nativa. O feedback de validação local substitui as mensagens de autenticação do protótipo, que não representam um contrato real.
 
+## Home, computadores e pareamento
+
+A Home e a lista mantêm cards compactos com nome, conta gerenciada e status acompanhado de texto. As ações contornadas abrem a lista ou o pareamento. Carregamento, erro com nova tentativa e lista vazia usam a mesma paleta. A lista utiliza `FlatList`; o conteúdo da Home pode rolar.
+
+O pareamento adapta a moldura de leitura e a confirmação do HTML para uma única rota, com indicação de demonstração. A câmera permanece inativa. A confirmação mostra o computador fictício e retorna à lista. O Button recebeu estado desativado visual e acessível para a ação pendente; não foram adicionados componentes ou dependências além dos efetivamente usados.
+
 ## React Native Reusables
 
 Foram consultados [instalação](https://reactnativereusables.com/docs/installation), [Text](https://reactnativereusables.com/docs/components/text), [Button](https://reactnativereusables.com/docs/components/button) e [Card](https://reactnativereusables.com/docs/components/card).
@@ -77,7 +83,7 @@ A Home usa `Card`, adaptado do [Card do React Native Reusables](https://github.c
 
 ## Estados, acessibilidade e pendências
 
-O PDF mostra erro, sucesso, sincronização em andamento, falha de comunicação e seleção. Disabled, foco por teclado e leitores de tela não estão especificados. Antes de implementar, definir contraste, rótulos acessíveis, alvos de toque e comportamento com fonte ampliada. Status deve combinar texto e cor; testes de acessibilidade ainda não foram realizados.
+O PDF mostra erro, sucesso, sincronização em andamento, falha de comunicação e seleção. As telas implementadas usam rótulos acessíveis, alvos de toque de pelo menos 44, estado desativado e foco no primeiro campo inválido do login. Status combina texto e cor. Contraste, fonte ampliada e leitores de tela ainda precisam de validação em dispositivo.
 
 Mensagens do PDF sobre chaves guardadas apenas no celular, fila offline, prazos e fechamento automático não são decisões de segurança ou garantias técnicas. Revisar o texto após definir contratos e validar a integração. Ações normais e destrutivas compartilham a cor vermelha no código atual; quando existirem, diferenciá-las por texto/contexto e confirmação apropriada.
 

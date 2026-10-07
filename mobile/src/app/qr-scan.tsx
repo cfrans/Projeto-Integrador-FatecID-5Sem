@@ -1,5 +1,1 @@
-import { Screen } from '@/components/Screen';
-
-export default function QrScanScreen() {
-  return <Screen title="Leitura do QR Code" />;
-}
+export { PairingScreen as default } from '@/features/pairing/PairingScreen';
