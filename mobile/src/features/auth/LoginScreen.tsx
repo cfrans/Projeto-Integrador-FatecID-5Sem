@@ -9,10 +9,10 @@ import {
   View,
   type TextInput as TextInputType,
 } from 'react-native';
-import { router } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
+import { useSession } from '@/features/auth/SessionProvider';
 import { colors, radius, spacing, typography } from '@/theme';
 
 type FieldErrors = {
@@ -27,20 +27,25 @@ export default function LoginScreen() {
   const [password, setPassword] = useState('');
   const [errors, setErrors] = useState<FieldErrors>({});
   const [notice, setNotice] = useState('');
+  const { busy, canRetryRestore, clearError, error, retryRestore, signIn } = useSession();
 
   function updateEmail(value: string) {
     setEmail(value);
     setErrors((current) => ({ ...current, email: undefined }));
     setNotice('');
+    clearError();
   }
 
   function updatePassword(value: string) {
     setPassword(value);
     setErrors((current) => ({ ...current, password: undefined }));
     setNotice('');
+    clearError();
   }
 
-  function submit() {
+  async function submit() {
+    if (busy) return;
+
     const nextErrors: FieldErrors = {};
     const normalizedEmail = email.trim();
 
@@ -64,7 +69,9 @@ export default function LoginScreen() {
       return;
     }
 
-    router.replace('/home');
+    const submittedEmail = normalizedEmail;
+    setPassword('');
+    await signIn(submittedEmail, password);
   }
 
   return (
@@ -105,6 +112,7 @@ export default function LoginScreen() {
                     autoCapitalize="none"
                     autoComplete="email"
                     autoCorrect={false}
+                    editable={!busy}
                     invalid={Boolean(errors.email)}
                     keyboardType="email-address"
                     onChangeText={updateEmail}
@@ -131,6 +139,7 @@ export default function LoginScreen() {
                     autoCapitalize="none"
                     autoComplete="current-password"
                     autoCorrect={false}
+                    editable={!busy}
                     invalid={Boolean(errors.password)}
                     onChangeText={updatePassword}
                     onSubmitEditing={submit}
@@ -155,24 +164,30 @@ export default function LoginScreen() {
                 </Text>
               ) : null}
 
-              <Button label="Entrar" onPress={submit} style={styles.submitButton} />
+              {error ? (
+                <Text accessibilityLiveRegion="polite" style={styles.notice}>
+                  {error}
+                </Text>
+              ) : null}
+
+              <Button label={busy ? 'Entrando…' : 'Entrar'} disabled={busy} onPress={submit} style={styles.submitButton} />
+
+              {canRetryRestore ? (
+                <Button label="Tentar conexão novamente" disabled={busy} onPress={() => void retryRestore()} />
+              ) : null}
 
               <Pressable
                 accessibilityRole="button"
+                accessibilityState={{ disabled: busy }}
+                disabled={busy}
                 hitSlop={8}
-                onPress={() => setNotice('Recuperação de senha indisponível na demonstração.')}
+                onPress={() => setNotice('Recuperação de senha indisponível no momento.')}
                 style={styles.forgotButton}
               >
                 <Text style={styles.forgotText}>Esqueci minha senha</Text>
               </Pressable>
             </View>
 
-            <View style={styles.demoNotice}>
-              <View style={styles.demoDot} />
-              <Text style={styles.demoText}>
-                Modo demonstração. Use dados fictícios; as credenciais não são conferidas nem enviadas.
-              </Text>
-            </View>
           </View>
         </ScrollView>
       </KeyboardAvoidingView>
@@ -243,25 +258,4 @@ const styles = StyleSheet.create({
     marginTop: spacing.xs,
   },
   forgotText: { color: colors.textSecondary, fontSize: typography.label },
-  demoNotice: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    justifyContent: 'center',
-    gap: spacing.sm,
-    marginTop: spacing.xxl,
-  },
-  demoDot: {
-    width: spacing.sm,
-    height: spacing.sm,
-    marginTop: spacing.xs,
-    borderRadius: radius.pill,
-    backgroundColor: colors.accent,
-  },
-  demoText: {
-    flexShrink: 1,
-    color: colors.textSecondary,
-    fontSize: typography.label,
-    lineHeight: typography.label + spacing.xs,
-    textAlign: 'center',
-  },
 });

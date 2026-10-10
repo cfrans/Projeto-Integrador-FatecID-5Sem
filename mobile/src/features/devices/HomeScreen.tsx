@@ -10,6 +10,7 @@ import {
 import { router, useFocusEffect } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Button } from '@/components/ui/Button';
+import { useSession } from '@/features/auth/SessionProvider';
 import { DeviceCard } from '@/features/devices/DeviceCard';
 import { devices, type PairedComputer } from '@/features/devices/services/devices';
 import { colors, radius, spacing, typography } from '@/theme';
@@ -20,6 +21,7 @@ type HomeState =
   | { status: 'loaded'; computers: PairedComputer[] };
 
 export function HomeScreen() {
+  const { busy, clearError, error, guardian, signOut } = useSession();
   const [state, setState] = useState<HomeState>({ status: 'loading' });
   const requestId = useRef(0);
 
@@ -53,9 +55,20 @@ export function HomeScreen() {
       <ScrollView contentContainerStyle={styles.content}>
         <View style={styles.greeting}>
           <Text style={styles.eyebrow}>PIPLUP · CONTROLE FAMILIAR</Text>
-          <Text style={styles.title}>Olá, Camila</Text>
+          <Text style={styles.title}>Olá, {guardian?.name}</Text>
           <Text style={styles.subtitle}>Acompanhe os computadores da sua família.</Text>
           <Text style={styles.demoLabel}>Demonstração · dados simulados</Text>
+          {error ? (
+            <Text accessibilityLiveRegion="polite" style={styles.logoutError}>{error}</Text>
+          ) : null}
+          <Button
+            label={busy ? 'Saindo…' : 'Sair'}
+            disabled={busy}
+            onPress={() => {
+              clearError();
+              void signOut();
+            }}
+          />
         </View>
 
         <View style={styles.pairingCard}>
@@ -134,6 +147,7 @@ const styles = StyleSheet.create({
   title: { color: colors.textPrimary, fontSize: typography.title, fontWeight: '700' },
   subtitle: { color: colors.textSecondary, fontSize: typography.body, lineHeight: 21 },
   demoLabel: { color: colors.textMuted, fontSize: typography.label },
+  logoutError: { color: colors.accentText, fontSize: typography.label, lineHeight: 18 },
   pairingCard: {
     backgroundColor: colors.surfaceRaised,
     borderColor: colors.border,
