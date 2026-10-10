@@ -50,6 +50,7 @@ Thumbs.db
 
 # typescript
 *.tsbuildinfo
+/backend/generated/
 
 # generated native folders
 /mobile/ios
