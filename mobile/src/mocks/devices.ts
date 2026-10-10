@@ -7,6 +7,7 @@ const pairedComputers: PairedComputer[] = [
     status: 'online',
     managedUser: 'Ana',
     lastSeen: '2026-10-07T10:15:00-03:00',
+    isDemo: true,
   },
   {
     id: 'computer-bedroom',
@@ -14,6 +15,7 @@ const pairedComputers: PairedComputer[] = [
     status: 'offline',
     managedUser: 'Ana',
     lastSeen: '2026-10-06T21:42:00-03:00',
+    isDemo: true,
   },
   {
     id: 'computer-notebook',
@@ -21,6 +23,7 @@ const pairedComputers: PairedComputer[] = [
     status: 'online',
     managedUser: 'Ana',
     lastSeen: '2026-10-07T09:58:00-03:00',
+    isDemo: true,
   },
 ];
 
@@ -30,6 +33,7 @@ const simulatedComputer: PairedComputer = {
   status: 'offline',
   managedUser: 'Demonstração',
   lastSeen: null,
+  isDemo: true,
 };
 
 export const mockDevices: DevicesSource & PairingDemoSource = {

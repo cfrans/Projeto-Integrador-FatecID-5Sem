@@ -12,12 +12,12 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Button } from '@/components/ui/Button';
 import { useSession } from '@/features/auth/SessionProvider';
 import { DeviceCard } from '@/features/devices/DeviceCard';
-import { devices, type PairedComputer } from '@/features/devices/services/devices';
+import { devices, devicesErrorMessage, type PairedComputer } from '@/features/devices/services/devices';
 import { colors, radius, spacing, typography } from '@/theme';
 
 type HomeState =
   | { status: 'loading' }
-  | { status: 'error' }
+  | { status: 'error'; message: string }
   | { status: 'loaded'; computers: PairedComputer[] };
 
 export function HomeScreen() {
@@ -27,12 +27,13 @@ export function HomeScreen() {
 
   const loadComputers = useCallback(() => {
     const request = ++requestId.current;
+    setState({ status: 'loading' });
     devices.listPairedComputers()
       .then((computers) => {
         if (request === requestId.current) setState({ status: 'loaded', computers });
       })
-      .catch(() => {
-        if (request === requestId.current) setState({ status: 'error' });
+      .catch((error: unknown) => {
+        if (request === requestId.current) setState({ status: 'error', message: devicesErrorMessage(error) });
       });
   }, []);
 
@@ -57,7 +58,6 @@ export function HomeScreen() {
           <Text style={styles.eyebrow}>PIPLUP · CONTROLE FAMILIAR</Text>
           <Text style={styles.title}>Olá, {guardian?.name}</Text>
           <Text style={styles.subtitle}>Acompanhe os computadores da sua família.</Text>
-          <Text style={styles.demoLabel}>Demonstração · dados simulados</Text>
           {error ? (
             <Text accessibilityLiveRegion="polite" style={styles.logoutError}>{error}</Text>
           ) : null}
@@ -73,13 +73,13 @@ export function HomeScreen() {
 
         <View style={styles.pairingCard}>
           <View style={styles.pairingCopy}>
-            <Text style={styles.pairingTitle}>Conecte um computador</Text>
+            <Text style={styles.pairingTitle}>Demonstração de pareamento</Text>
             <Text style={styles.pairingDescription}>
-              Faça o pareamento para acompanhar o dispositivo por aqui.
+              Explore o fluxo simulado. Ele não conecta um computador.
             </Text>
           </View>
           <Button
-            label="Parear computador"
+            label="Simular pareamento"
             onPress={() => router.push('/qr-scan')}
           />
         </View>
@@ -110,15 +110,15 @@ export function HomeScreen() {
         {state.status === 'error' ? (
           <View style={styles.stateContainer}>
             <Text style={styles.stateTitle}>Não foi possível carregar</Text>
-            <Text style={styles.stateText}>Confira sua conexão e tente novamente.</Text>
+            <Text style={styles.stateText}>{state.message}</Text>
             <Button label="Tentar novamente" onPress={retry} />
           </View>
         ) : null}
 
         {state.status === 'loaded' && computers.length === 0 ? (
           <View style={styles.stateContainer}>
-            <Text style={styles.stateTitle}>Nenhum computador pareado</Text>
-            <Text style={styles.stateText}>Adicione um computador para começar.</Text>
+            <Text style={styles.stateTitle}>Nenhum computador associado</Text>
+            <Text style={styles.stateText}>O pareamento seguro ainda não está disponível.</Text>
           </View>
         ) : null}
 
@@ -146,7 +146,6 @@ const styles = StyleSheet.create({
   },
   title: { color: colors.textPrimary, fontSize: typography.title, fontWeight: '700' },
   subtitle: { color: colors.textSecondary, fontSize: typography.body, lineHeight: 21 },
-  demoLabel: { color: colors.textMuted, fontSize: typography.label },
   logoutError: { color: colors.accentText, fontSize: typography.label, lineHeight: 18 },
   pairingCard: {
     backgroundColor: colors.surfaceRaised,

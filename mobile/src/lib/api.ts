@@ -139,7 +139,7 @@ export function apiErrorMessage(error: unknown) {
     case 'unauthorized':
       return 'E-mail ou senha incorretos.';
     case 'server':
-      return 'A API está indisponível no momento. Tente novamente.';
+      return error.message || 'A API está indisponível no momento. Tente novamente.';
     case 'unexpected':
       return error.message;
   }

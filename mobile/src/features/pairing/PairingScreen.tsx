@@ -62,7 +62,7 @@ export function PairingScreen() {
             <Text style={styles.eyebrow}>DEMONSTRAÇÃO</Text>
             <Text style={styles.title}>Exemplo adicionado</Text>
             <Text style={styles.description}>
-              Este vínculo foi simulado. Nenhum computador foi conectado ao Lux.
+              A simulação não altera a lista da API nem vincula um computador ao Lux.
             </Text>
             <View style={styles.summaryCard}>
               <DeviceCard computer={state.computer} />
@@ -98,7 +98,7 @@ export function PairingScreen() {
             </View>
 
             <Text style={styles.demoNote}>
-              Nenhum QR Code é lido ou usado como credencial nesta simulação.
+              Nenhum QR Code é lido ou usado como credencial. A simulação não altera a API.
             </Text>
 
             {state.status === 'error' ? (

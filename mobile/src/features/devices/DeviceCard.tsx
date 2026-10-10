@@ -7,6 +7,7 @@ type DeviceCardProps = { computer: PairedComputer };
 
 export function DeviceCard({ computer }: DeviceCardProps) {
   const online = computer.status === 'online';
+  const unverified = computer.status === 'unverified';
   const lastSeen = computer.lastSeen
     ? new Intl.DateTimeFormat('pt-BR', {
         day: '2-digit',
@@ -23,13 +24,20 @@ export function DeviceCard({ computer }: DeviceCardProps) {
       </View>
       <View style={styles.details}>
         <Text style={styles.name}>{computer.name}</Text>
-        <Text style={styles.managedUser}>Conta gerenciada: {computer.managedUser}</Text>
+        <Text style={styles.managedUser}>
+          Conta gerenciada: {computer.managedUser ?? 'não informada'}
+        </Text>
+        {computer.isDemo ? <Text style={styles.demoLabel}>Demonstração</Text> : null}
       </View>
       <View style={styles.statusBlock}>
         <Text style={[styles.status, online ? styles.online : styles.offline]}>
-          {online ? 'Online' : 'Offline'}
+          {unverified ? 'Conexão não validada' : online ? 'Online' : 'Offline'}
         </Text>
-        {lastSeen ? <Text style={styles.lastSeen}>Visto em {lastSeen}</Text> : null}
+        {unverified ? (
+          <Text style={styles.lastSeen}>Pareamento pendente</Text>
+        ) : lastSeen ? (
+          <Text style={styles.lastSeen}>Visto em {lastSeen}</Text>
+        ) : null}
       </View>
     </Card>
   );
@@ -56,6 +64,7 @@ const styles = StyleSheet.create({
   details: { flex: 1, gap: spacing.xs },
   name: { color: colors.textPrimary, fontSize: typography.body, fontWeight: '600' },
   managedUser: { color: colors.textSecondary, fontSize: typography.label },
+  demoLabel: { color: colors.textMuted, fontSize: typography.label },
   statusBlock: { alignItems: 'flex-end', gap: spacing.xs, maxWidth: 112 },
   status: { fontSize: typography.label, fontWeight: '600' },
   online: { color: colors.success },

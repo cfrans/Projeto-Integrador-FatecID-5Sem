@@ -8,7 +8,7 @@ Expo + React Native + TypeScript estrito + Expo Router. Dependências e comandos
 - `src/components/Screen.tsx`: estrutura compartilhada dos placeholders ainda não implementados.
 - `src/theme`: tokens e tema de navegação já existentes; preservados para evitar reorganização estética.
 - `src/features/auth`: login REST, serviço de autenticação, sessão compartilhada e armazenamento do token.
-- `src/features/devices`: Home, lista e cartão de computador, com serviço provisório de listagem.
+- `src/features/devices`: Home e lista carregam registros da API; o cartão distingue conexão não validada e fixtures de demonstração.
 - `src/features/pairing`: tela visual de pareamento demonstrativo; não ativa câmera nem verifica QR.
 - `src/mocks/devices.ts`: listagem de três computadores fictícios e serviço de pareamento simulado.
 - `src/components/ui`: componentes de interface compartilhados usados pelas features.
@@ -17,7 +17,7 @@ Criar hooks, stores, lib ou outras features apenas quando houver responsabilidad
 
 ## Rotas preservadas
 
-`/`, `/home`, `/computers` e `/qr-scan` formam o fluxo demonstrativo de login, início, computadores e pareamento. Login, Home, lista e pareamento usam telas de feature. `/pairing-done`, `/access-request`, `/sync-failure`, `/about` e `/restrictions/{browsers,apps,install,age}` continuam como oito rotas placeholder, fora do fluxo implementado. Stack principal e Tabs foram preservados; a existência de uma rota não confirma viabilidade da funcionalidade.
+`/`, `/home`, `/computers` e `/qr-scan` formam o fluxo de login, início, computadores e simulação de pareamento. Login, Home, lista e pareamento usam telas de feature. `/pairing-done`, `/access-request`, `/sync-failure`, `/about` e `/restrictions/{browsers,apps,install,age}` continuam como oito rotas placeholder, fora do fluxo implementado. Stack principal e Tabs foram preservados; a existência de uma rota não confirma viabilidade da funcionalidade.
 
 ## Autenticação e API
 
@@ -37,11 +37,11 @@ Esse valor é incorporado ao app e não pode conter segredos. Use HTTPS fora do 
 
 ## Dados e mock
 
-Consumidores chamam `devices.listPairedComputers()`, que retorna `Promise<PairedComputer[]>`. O contrato provisório traz `id`, `name`, `status` (`online`/`offline`), `managedUser` e `lastSeen` em ISO 8601 ou `null`. A Home consome o serviço, atualiza a lista ao recuperar foco e apresenta carregamento, erro com nova tentativa, lista e estado vazio; ela não importa `src/mocks`.
+`devices.listPairedComputers()` consulta `GET /devices` com o bearer token da sessão e valida toda a resposta antes de exibi-la. O contrato atual traz `{ id, name, managedUser, status, lastSeen, isDemo }`: `id` é UUID, `managedUser` é `string` ou `null`, `status` é `unverified`, `lastSeen` é `null` e `isDemo` é booleano. A API ainda não valida a conexão do computador; por isso a interface mostra “Conexão não validada” e “Pareamento pendente”, sem afirmar que ele está online ou offline. Uma resposta inválida ou falha da API aparece como erro e não ativa fallback para mock. Erros `401` invalidam a sessão; indisponibilidade do serviço (`503`) mantém a mensagem da API. Home e lista recarregam ao recuperar foco e mostram carregamento, erro com nova tentativa ou lista vazia.
 
-O mock fornece três registros fictícios para demonstrar a listagem e os estados de conexão. `pairingDemo.simulatePairing()` adiciona um quarto registro fictício, idempotente e mantido apenas em memória até o app ser reiniciado. Cada retorno da listagem e do pareamento é uma cópia dos dados internos. O fluxo não lê QR, autentica ou conecta ao Lux; a simulação não é contrato HTTP. Para usar API real na listagem, implementar `DevicesSource` via HTTP no serviço da feature e trocar a seleção exportada.
+`src/mocks/devices.ts` preserva três registros fictícios com `isDemo: true` e estados demonstrativos online/offline; a listagem atual não os consome. `pairingDemo.simulatePairing()` adiciona um registro fictício, idempotente e mantido apenas em memória, exibido na própria confirmação da simulação. O serviço de listagem usa apenas a API e permanece separado desse mock: simular pareamento não altera a lista do backend. A tela não lê QR, autentica nem conecta ao Lux.
 
-O login e a sessão já usam o contrato REST de autenticação descrito acima. A listagem de dispositivos e o pareamento ainda são demonstrativos e continuam no mock; esta etapa não conecta esses fluxos à API. Para a futura listagem real, o serviço de dispositivos deverá usar o mesmo cliente HTTP e sua invalidação de sessão em respostas `401`. Pareamento seguro, cadastro real de dispositivos e controles parentais continuam pendentes e dependerão de contratos e capacidades comprovadas no GNOME/Lux.
+O login e a sessão usam o contrato REST de autenticação descrito acima. A leitura da lista também é real; pareamento, criação, edição e remoção de dispositivos não estão implementados. Pareamento seguro e controles parentais continuam pendentes e dependerão de contratos e capacidades comprovadas no GNOME/Lux.
 
 ## UI e segurança
 
@@ -53,7 +53,9 @@ Nunca armazenar senha root/admin ou tratar QR como credencial administrativa per
 
 Entrada `expo-router/entry`, plugin `expo-router`, scheme `piplup` e alias `@/*` para `src/*`. TypeScript inclui tipos gerados do Expo. Sem configuração Babel/Metro personalizada enquanto o padrão atender ao projeto.
 
-Executar `npm run lint`, `npm run typecheck` e `npm run test:api` em `mobile/`. Para validar os bundles nativos sem gerar projetos locais, usar `npx expo export --platform android --platform ios --output-dir /tmp/lux-mobile-auth-export`. Não gerar/editar `ios/` e `android/` manualmente; configuração nativa pertence ao app config e plugins. Novos módulos nativos podem exigir development build.
+Executar `npm run lint`, `npm run typecheck` e `npm run test:api` em `mobile/`. Para validar os bundles nativos sem gerar projetos locais, usar `npx expo export --platform android --platform ios --output-dir /tmp/lux-mobile-export`. Não gerar/editar `ios/` e `android/` manualmente; configuração nativa pertence ao app config e plugins. Novos módulos nativos podem exigir development build.
+
+Na validação desta etapa passaram lint, typecheck, 11 testes do cliente/contrato e export Android/iOS. O cliente HTTP consumiu login, perfil e dispositivos de uma API compilada conectada ao MySQL real de teste. Interação da UI, armazenamento nativo e navegação em aparelho físico ainda precisam de validação; exportar bundles não comprova esses comportamentos no dispositivo.
 
 ESLint foi mantido na série 9: a série 10 falhou ao carregar `react/display-name` por uso de `getFilename` no plugin React. A versão 9 também emite aviso de fim de suporte; revisar a atualização quando a configuração/plugins Expo suportarem a série 10. A configuração flat utiliza `eslint-config-expo`, sem regras adicionais arbitrárias.
 

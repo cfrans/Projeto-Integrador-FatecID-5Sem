@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import { afterEach, test } from 'node:test';
-import { ApiError, api } from '../src/lib/api.ts';
+import { ApiError, api, apiErrorMessage } from '../src/lib/api.ts';
+import './devices.test.mjs';
 
 const originalFetch = globalThis.fetch;
 
@@ -88,5 +89,19 @@ test('classifies backend 400 responses as validation errors', async () => {
       && error.kind === 'validation'
       && error.status === 400
       && error.message === 'E-mail inválido Senha obrigatória',
+  );
+});
+
+test('preserves backend service-unavailable messages for the device list', async () => {
+  globalThis.fetch = async () => Response.json(
+    { message: 'Serviço de dispositivos indisponível.' },
+    { status: 503 },
+  );
+
+  await assert.rejects(
+    api.request('/devices'),
+    (error) => error instanceof ApiError
+      && error.kind === 'server'
+      && apiErrorMessage(error) === 'Serviço de dispositivos indisponível.',
   );
 });

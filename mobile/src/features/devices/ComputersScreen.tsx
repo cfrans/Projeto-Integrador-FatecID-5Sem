@@ -4,12 +4,12 @@ import { router, useFocusEffect } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Button } from '@/components/ui/Button';
 import { DeviceCard } from '@/features/devices/DeviceCard';
-import { devices, type PairedComputer } from '@/features/devices/services/devices';
+import { devices, devicesErrorMessage, type PairedComputer } from '@/features/devices/services/devices';
 import { colors, radius, spacing, typography } from '@/theme';
 
 type ComputersState =
   | { status: 'loading' }
-  | { status: 'error' }
+  | { status: 'error'; message: string }
   | { status: 'loaded'; computers: PairedComputer[] };
 
 export function ComputersScreen() {
@@ -18,12 +18,13 @@ export function ComputersScreen() {
 
   const loadComputers = useCallback(() => {
     const request = ++requestId.current;
+    setState({ status: 'loading' });
     devices.listPairedComputers()
       .then((computers) => {
         if (request === requestId.current) setState({ status: 'loaded', computers });
       })
-      .catch(() => {
-        if (request === requestId.current) setState({ status: 'error' });
+      .catch((error: unknown) => {
+        if (request === requestId.current) setState({ status: 'error', message: devicesErrorMessage(error) });
       });
   }, []);
 
@@ -59,14 +60,14 @@ export function ComputersScreen() {
             {state.status === 'error' ? (
               <>
                 <Text style={styles.stateTitle}>Não foi possível carregar</Text>
-                <Text style={styles.stateText}>Confira sua conexão e tente novamente.</Text>
+                <Text style={styles.stateText}>{state.message}</Text>
                 <Button label="Tentar novamente" onPress={retry} />
               </>
             ) : null}
             {state.status === 'loaded' ? (
               <>
-                <Text style={styles.stateTitle}>Nenhum computador pareado</Text>
-                <Text style={styles.stateText}>Pareie um computador para começar.</Text>
+                <Text style={styles.stateTitle}>Nenhum computador associado</Text>
+                <Text style={styles.stateText}>O pareamento seguro ainda não está disponível.</Text>
               </>
             ) : null}
           </View>
@@ -74,11 +75,10 @@ export function ComputersScreen() {
         ListHeaderComponent={
           <View style={styles.listHeader}>
             <Text style={styles.description}>
-              Confira a conta gerenciada e o status de cada computador.
+              Confira os computadores associados à sua conta.
             </Text>
-            <Text style={styles.demoLabel}>Demonstração · dados simulados</Text>
             <Button
-              label="Parear computador"
+              label="Simular pareamento"
               onPress={() => router.push('/qr-scan')}
             />
           </View>
@@ -98,7 +98,6 @@ const styles = StyleSheet.create({
   content: { flexGrow: 1, padding: spacing.lg, paddingBottom: spacing.xxl },
   listHeader: { gap: spacing.md, marginBottom: spacing.lg },
   description: { color: colors.textSecondary, fontSize: typography.body, lineHeight: 21 },
-  demoLabel: { color: colors.textMuted, fontSize: typography.label },
   separator: { height: spacing.sm },
   emptyState: {
     alignItems: 'center',
