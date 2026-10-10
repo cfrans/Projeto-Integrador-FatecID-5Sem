@@ -18,7 +18,7 @@
     "start:debug": "nest start --debug --watch",
     "start:prod": "node dist/src/main.js",
     "typecheck": "tsc --noEmit",
-    "lint": "oxlint src/ test/",
+    "lint": "oxlint src/ test/ prisma/seed.ts prisma/seed-devices.ts",
     "test": "vitest run",
     "test:watch": "vitest",
     "test:cov": "vitest run --coverage",
@@ -27,9 +27,10 @@
     "prisma:validate": "prisma validate",
     "prisma:generate": "prisma generate",
     "prisma:seed": "npm run prisma:generate && npm run build && prisma db seed",
+    "prisma:seed:devices": "npm run prisma:generate && npm run build && node dist/prisma/seed-devices.js",
     "prisma:migrate:dev": "prisma migrate dev",
     "prisma:migrate:deploy": "prisma migrate deploy",
-    "test:mysql": "node --test test/auth.mysql-test.mjs"
+    "test:mysql": "node --test test/*.mysql-test.mjs"
   },
   "dependencies": {
     "@nestjs/common": "^12.0.1",

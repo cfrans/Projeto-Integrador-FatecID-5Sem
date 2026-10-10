@@ -15,6 +15,28 @@ describe('AppController (e2e)', () => {
     email: 'guardian@example.com',
     passwordHash: '',
   };
+  const guardianTwo = {
+    id: '946ec23b-4fb8-4faa-94dd-471d67588c84',
+    name: 'Outro responsável',
+    email: 'guardian-two@example.com',
+    passwordHash: '',
+  };
+  const devices = [
+    {
+      id: '0a38ce2d-9654-41f1-8098-944e0874752c',
+      guardianId: guardian.id,
+      name: 'Notebook principal',
+      managedUser: 'usuario-ficticio',
+      isDemo: true,
+    },
+    {
+      id: 'c421635b-caa6-48b8-8b10-08c2144e0993',
+      guardianId: guardianTwo.id,
+      name: 'Outro computador',
+      managedUser: null,
+      isDemo: true,
+    },
+  ];
   const prisma = {
     $connect: vi.fn(),
     $disconnect: vi.fn(),
@@ -24,17 +46,30 @@ describe('AppController (e2e)', () => {
         where: { id?: string; email?: string };
         select?: Record<string, boolean>;
       }) => {
-        if (where.id === guardian.id || where.email === guardian.email) {
-          const selected = select ? Object.keys(select) : Object.keys(guardian);
-          return Promise.resolve(Object.fromEntries(selected.map((key) => [key, guardian[key as keyof typeof guardian]])));
+        const match = [guardian, guardianTwo].find((entry) => where.id === entry.id || where.email === entry.email);
+        if (match) {
+          const selected = select ? Object.keys(select) : Object.keys(match);
+          return Promise.resolve(Object.fromEntries(selected.map((key) => [key, match[key as keyof typeof match]])));
         }
         return Promise.resolve(null);
       }),
+    },
+    device: {
+      findMany: vi.fn(({ where, select }: {
+        where: { guardianId: string };
+        select: Record<string, boolean>;
+        orderBy: Array<Record<string, 'asc' | 'desc'>>;
+      }) => Promise.resolve(devices
+        .filter((entry) => entry.guardianId === where.guardianId)
+        .sort((a, b) => a.name.localeCompare(b.name) || a.id.localeCompare(b.id))
+        .map((entry) => Object.fromEntries(Object.keys(select).map((key) => [key, entry[key as keyof typeof entry]])))),
+      ),
     },
   };
 
   beforeEach(async () => {
     guardian.passwordHash = await argon2.hash('correct-horse-battery', { type: argon2.argon2id });
+    guardianTwo.passwordHash = guardian.passwordHash;
     const moduleFixture: TestingModule = await Test.createTestingModule({
       imports: [AppModule],
     })
@@ -109,6 +144,46 @@ describe('AppController (e2e)', () => {
       .get('/auth/me')
       .set('Authorization', `Bearer ${valid}`)
       .expect(401);
+  });
+
+  it('requires authentication and scopes device records to the authenticated guardian', async () => {
+    const http = request(app.getHttpServer());
+    await http.get('/devices').expect(401);
+
+    const primaryLogin = await http.post('/auth/login')
+      .send({ email: guardian.email, password: 'correct-horse-battery' }).expect(200);
+    const otherLogin = await http.post('/auth/login')
+      .send({ email: guardianTwo.email, password: 'correct-horse-battery' }).expect(200);
+
+    prisma.device.findMany.mockResolvedValueOnce([]);
+    await http.get('/devices')
+      .set('Authorization', `Bearer ${primaryLogin.body.accessToken}`)
+      .expect(200)
+      .expect([]);
+
+    const primary = await http.get(`/devices?guardianId=${guardianTwo.id}`)
+      .set('Authorization', `Bearer ${primaryLogin.body.accessToken}`)
+      .expect(200);
+    expect(primary.body).toEqual([{
+      id: devices[0].id,
+      name: devices[0].name,
+      managedUser: devices[0].managedUser,
+      isDemo: true,
+      status: 'unverified',
+      lastSeen: null,
+    }]);
+    expect(prisma.device.findMany).toHaveBeenLastCalledWith({
+      where: { guardianId: guardian.id },
+      select: { id: true, name: true, managedUser: true, isDemo: true },
+      orderBy: [{ name: 'asc' }, { id: 'asc' }],
+    });
+
+    const other = await http.get('/devices')
+      .set('Authorization', `Bearer ${otherLogin.body.accessToken}`)
+      .expect(200);
+    expect(other.body).toHaveLength(1);
+    expect(other.body[0].id).toBe(devices[1].id);
+    expect(other.body[0].id).not.toBe(devices[0].id);
   });
 
   afterEach(async () => {

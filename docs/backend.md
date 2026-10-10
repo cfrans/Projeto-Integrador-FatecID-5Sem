@@ -18,7 +18,8 @@ backend/
   src/config/                    ambiente e conexão MySQL
   src/prisma/                    módulo e serviço Prisma
   src/auth/                      login, contratos e proteção JWT
-  prisma/schema.prisma           modelo Guardian e gerador Prisma
+  src/devices/                   listagem de registros por responsável
+  prisma/schema.prisma           modelos Guardian/Device e gerador Prisma
   prisma7.config.ts              CLI e caminho de migrations
   test/                          testes HTTP
   nest-cli.json                  projeto standard
@@ -29,7 +30,7 @@ backend/
   package-lock.json              instalação reproduzível
 ```
 
-O scaffold atual usa ESM, Vitest e Oxlint. Controllers recebem HTTP, services concentram lógica e módulos organizam providers conforme as convenções NestJS. DTOs validam entradas e documentam os contratos de autenticação. Os módulos adicionais são Prisma e Auth.
+O scaffold atual usa ESM, Vitest e Oxlint. Controllers recebem HTTP, services concentram lógica e módulos organizam providers conforme as convenções NestJS. DTOs validam entradas e documentam os contratos de autenticação e dispositivos. Os módulos adicionais são Prisma, Auth e Devices.
 
 `PrismaService` conecta e executa `SELECT 1` durante a inicialização. `GET /health` consulta o banco novamente, retorna `{ "status": "ok", "database": "ok" }` ou HTTP 503 se a consulta falhar. Uma falha de conexão inicial impede a aplicação de iniciar. Shutdown hooks encerram a conexão ao receber sinais de término.
 
@@ -88,7 +89,7 @@ npm run test:e2e
 
 Os testes Vitest substituem Prisma por mock. Para executar o build: `npm run start:prod`.
 
-O teste `npm run test:mysql` usa a API compilada e MySQL real. Exige `NODE_ENV=test`, banco dedicado com nome terminado em `_test`, variáveis MySQL e `JWT_SECRET`, migrations aplicadas e build atual. Cria um responsável aleatório e remove somente esse registro. Um arquivo de ambiente privado de teste pode ser carregado com `NODE_ENV=test node --env-file=/caminho/privado.env --test test/auth.mysql-test.mjs`; não use o banco da aplicação.
+O teste `npm run test:mysql` usa a API compilada e MySQL real. Exige `NODE_ENV=test`, banco dedicado com nome terminado em `_test`, variáveis MySQL e `JWT_SECRET`, migrations aplicadas e build atual. Os testes criam responsáveis e dispositivos aleatórios e removem somente as fixtures criadas por cada teste. Um arquivo de ambiente privado de teste pode ser carregado com `NODE_ENV=test node --env-file=/caminho/privado.env --test test/*.mysql-test.mjs`; não use o banco da aplicação.
 
 ## Autenticação implementada
 
@@ -98,29 +99,35 @@ Sucesso retorna `{ "accessToken", "expiresIn": 1800, "guardian": { "id", "name",
 
 `JWT_SECRET` é obrigatório em todos os ambientes de execução e deve conter pelo menos 32 bytes UTF-8. Não há valor padrão ou fallback. O arquivo `.env.example` deixa o campo vazio de propósito; configure um segredo aleatório local antes de iniciar backend ou Compose. JWT não possui endpoint de logout ou revogação: remover o token do cliente encerra a sessão local, mas um token copiado continua utilizável até expirar, salvo remoção do responsável.
 
-O seed é explícito e exclusivo para `NODE_ENV=development`. `DEV_GUARDIAN_EMAIL`, `DEV_GUARDIAN_NAME` e `DEV_GUARDIAN_PASSWORD` são obrigatórios, e a senha deve ter de 12 a 128 caracteres. O seed normaliza email, armazena hash Argon2id e falha se já houver responsável com o mesmo email; não altera usuário existente. Execute `npm run prisma:seed` após configurar essas variáveis e o MySQL. O script gera o client e compila antes de chamar `prisma db seed`.
+O seed de responsável é explícito e exclusivo para `NODE_ENV=development`. `DEV_GUARDIAN_EMAIL`, `DEV_GUARDIAN_NAME` e `DEV_GUARDIAN_PASSWORD` são obrigatórios, e a senha deve ter de 12 a 128 caracteres. O seed normaliza email, armazena hash Argon2id e falha se já houver responsável com o mesmo email; não altera usuário existente. Após configurar essas variáveis e o MySQL, aplique migrations e execute `NODE_ENV=development npm run prisma:seed`. O script gera o client e compila antes de chamar `prisma db seed`.
 
 Validação deste bloco em 10/10/2026: Prisma validate/generate, lint, typecheck, build, quatro testes unitários e quatro HTTP passaram. Migration, seed e teste de autenticação/persistência passaram em MySQL 8.4 isolado. O seed recusou execução em produção. Schemas de login/perfil, segurança Bearer e erro 503 foram conferidos no OpenAPI gerado.
 
+## Listagem de dispositivos implementada
+
+`GET /devices` exige Bearer JWT e consulta somente registros cujo `guardianId` é o id do responsável validado pelo guard. A ordenação por nome e UUID é determinística e não há parâmetro de responsável no endpoint. A resposta é uma lista `{ id, name, managedUser, status: "unverified", lastSeen: null, isDemo }`; erro operacional no MySQL retorna HTTP 503. O backend não persiste presença nem horário de atividade. `unverified` e `lastSeen: null` evitam afirmar conexão com o computador antes de implementar e validar um agente.
+
+`Device.guardianId` registra o escopo de propriedade/acesso da API. Esse vínculo de banco não comprova pareamento, identidade do Lux ou conexão real. Todos os registros criados pelo seed de desenvolvimento são demonstrativos (`isDemo: true`) e usam nomes/contas fictícios. O seed é separado: após aplicar migrations e já existir um responsável, configure `DEV_GUARDIAN_EMAIL` com o email dele e execute `NODE_ENV=development npm run prisma:seed:devices`. Ele não cria responsáveis nem altera dados existentes e pode ser repetido.
+
+Validação do conjunto em 10/10/2026: Prisma validate/generate, lint, typecheck, build, seis testes unitários e cinco HTTP passaram. As duas migrations e os dois testes HTTP/persistência passaram em MySQL 8.4 real isolado, incluindo lista vazia e isolamento entre responsáveis. Os seeds recusaram produção; repetir o seed demonstrativo manteve duas fixtures. O cliente HTTP do mobile consumiu login, perfil e lista reais; `/health` e o contrato Bearer/erros da listagem em `/docs-json` foram conferidos. O rebuild Docker desta etapa foi interrompido por falha de DNS (`EAI_AGAIN`) ao baixar dependências do npm; a API compilada foi validada no host com o MySQL em Docker.
+
 ## Persistência
 
-O schema e a migration inicial do responsável estão versionados em `backend/prisma/`. `npm run prisma:migrate:deploy` aplica migrations pendentes em outros ambientes; `npm run prisma:migrate:dev -- --name <nome>` exige banco shadow em desenvolvimento. Não executar resets para contornar permissões. Requisitos acadêmicos e permissões para migrations estão em [Banco](database.md).
+O schema e migrations aditivas de responsável e dispositivos estão versionados em `backend/prisma/`. `npm run prisma:migrate:deploy` aplica migrations pendentes em outros ambientes; `npm run prisma:migrate:dev -- --name <nome>` exige banco shadow em desenvolvimento. Não executar resets para contornar permissões. Requisitos acadêmicos e permissões para migrations estão em [Banco](database.md).
 
-## Responsabilidades esperadas
+## Responsabilidades do backend
 
-Disponibilizar API ao mobile, acessar MySQL, validar autorização dos vínculos e intermediar consultas/comandos ao Lux. Autorização por dispositivo, gerenciamento de agentes e pareamento ainda não foram implementados. A aplicação das restrições pertence ao GNOME; sucesso de transporte não deve ser confundido com aplicação confirmada no computador.
+O backend implementa autenticação de responsáveis e leitura de registros de dispositivos limitada ao responsável autenticado. Não há operações por dispositivo, gerenciamento de agentes nem pareamento implementados. A aplicação das restrições pertence ao GNOME; sucesso de transporte não deve ser confundido com aplicação confirmada no computador.
 
-## Contrato de listagem provisório no mobile
+## Integração do mobile
 
-O mobile define `DevicesSource.listPairedComputers(): Promise<PairedComputer[]>`. Cada registro contém `id`, `name`, `status` (`online` ou `offline`), `managedUser` e `lastSeen` (data ISO 8601 ou `null`). O serviço seleciona `mockDevices`; Home e computadores usam essa listagem. O mock oferece três registros fictícios. O tipo é interno ao mobile: não é schema de banco nem contrato HTTP acordado.
+O mobile usa a API para autenticação (`POST /auth/login` e `GET /auth/me`) e lista registros com `GET /devices`, enviando o Bearer token e validando a resposta antes de exibir. Os itens aparecem como `unverified` com `lastSeen: null`, sem afirmar que o computador está online ou offline. O serviço de lista não usa fallback para fixtures locais quando a API falha.
 
-O pareamento atual é separado da listagem: `pairingDemo.simulatePairing()` é uma operação de demonstração que adiciona idempotentemente um quarto computador fictício ao mock em memória. O estado existe apenas enquanto o processo do app estiver ativo; a operação não lê QR Code, conecta ao Lux ou define um método da API.
-
-Quando houver implementação HTTP, acordar endpoint, método, payload, autorização, resposta vazia e tratamento de erros. A API de pareamento será definida separadamente após estabelecer os requisitos e validar capacidades e regras. Login, consulta real, alteração de configurações e pareamento não estão conectados a um backend.
+`pairingDemo.simulatePairing()` continua sendo uma operação de demonstração do mobile e não cria Device no banco. Esse mock de pareamento permanece separado da lista da API. O endpoint de listagem não faz pareamento ou consulta o Lux; operações reais dependem de contrato e validação no computador.
 
 ## Próximas responsabilidades e decisões pendentes
 
-As próximas etapas tratarão autorização por recurso/dispositivo, gerenciamento de computadores, identidade de agentes, pareamento temporário de uso único, revogação e coordenação de comandos suportados. O contrato de login e restauração acima está implementado; ainda não há integração mobile nem comportamento offline acordado. O backend não aplica restrições Linux nem envia comandos arbitrários para execução.
+As próximas etapas tratarão criação e ciclo de vida dos dispositivos, identidade de agentes, pareamento temporário de uso único, revogação e coordenação de comandos suportados. Autenticação e listagem já estão integradas ao mobile; comportamento offline ainda não foi acordado. O backend não aplica restrições Linux nem envia comandos arbitrários para execução.
 
 Referências: [Nest CLI](https://docs.nestjs.com/cli/overview), [comandos da CLI](https://docs.nestjs.com/cli/usages), [Swagger](https://docs.nestjs.com/openapi/introduction) e [Prisma 7/MySQL](https://www.prisma.io/docs/v7/prisma-orm/quickstart/mysql).
 
