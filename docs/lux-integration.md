@@ -1,28 +1,34 @@
-# Integração Lux / GNOME
+# Integração Lenovo Lux / GNOME
 
-## Informações fornecidas pelo projeto
+## Estado conhecido
 
-O Lux utiliza GNOME e o produto deve administrar seu controle parental nativo. A integração real ainda está sendo investigada e não bloqueia o desenvolvimento mobile nem a entrega acadêmica com mocks.
+O projeto tem como alvo os computadores Lenovo Lux com GNOME. A versão GNOME 50.5 foi informada para o ambiente de referência, mas não há ISO do Lux disponível para reproduzir e inspecionar esse sistema. Não foi validada nesta etapa nenhuma API, permissão ou operação de controle parental. A integração não está implementada.
 
-## Hipóteses de investigação
+O agente planejado será escrito em Python 3 e executado como serviço systemd no computador. Ele iniciará a comunicação REST/HTTPS com o backend por polling, para que o celular não precise alcançar diretamente a rede local do Lux. O desenho é futuro e ainda precisa validar identidade do dispositivo, protocolo, autenticação, disponibilidade, entrega e confirmação de comandos.
 
-Um serviço no Lux poderá interagir com D-Bus, malcontent e AccountsService. Esses mecanismos são candidatos, não uma API validada nesta máquina. Tecnologia do Agent: TBD. Não houve experimento Linux nesta entrega.
+Responsabilidades previstas para o agente: iniciar automaticamente com o sistema; autenticar a identidade do computador perante o backend; participar do pareamento somente após autorização local de uma pessoa administradora; consultar trabalho pendente por polling; aplicar localmente apenas operações que tenham suporte confirmado e autorização do sistema; reportar resultado e estado de aplicação; e tolerar falhas de rede sem afirmar sucesso quando não houver confirmação. A semântica de tentativas, repetição e sincronização será definida no protocolo.
 
-## Perguntas abertas
+## Hipóteses técnicas a validar
 
-- Qual versão/distribuição do Lux e quais pacotes/interfaces estão instalados?
-- Quais restrições podem ser consultadas e alteradas, e com qual granularidade?
-- Como identificar contas gerenciadas e verificar permissões?
-- Quais operações exigem autorização e como respeitar os mecanismos do sistema?
-- Como o Agent se autentica e alcança o backend sem depender de IP local acessível pelo celular?
-- Como confirmar aplicação, indisponibilidade e revogação de pareamento?
+D-Bus, malcontent/libmalcontent, AccountsService e autorização por polkit são caminhos de investigação. Nenhum foi confirmado como interface adequada ou disponível no Lenovo Lux. Verificar a versão e os pacotes no equipamento real, consultar documentação oficial das interfaces instaladas e fazer provas pequenas com permissões explícitas. Não inferir suporte a partir apenas do nome de um componente.
 
-Pedidos de liberação, expiração, fechamento automático, restrição por navegador e classificações específicas aparecem no PDF, mas não demonstram suporte do GNOME. O texto de um caminho de pareamento no Lux também é uma hipótese de UX.
+Investigar quais contas podem ser administradas, quais restrições podem ser consultadas/alteradas, quais privilégios são exigidos, como detectar aplicação efetiva e como reportar indisponibilidade e erros. Pedidos de liberação, expiração, encerramento automático, restrição por navegador e classificações do PDF não demonstram suporte do GNOME.
 
-## Segurança conhecida
+## Segurança planejada
 
-O mobile nunca armazena senha root/admin. Dispositivos precisam ser autenticados; vínculos devem ser revogáveis. QR Code não representa uma credencial administrativa permanente. Operações Linux respeitam autorização do sistema. Credenciais sensíveis não ficam em armazenamento inseguro.
+As medidas abaixo são requisitos futuros para implementação e validação, não capacidades existentes:
 
-## Registro de experimentos futuros
+- armazenar senhas de responsáveis usando hashing apropriado para senhas;
+- autenticar e autorizar cada recurso com verificação de vínculo e escopo, sem confiar somente em autenticação de sessão;
+- dar identidade própria ao computador/agente e autenticar a comunicação com o backend;
+- exigir autorização local compatível com o sistema para cada operação privilegiada;
+- proteger credenciais e segredos do agente no computador, sem expô-los ao mobile;
+- parear por token aleatório temporário, de uso único e revogável, com autorização explícita de pessoa administradora local e privilégio mínimo;
+- permitir revogar vínculos e invalidar a identidade/credenciais do computador;
+- nunca enviar ou armazenar senha root/admin no mobile, nem aceitar comandos arbitrários recebidos pela rede. O agente deve executar somente operações explícitas e suportadas, com privilégios mínimos.
 
-Ao investigar, registrar ambiente/versões, procedimento, resultado observado, permissões exigidas e limitações neste documento. Separar observações de hipóteses e registrar somente capacidades demonstradas.
+QR Code pode transportar o token temporário de pareamento, mas não deve ser credencial administrativa permanente. O protocolo deverá proteger tokens em trânsito e impedir reutilização após consumo ou expiração. Detalhes de validade, revogação e rotação serão definidos no contrato de pareamento.
+
+## Registro de provas técnicas
+
+Para cada teste no Lux real, registrar versão do sistema e dos componentes, interfaces observadas, passos reproduzíveis, usuário/permissões, resultado e limitações. Diferenciar observação de hipótese. Só documentar uma capacidade como confirmada depois de demonstrá-la no ambiente alvo; registrar também falhas e operações indisponíveis.

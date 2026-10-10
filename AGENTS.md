@@ -39,3 +39,13 @@ Docs: https://docs.expo.dev/eas/index.md
 - If `ios/` and `android/` directories do not exist, they are generated (Continuous Native Generation). Never create or edit them by hand — configure native behavior in `app.json` and config plugins.
 - Expo Go only includes its bundled native modules. After adding a library with native code, the app needs a development build: `npx expo run:ios|android` locally, or `eas build --profile development`.
 - Prefer recommended Expo modules over third-party libraries, and check your available skills before adding dependencies. Docs: https://docs.expo.dev/versions/latest/index.md
+
+## Backend, Lux Agent e documentação
+
+- Backend: TypeScript/Node.js LTS, NestJS, REST, Prisma e MySQL, como monólito modular. Não introduza serviços, camadas ou dependências adicionais sem necessidade demonstrada.
+- O código do backend fica em `backend/`, o agente em `lux-agent/` e a documentação do projeto em `docs/`. Preserve essa separação de responsabilidades.
+- Para criar scaffolds, use os comandos oficiais compatíveis com as versões atuais: `npx @nestjs/cli new` para o backend e `npx prisma init` para a integração Prisma. Não gere manualmente estrutura que esses scaffolds fornecem.
+- Antes de usar APIs NestJS, Prisma ou MySQL, consulte a documentação oficial compatível com as versões declaradas no projeto. Para mudanças Expo/React Native, mantenha obrigatórias as instruções de versão e documentação acima.
+- Mantenha fronteiras claras: o mobile não acessa MySQL nem executa controles localmente; o backend é responsável pela API e persistência; o agente integra operações locais autorizadas. Trate interfaces GNOME, D-Bus, malcontent/libmalcontent, AccountsService e polkit como hipóteses até comprovação no Lenovo Lux real.
+- Segurança de autenticação, autorização por recurso, identidade do computador, comunicação autenticada e pareamento por token aleatório temporário de uso único são requisitos futuros a implementar e validar. Nunca envie senha root/admin ao mobile ou exponha execução arbitrária de comandos.
+- Preserve dados e comportamentos de mock documentados até existir contrato real que os substitua. Registre no diretório `docs/` decisões confirmadas, etapas, limites e hipóteses, sem apresentar planejamento como implementação.

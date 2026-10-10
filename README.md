@@ -8,7 +8,7 @@ O piplup usa Expo SDK 57, React Native, TypeScript e Expo Router. Quatro telas d
 
 Em `/home`, a lista vem de um mock com três computadores de exemplo. `/computers` mostra a lista e também permite abrir `/qr-scan`. Essa tela não ativa a câmera nem lê QR Code: o botão adiciona um quarto computador fictício, de forma idempotente e somente em memória até o processo do app reiniciar. A confirmação aparece na própria tela e leva a `/computers`; ao voltar para `/home`, a lista é atualizada. As outras oito rotas e os layouts existentes permanecem como placeholders, fora do fluxo implementado.
 
-Não há autenticação real, API/backend conectado ao mobile nem integração Linux. O MySQL local está configurado para desenvolvimento futuro do backend e não é acessado pelo app.
+Não há autenticação real, API/backend conectado ao mobile nem integração Linux. A fundação backend utiliza NestJS, Prisma e MySQL em Docker, com saúde e OpenAPI; o app permanece com mocks e não acessa o banco.
 
 ## Executar o mobile
 
@@ -55,9 +55,9 @@ npx eas-cli@latest build --platform android --profile production
 
 Referências: [configuração do EAS](https://docs.expo.dev/build/eas-json/) e [builds APK para Android](https://docs.expo.dev/build-reference/apk/).
 
-## MySQL local
+## Backend e MySQL locais
 
-O mobile não usa esse banco. Para preparar o serviço destinado ao desenvolvimento futuro do backend, siga [Banco de dados](docs/database.md). Na raiz, copie o arquivo de exemplo e preencha as senhas locais em `.env`:
+O mobile não usa esse banco. Para preparar a infraestrutura, siga [Backend](docs/backend.md) e [Banco de dados](docs/database.md). Na raiz, copie o arquivo de exemplo e preencha `MYSQL_PASSWORD` e `MYSQL_ROOT_PASSWORD` com senhas locais distintas em `.env`:
 
 ```bash
 cp .env.example .env
@@ -67,11 +67,11 @@ Depois, inicie e confira o serviço:
 
 ```bash
 docker compose config --quiet
-docker compose up -d
+docker compose up -d --build
 docker compose ps
 ```
 
-Para parar o serviço, execute `docker compose down`; os dados do volume são preservados.
+Backend: `http://localhost:3000`, saúde: `/health`, Swagger: `/docs` e OpenAPI: `/docs-json`. As portas são locais; HTTPS deverá ser configurado no ambiente de hospedagem futuro. Para parar os serviços, execute `docker compose down`; os dados do volume são preservados.
 
 ## Organização
 
@@ -80,10 +80,10 @@ AGENTS.md
 docs/              produto, arquitetura, convenções e design
 prototypes/        PDF e HTML agrupado, referências visuais
 mobile/            aplicação Expo e dependências próprias
-backend/README.md  responsabilidades; tecnologia TBD
-lux-agent/README.md responsabilidades; tecnologia TBD
+backend/           NestJS, Prisma, testes e Dockerfile
+lux-agent/README.md planejamento Python 3/systemd; sem implementação
 ```
 
-O caminho futuro é Mobile → Backend/API → Lux Agent → GNOME. MySQL pertence ao backend. Hoje, Home e computadores leem o mock em `mobile/src/mocks/devices.ts` via o contrato interno de listagem. O login e o pareamento não usam API: a demonstração de pareamento é uma operação local separada do contrato de listagem.
+O mobile se comunicará com a API por REST/HTTPS. O Lux Agent iniciará polling REST/HTTPS ao backend e integrará localmente o GNOME. MySQL pertence ao backend. Hoje, Home e computadores leem o mock em `mobile/src/mocks/devices.ts` via o contrato interno de listagem. O login e o pareamento não usam API: a demonstração de pareamento é uma operação local separada do contrato de listagem.
 
 Consulte [o índice da documentação](docs/README.md) para decisões, pendências e próximos passos. Referência de compatibilidade: [Expo SDK 57](https://docs.expo.dev/versions/v57.0.0/).

@@ -2,19 +2,24 @@
 
 | Documento | Onde procurar |
 | --- | --- |
-| [Produto](product.md) | Propósito, atores, escopo e dúvidas do MVP |
-| [Arquitetura](architecture.md) | Fronteiras e fluxo confirmado/provisório |
-| [Mobile](mobile.md) | Organização, rotas, estado e mocks |
-| [Backend](backend.md) | Responsabilidades, contrato inicial e decisões TBD |
-| [Banco](database.md) | MySQL e entidades conhecidas |
-| [Lux](lux-integration.md) | Hipóteses Linux, autorização e investigação |
+| [Produto](product.md) | Propósito, estado atual e MVP planejado |
+| [Arquitetura](architecture.md) | Componentes, etapas, contratos e fronteiras entre mocks e integração real |
+| [Mobile](mobile.md) | Organização, rotas, estado, mocks e conexão REST futura |
+| [Backend](backend.md) | Responsabilidades, implementação e contrato da API |
+| [Banco](database.md) | MySQL 8.4 local, Prisma e política de migrations |
+| [Lux](lux-integration.md) | Agente, hipóteses GNOME, segurança planejada e provas técnicas |
 | [Design](design.md) | PDF, padrões visuais e componentes |
 
-Decisões relevantes estão nestes documentos por enquanto. Criar `docs/decisions/` quando uma decisão justificar um registro separado.
+Este diretório descreve o estado presente e decisões planejadas. Leia [Produto](product.md) e [Arquitetura](architecture.md) para distinguir claramente os mocks atuais dos recursos ainda não implementados.
 
-## Próximos passos
+## Próximas etapas
 
-1. Validar as quatro telas demonstrativas em Expo Go num dispositivo, inclusive o fluxo de pareamento simulado.
-2. Definir com o grupo o MVP e os comportamentos que dependem de autenticação e disponibilidade do computador.
-3. Escolher a tecnologia do backend e acordar o contrato HTTP antes de conectar o mobile.
-4. Investigar capacidades e permissões do GNOME no Lux antes de prometer controles reais.
+1. Fundação atual: app mobile demonstrativo, backend NestJS executável com Prisma, Docker/MySQL e documentação; o mobile ainda usa mocks e não está conectado à API.
+2. Implementar autenticação real, cadastro/listagem de dispositivos e endpoints do MVP; conectar o mobile ao backend.
+3. Implementar pareamento seguro de computador/agente à conta responsável.
+4. Fazer uma prova técnica mínima de GNOME no Lenovo Lux quando o ambiente estiver disponível; essa investigação pode avançar em paralelo às etapas 2 e 3.
+5. Validar fluxo ponta a ponta no computador real, incluindo aplicação das operações suportadas, disponibilidade, erros e revogação.
+
+Controles parentais além do fluxo de autenticação/dispositivos/pareamento dependem do que for demonstrado como disponível no GNOME instalado no Lux. GNOME 50.5 foi informado, mas não há ISO Lux disponível para validar o ambiente; por isso D-Bus, malcontent/libmalcontent, AccountsService e polkit continuam hipóteses. Consulte [Integração Lux](lux-integration.md).
+
+O ambiente MySQL local é usado pelo backend; o app mobile não acessa o banco. Consulte [Banco de dados](database.md) para inicialização, limites do volume e decisões de schema/migrations.

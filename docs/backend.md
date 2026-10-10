@@ -1,8 +1,92 @@
 # Backend
 
-Backend technology: TBD
+Fundação REST em NestJS 12.1.2, TypeScript e Node.js 24 LTS (24.15 ou superior na linha 24). Prisma 7.10.0 utiliza MySQL 8.4 por meio de `@prisma/adapter-mariadb`, que também suporta MySQL. Prisma 8 ainda era uma versão candidata durante esta implementação; a linha estável foi fixada no lockfile. Swagger 12.0.2 é compatível com NestJS 12.
 
-O MySQL local é disponibilizado pelo `docker-compose.yml` na raiz. A API ainda não está implementada; quando a tecnologia do backend for definida e existir um serviço executável, sua entrega deverá incluir um Dockerfile e consumir as variáveis de conexão local sem expor credenciais ao mobile ou ao Lux Agent. Ainda não há Dockerfile do backend.
+## Estrutura e convenções
+
+O projeto foi gerado pela CLI oficial NestJS 12.0.8 em modo standard, num diretório temporário, sem Git interno. A sintaxe foi conferida com `new --help` antes da geração:
+
+```bash
+npx @nestjs/cli@12.0.8 new backend --package-manager npm --skip-git
+```
+
+```text
+backend/
+  src/main.ts                    inicialização e Swagger
+  src/app.module.ts              módulo raiz
+  src/app.controller.ts          saúde da API e banco
+  src/config/                    ambiente e conexão MySQL
+  src/prisma/                    módulo e serviço Prisma
+  prisma/schema.prisma           provider MySQL, sem modelos
+  prisma7.config.ts              CLI e caminho de migrations
+  test/                          testes HTTP
+  nest-cli.json                  projeto standard
+  tsconfig*.json                 TypeScript
+  oxlint.json                    lint padrão da CLI
+  vitest.config*.ts              testes padrão da CLI
+  Dockerfile                     build e execução
+  package-lock.json              instalação reproduzível
+```
+
+O scaffold atual usa ESM, Vitest e Oxlint. Controllers recebem HTTP, services concentram lógica e módulos organizam providers conforme as convenções NestJS. DTOs representarão entradas e saídas quando existirem contratos de domínio. Não criar módulos ou abstrações antecipadamente. O único módulo adicional é Prisma.
+
+`PrismaService` conecta e executa `SELECT 1` durante a inicialização. `GET /health` consulta o banco novamente, retorna `{ "status": "ok", "database": "ok" }` ou HTTP 503 se a consulta falhar. Uma falha de conexão inicial impede a aplicação de iniciar. Shutdown hooks encerram a conexão ao receber sinais de término.
+
+Swagger fica em `/docs`; OpenAPI em `/docs-json`. O ambiente local usa HTTP em localhost. HTTPS e exposição da API serão decisões de hospedagem futuras, antes de conectar responsáveis ou agentes reais.
+
+## Executar com Docker
+
+Na raiz, copie `.env.example` para `.env` e preencha senhas locais distintas para `MYSQL_PASSWORD` e `MYSQL_ROOT_PASSWORD`. Nunca versione esse arquivo.
+
+```bash
+cp .env.example .env
+docker compose config --quiet
+docker compose up -d --build
+docker compose ps
+curl --fail http://localhost:3000/health
+```
+
+O Compose preserva MySQL e `mysql_data`. O backend recebe somente as credenciais da aplicação, usa `mysql:3306` na rede interna e aguarda o healthcheck MySQL. O healthcheck backend consulta `/health`. `MYSQL_PORT` controla a porta MySQL no host e `PORT` a porta HTTP no host; o backend no container escuta em 3000. Ambas são publicadas em `127.0.0.1`.
+
+O Dockerfile usa a imagem oficial Node 24 LTS sobre Debian Trixie slim, com OpenSSL requerido pelo Prisma, em estágios de dependências, geração/build e execução. Utiliza `npm ci`, dependências de produção e usuário `node`. Não executa migrations automaticamente nesta etapa. Expo permanece fora do Docker.
+
+```bash
+docker compose logs backend
+docker compose down
+```
+
+`down` preserva os dados. Não use opções que removam volumes. Alterar `.env` não altera contas existentes no volume; consulte [Banco](database.md).
+
+## Desenvolvimento no host
+
+Use Node 24.15+ e npm. Com `.env` configurado na raiz:
+
+```bash
+docker compose up -d mysql
+cd backend
+npm ci
+npm run prisma:generate
+npm run start:dev
+```
+
+`MYSQL_HOST=127.0.0.1` e `MYSQL_PORT=3306` apontam para o MySQL publicado. A configuração carrega `.env` da raiz e, complementarmente, `backend/.env`, preservando variáveis já injetadas. Usuário, senha e nome do banco são codificados ao compor a URL Prisma; não é necessário duplicar credenciais numa `DATABASE_URL` manual.
+
+MySQL 8.4 usa autenticação `caching_sha2_password`. O exemplo local habilita `MYSQL_ALLOW_PUBLIC_KEY_RETRIEVAL=true` para obter a chave RSA do servidor e autenticar na rede Docker/localhost sem trocar o mecanismo nativo. Fora desse ambiente isolado, mantenha a opção desabilitada e configure TLS com validação de certificado ou uma chave confiável antes de conectar a um banco remoto; transporte remoto ainda não está configurado. A opção permanece desabilitada quando não declarada. Veja as [opções oficiais do driver](https://mariadb.com/docs/connectors/mariadb-connector-nodejs/node-js-connection-options).
+
+```bash
+npm run prisma:validate
+npm run lint
+npm run typecheck
+npm run build
+npm test
+npm run test:e2e
+```
+
+Os testes automatizados de saúde substituem Prisma por mock; não atestam conectividade real. A conexão real exige MySQL e deve ser conferida com inicialização e `/health`. Para executar o build: `npm run start:prod`.
+
+## Persistência
+
+O schema não possui entidades nem migrations artificiais. `npm run prisma:migrate:dev -- --name <nome>` será usado quando existir mudança real de modelo; os arquivos deverão ser versionados. `npm run prisma:migrate:deploy` aplicará migrations aprovadas em outros ambientes. Não executar resets para contornar permissões. Requisitos acadêmicos e permissões para migrations estão em [Banco](database.md).
 
 ## Responsabilidades esperadas
 
@@ -16,6 +100,20 @@ O pareamento atual é separado da listagem: `pairingDemo.simulatePairing()` é u
 
 Quando houver implementação HTTP, acordar endpoint, método, payload, autorização, resposta vazia e tratamento de erros. A API de pareamento será definida separadamente após estabelecer os requisitos e validar capacidades e regras. Login, consulta real, alteração de configurações e pareamento não estão conectados a um backend.
 
-## TBD
+## Próximas responsabilidades e decisões pendentes
 
-Linguagem, framework, ORM, hospedagem, sessões/tokens, protocolo com Agent, confirmação de comandos, erros e comportamento offline. Nenhuma dessas escolhas foi implementada nesta entrega.
+As próximas etapas implementarão autenticação real, hashing seguro de senhas, autorização por recurso/dispositivo, gerenciamento de computadores, identidade de agentes, pareamento temporário de uso único, revogação e coordenação de comandos suportados. Sessões/tokens, hospedagem, contratos HTTP, erros e comportamento offline ainda serão definidos. O backend não aplica restrições Linux nem envia comandos arbitrários para execução.
+
+Referências: [Nest CLI](https://docs.nestjs.com/cli/overview), [comandos da CLI](https://docs.nestjs.com/cli/usages), [Swagger](https://docs.nestjs.com/openapi/introduction) e [Prisma 7/MySQL](https://www.prisma.io/docs/v7/prisma-orm/quickstart/mysql).
+
+## Limitações e dependências
+
+O ambiente de implementação tem Node 24.14.0 e emite aviso de engine das ferramentas de scaffold; os checks locais passaram, mas use Node 24.15+ para respeitar os requisitos declarados. O plugin `vite-tsconfig-paths` padrão da CLI emite aviso de que a resolução nativa do Vite pode substituí-lo; não impede os testes.
+
+O adapter Prisma fixa originalmente MariaDB 3.4.5. Um override restrito ao adapter utiliza MariaDB 3.5.4 para corrigir vulnerabilidades do driver, conforme o [changelog do mantenedor](https://github.com/mariadb-corporation/mariadb-connector-nodejs/releases/tag/3.5.4). Na auditoria desta fundação, `npm audit --omit=dev` ainda reporta quatro entradas altas ligadas a Prisma/config, `deepmerge-ts` e `mysql2`; a instalação completa reportou nove (duas baixas, uma moderada e seis altas). A CLI Prisma entra na árvore de produção por peer dependency do client, apesar de estar declarada em devDependencies. Os alertas seguem pendentes de atualização compatível; não aplicar downgrade major nem `npm audit fix --force` automaticamente. Checks funcionais não substituem auditoria de segurança.
+
+## Verificação da fundação
+
+Em 10/10/2026 passaram lint/typecheck do mobile, lint/typecheck/build do backend, dois testes unitários, um teste HTTP e validação/geração Prisma sem modelos. O Compose final passou `config --quiet` e `up -d --build --wait` em ambiente isolado: MySQL e backend saudáveis, `/health`, `/docs` e `/docs-json` com HTTP 200, Node 24.21.0 no container com UID 1000. Nenhuma migration foi aplicada. O ambiente de teste foi parado preservando os volumes.
+
+A primeira imagem Bookworm encontrou uma camada ausente no cache local do Docker Desktop, inclusive ao tentar criar o container. A base final Trixie, com OpenSSL, foi construída e executada pelo Compose padrão sem apagar caches ou dados existentes. A ISO Lux segue indisponível e não houve validação GNOME.

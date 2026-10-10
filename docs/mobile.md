@@ -1,6 +1,6 @@
 # Mobile
 
-Expo + React Native + TypeScript estrito + Expo Router. Dependências e comandos vivem em `mobile/`; instalação reproduzível com `npm ci`. Consulte o README da raiz para execução.
+Expo + React Native + TypeScript estrito + Expo Router. Dependências e comandos vivem em `mobile/`; instalação reproduzível com `npm ci`. Consulte o README da raiz para execução. O mobile é a interface remota do responsável: restrições só poderão ser aplicadas no computador Lux pelo GNOME/agente, após a integração ser validada.
 
 ## Organização
 
@@ -25,11 +25,11 @@ Consumidores chamam `devices.listPairedComputers()`, que retorna `Promise<Paired
 
 O mock fornece três registros fictícios para demonstrar a listagem e os estados de conexão. `pairingDemo.simulatePairing()` adiciona um quarto registro fictício, idempotente e mantido apenas em memória até o app ser reiniciado. Cada retorno da listagem e do pareamento é uma cópia dos dados internos. O fluxo não lê QR, autentica ou conecta ao Lux; a simulação não é contrato HTTP. Para usar API real na listagem, implementar `DevicesSource` via HTTP no serviço da feature e trocar a seleção exportada.
 
-Ainda não há base URL, cliente HTTP, autenticação ou fallback automático para mock. Endpoints e erros dependem do contrato acordado com o backend.
+Ainda não há base URL, cliente HTTP, autenticação ou fallback automático para mock. Endpoints e erros dependem do contrato acordado com o backend. REST sobre HTTPS é a integração planejada com a API NestJS; autenticação real, cadastro/listagem de dispositivos e pareamento seguro pertencem ao MVP futuro, não à implementação atual. Funcionalidades que alterem controles parentais dependerão das capacidades comprovadas no GNOME/Lux.
 
 ## UI e segurança
 
-Antes de implementar UI, consultar [design](design.md) e o protótipo correspondente. Verificar React Native Reusables antes de criar componentes genéricos. Usar tokens existentes, padrões mobile e compatibilidade Android/iOS.
+Antes de implementar UI, consultar [design](design.md) e o protótipo correspondente. Verificar React Native Reusables antes de criar componentes genéricos. Usar tokens existentes, padrões mobile e compatibilidade Android/iOS. As telas atuais usam componentes suportados pelo Expo Go; não há módulo nativo adicional nem fluxo de câmera/QR implementado. Se uma futura dependência nativa não estiver incluída no Expo Go, será necessário configurar um development build e ajustar o fluxo EAS conforme a documentação Expo da versão instalada. Os perfis EAS existentes são configuração, não evidência de build publicado ou de funcionalidade nativa disponível.
 
 Quando houver tokens/segredos, preferir SecureStore. Nunca armazenar senha root/admin ou tratar QR como credencial administrativa permanente.
 

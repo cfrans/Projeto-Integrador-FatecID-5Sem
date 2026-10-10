@@ -1,36 +1,42 @@
 # Arquitetura
 
-## Confirmado
+## Componentes e responsabilidades
 
 ```mermaid
 flowchart TD
-    M[Mobile Expo] --> B[Backend/API]
-    B --> A[Lux Agent]
-    A --> G[GNOME Parental Controls]
-    B --> D[(MySQL)]
+    M[Mobile Expo] -->|REST/HTTPS futuro| B[Backend NestJS]
+    A[Lux Agent Python 3] -->|polling autenticado REST/HTTPS futuro| B[Backend NestJS]
+    A -->|interfaces locais a validar| G[GNOME / controles parentais]
+    B --> D[(MySQL 8.4)]
 ```
 
-O mobile apresenta dados e ações. O backend acessa MySQL e intermedeia a comunicação com o Lux. O Agent integra as operações permitidas pelo GNOME e pela autorização do Linux. O GNOME aplica o controle parental. O celular não acessa o computador diretamente por IP local e não acessa MySQL.
+O mobile é um cliente remoto e conversa somente com a API; não acessa MySQL nem o computador Lux diretamente. O backend é um monólito modular em TypeScript/Node.js LTS com NestJS, REST e Prisma. Ele disponibiliza a API, persiste dados e intermedeia operações com agentes. O agente Python 3 será instalado como serviço systemd, iniciará comunicação com o backend por polling e integrará operações locais permitidas pelo sistema, reportando resultados. O GNOME/Lux aplica as restrições.
 
-## Desenvolvimento com mock
+O backend executável integra a fundação atual; o mobile ainda não consome a API. A comunicação agente-backend e a integração do agente com o GNOME são futuras. O agente iniciará a comunicação por REST/HTTPS (polling); conectividade de entrada no computador não é requisito assumido. Protocolo, autenticação e confirmação de aplicação serão definidos e validados antes do uso real.
 
-Há duas fronteiras possíveis de simulação:
+## Etapas de implementação
+
+1. Fundação atual: aplicativo mobile demonstrativo com mocks, backend NestJS executável com Prisma, Docker/MySQL e documentação. A API ainda não está conectada ao mobile; autenticação real, módulos de domínio e integração Lux seguem como etapas futuras.
+2. MVP backend/mobile: implementar autenticação real, cadastro/listagem de dispositivos e os endpoints necessários; conectar o mobile ao contrato REST acordado.
+3. Pareamento: fluxo seguro para vincular um computador e seu agente a uma conta responsável.
+4. Prova técnica GNOME: investigar e implementar o mínimo do agente quando o ambiente Lux estiver disponível. Essa investigação pode ocorrer em paralelo com as etapas 2 e 3, mas não deve ser tratada como capacidade confirmada.
+5. Operação ponta a ponta: validar autenticação, pareamento, disponibilidade, consulta e aplicação real no Lenovo Lux, documentando limites observados.
+
+## Mocks e contratos
+
+Há duas fronteiras de simulação:
 
 | Cenário | Fluxo | O que o mock substitui |
 | --- | --- | --- |
-| Atual, sem backend | Mobile → serviço mock dentro do app | Respostas que o mobile receberia do backend, sem depender do backend ou do Lux |
-| Futuro, com backend | Mobile → Backend → Mock do Lux Agent | Operações oferecidas pelo Agent, como consultar configurações e retornar resultados de alterações simuladas |
+| Atual, sem API conectada ao mobile | Mobile → serviço mock no app | Respostas que a tela receberia do backend, sem depender da API ou do Lux |
+| Futuro, com API integrada | Mobile → Backend → mock do Lux Agent | Operações expostas pelo agente, permitindo desenvolver backend sem computador Lux |
 
-O mock do Lux Agent permitirá desenvolver e testar o backend sem um computador Lux disponível. Ele deverá respeitar o mesmo contrato usado com o Agent real, para que a integração possa ser substituída sem mudar o mobile. Esse contrato ainda será definido; o mock do Agent não está implementado nesta entrega.
+No estado atual, `devices.listPairedComputers(): Promise<PairedComputer[]>` fornece três computadores fictícios com `id`, `name`, `status` (`online`/`offline`), `managedUser` e `lastSeen` (ISO 8601 ou `null`). A Home consome o serviço de listagem, sem importar diretamente o mock. Esses campos são um contrato interno provisório do mobile, não um endpoint REST nem um schema de banco. O serviço `DevicesSource` permite substituir a seleção mock por uma implementação HTTP sem mudar os consumidores; esse adaptador HTTP ainda não está conectado.
 
-Uma alteração aceita pelo mock é um resultado simulado, não evidência de que o GNOME oferece ou aplicou aquela operação. As capacidades reais continuam sujeitas à investigação descrita em [integração Lux](lux-integration.md).
+`pairingDemo.simulatePairing()` acrescenta um quarto computador fictício, idempotentemente, somente em memória até o processo do app reiniciar. Listagem e pareamento retornam cópias dos registros. O fluxo não ativa câmera, não valida QR, não autentica nem conecta a um Lux.
 
-Uma feature consome um contrato assíncrono independente da origem dos dados. A exportação `devices` atualmente seleciona `mockDevices`; uma implementação HTTP futura deve cumprir `DevicesSource` e substituir essa seleção, preservando os consumidores. A Home já lista os computadores por esse serviço, sem importar o mock diretamente. Sem provider, store global ou servidor de mocks.
+No cenário futuro, o mock do agente deverá cumprir o mesmo contrato do agente real. Esse mock ainda não foi implementado. Uma resposta simulada não confirma suporte nem aplicação da operação no GNOME.
 
-O contrato provisório interno ao mobile é `listPairedComputers(): Promise<PairedComputer[]>`, com `id`, `name`, `status` (`online` ou `offline`), `managedUser` e `lastSeen` (data ISO 8601 ou `null`). Esses campos permitem a Home mostrar o status e a conta gerenciada; não definem endpoints ou modelo de persistência. O contrato não afirma que esses campos já existam no backend ou no Agent.
+## Limites técnicos do Lux
 
-O mock atual fornece três computadores de exemplo, com status online/offline e conta gerenciada, apenas para apresentar os estados da Home e da lista. O serviço local `pairingDemo.simulatePairing()` acrescenta um quarto computador fictício, sem duplicá-lo em chamadas repetidas. A alteração vive somente na memória do processo e a lista retorna cópias dos registros. Esses dados não representam pareamentos reais, autenticação, conectividade com um computador ou capacidades do GNOME; o método de demonstração não define contrato HTTP.
-
-## Provisório / TBD
-
-Tecnologias do backend e Agent, protocolo Backend ↔ Agent, conexão iniciada pelo Agent ou outra solução de alcance remoto, autenticação, entrega de comandos e confirmação de aplicação. As setas representam responsabilidades, não um protocolo implementado nem conectividade inbound disponível no Lux.
+O ambiente informado é GNOME 50.5. Uma ISO do Lenovo Lux não está disponível para reproduzir o ambiente. D-Bus, malcontent/libmalcontent, AccountsService e autorização via polkit são hipóteses de investigação, não interfaces validadas nem uma promessa de API estável. Ver [integração Lux](lux-integration.md) para critérios e registro de evidências.

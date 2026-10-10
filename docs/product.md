@@ -1,25 +1,36 @@
 # Produto
 
-## Propósito e atores
+## Propósito
 
-O piplup permite que um responsável consulte e altere, pelo celular, configurações parentais existentes em computadores Lenovo Lux. A conta gerenciada pertence à criança/dependente. O mobile é uma interface remota; a aplicação das restrições pertence ao GNOME/Lux.
+O piplup é um projeto acadêmico de interface mobile para que o responsável consulte e altere remotamente o controle parental disponível nos computadores Lenovo Lux usados pela criança. O celular é um cliente remoto; quem aplica restrições é o GNOME/Lux.
 
-## Escopo desta entrega
+## Estado atual
 
-Configuração Expo e perfis EAS, execução no Expo Go e preservação das rotas/layouts existentes. Quatro telas oferecem um fluxo demonstrativo de login, início, computadores e pareamento com dados simulados; o pareamento aparece na própria tela e mantém o computador fictício apenas em memória. O MySQL local está configurado para desenvolvimento futuro do backend, sem API conectada ao mobile ou integração com Linux.
+O aplicativo Expo contém quatro telas demonstrativas: login, início, computadores e pareamento simulado. A autenticação não é real, não há API conectada ao mobile, e os dados de computador vêm de mocks em memória. O pareamento demonstrativo não lê QR Code nem se conecta a um Lux. A fundação do backend executável existe, mas ainda não há integração Linux.
 
-## Funcionalidades candidatas
+## Funcionalidades previstas
 
-Autenticação do responsável, pareamento por QR Code, listagem de computadores, consulta e alteração de configurações parentais e revogação de vínculos. Dependem da definição do MVP e da viabilidade da integração.
+O produto prevê autenticação real do responsável, cadastro e listagem de computadores, pareamento seguro por QR Code e revogação de vínculos. Também prevê consulta e alteração remotas de controles parentais, incluindo limites de tempo, controles de aplicativos, instalação e faixa etária. Esses controles dependem das capacidades comprovadas no GNOME/Lux e podem exigir ajuste do escopo.
 
-Os identificadores RF e comportamentos do PDF são referências do protótipo, não requisitos técnicos validados. Pedidos temporários de liberação, encerramento automático de aplicativos, contagem de tentativas e fila offline precisam de decisão e investigação próprias.
+O foco principal do projeto acadêmico é a experiência mobile e sua integração com o sistema do computador. O planejamento de integração não compromete a entrega mobile, que pode ser demonstrada com mocks. A aplicação local das restrições ocorre no computador, por meio do GNOME e do agente; o celular é um cliente remoto.
 
-## Fora do escopo atual
+## MVP planejado
 
-Produto completo, mecanismo próprio de controle parental, autenticação real, backend executável, schema MySQL e Lux Agent. A entrega acadêmica deve poder funcionar com mocks.
+O primeiro MVP deverá reunir autenticação real, gerenciamento de dispositivos e pareamento seguro. A integração parental real será incremental após a prova técnica no Lux; os controles candidatos não são todos requisitos obrigatórios do MVP. Consulte as etapas em [Arquitetura](architecture.md).
 
-## OPEN QUESTION
+## Etapa atual e fora de escopo
 
-- Qual o MVP final e quais funções o GNOME instalado no Lux realmente oferece?
-- Qual o comportamento esperado quando o computador estiver desconectado?
-- Quais contas gerenciadas e permissões um responsável poderá administrar?
+A etapa atual entrega a fundação: aplicativo Expo, backend NestJS executável com Prisma, Docker/MySQL e documentação. A autenticação, dispositivos e pareamento do MVP ainda são módulos/funcionalidades futuras; o app mobile continua sem conexão à API. O agente Lux e a aplicação de restrições reais também não fazem parte desta etapa. Criar um mecanismo próprio de bloqueio parental está fora do escopo.
+
+## Referências e limites
+
+Os identificadores RF e comportamentos do protótipo PDF são referências visuais/de produto, não requisitos técnicos validados. Pedidos temporários de liberação, encerramento automático de aplicativos, contagem de tentativas e fila offline precisam de decisão própria e validação técnica antes de entrarem no escopo.
+
+O serviço de mock pode sustentar o desenvolvimento acadêmico e a interface. Uma resposta simulada não comprova que a operação existe no Lux nem que uma restrição foi aplicada.
+
+## Questões em aberto
+
+- Quais recursos de controle parental estão disponíveis na versão do GNOME instalada no Lenovo Lux?
+- Qual o comportamento do produto quando o computador estiver indisponível?
+- Quais contas gerenciadas e quais permissões o responsável pode administrar?
+- Quais funções além do MVP devem ser priorizadas após a prova técnica?
