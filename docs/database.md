@@ -1,6 +1,6 @@
 # Banco de dados
 
-O banco é MySQL 8.4, executado em Docker para desenvolvimento. O backend NestJS executável usa Prisma como acesso de dados; mobile e Lux Agent não recebem credenciais MySQL. O schema de domínio será evoluído quando os requisitos e contratos do MVP forem detalhados. Não criar modelos ou migrations artificiais para antecipar entidades ainda não decididas.
+O banco é MySQL 8.4, executado em Docker para desenvolvimento. O backend NestJS executável usa Prisma como acesso de dados; mobile e Lux Agent não recebem credenciais MySQL. O schema começa com a entidade Guardian necessária à autenticação; os demais modelos serão evoluídos quando os requisitos e contratos do MVP forem detalhados.
 
 ## Ambiente local
 
@@ -16,11 +16,11 @@ docker compose ps
 
 ## Prisma e SQL
 
-Quando os modelos forem definidos, migrations Prisma serão versionadas junto ao código e aplicadas de forma controlada entre ambientes. Prisma é o caminho padrão para acesso e alterações de dados. Os requisitos acadêmicos incluem views, funções, procedures, triggers, transações e tratamento de erros SQL; implemente-os quando os casos de uso e o schema estiverem definidos. SQL direto via Prisma é permitido para esses recursos, com consultas parametrizadas e sem concatenar dados de usuário.
+Migrations Prisma são versionadas junto ao código e aplicadas de forma controlada entre ambientes. Prisma é o caminho padrão para acesso e alterações de dados. Os requisitos acadêmicos incluem views, funções, procedures, triggers, transações e tratamento de erros SQL; implemente-os quando os casos de uso e o schema estiverem definidos. SQL direto via Prisma é permitido para esses recursos, com consultas parametrizadas e sem concatenar dados de usuário.
 
-`backend/prisma/schema.prisma` contém apenas o provider MySQL e o gerador do client; `backend/prisma7.config.ts` define a conexão e o caminho `prisma/migrations`. `prisma:generate` gera código ignorado pelo Git, sem alterar o banco. Não existem migrations nem tabelas de domínio nesta etapa. Comandos e execução estão em [Backend](backend.md).
+`backend/prisma/schema.prisma` define `Guardian` com UUID, email único, nome e hash Argon2id da senha. A migration `20261010180000_add_guardian` foi gerada por `prisma migrate diff --from-empty --to-schema ... --script` sem conectar ou aplicar alterações na geração e foi validada por deploy em um MySQL isolado de teste. `prisma:generate` gera código ignorado pelo Git, sem alterar o banco. Comandos e execução estão em [Backend](backend.md).
 
-Para criar migrations reais, `prisma migrate dev` precisa de um banco temporário de comparação (shadow database). O usuário atual da imagem MySQL tem permissões apenas no banco da aplicação; antes da primeira migration, será necessário provisionar um shadow database separado e suas permissões, ou uma conta de desenvolvimento apropriada. A credencial root não deve ser usada pela aplicação. `migrate deploy` não exige shadow database. Não configure o banco principal como shadow database. Consulte a [documentação Prisma 7](https://www.prisma.io/docs/orm/v7/prisma-migrate/understanding-prisma-migrate/shadow-database).
+Para criar migrations com `prisma migrate dev`, é necessário um banco temporário de comparação (shadow database). O usuário atual da imagem MySQL tem permissões apenas no banco da aplicação; esse fluxo exige provisionar um shadow database separado e suas permissões, ou uma conta de desenvolvimento apropriada. A credencial root não deve ser usada pela aplicação. `migrate deploy` não exige shadow database. Não configure o banco principal como shadow database. Consulte a [documentação Prisma 7](https://www.prisma.io/docs/orm/v7/prisma-migrate/understanding-prisma-migrate/shadow-database).
 
 Recursos SQL não expressos no schema deverão ser mantidos em SQL versionado nas migrations reais; evite alterações manuais sem histórico. Transações e tratamento de erros devem acompanhar os casos de uso que precisarem de atomicidade e distinguir falhas de validação, conflito e indisponibilidade.
 

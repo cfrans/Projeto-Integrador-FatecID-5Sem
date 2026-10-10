@@ -6,3 +6,10 @@ generator client {
 datasource db {
   provider = "mysql"
 }
+
+model Guardian {
+  id           String @id @default(uuid()) @db.Char(36)
+  email        String @unique @db.VarChar(254)
+  name         String @db.VarChar(100)
+  passwordHash String @db.VarChar(255)
+}

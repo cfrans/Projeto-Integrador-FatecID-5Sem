@@ -17,7 +17,8 @@ backend/
   src/app.controller.ts          saúde da API e banco
   src/config/                    ambiente e conexão MySQL
   src/prisma/                    módulo e serviço Prisma
-  prisma/schema.prisma           provider MySQL, sem modelos
+  src/auth/                      login, contratos e proteção JWT
+  prisma/schema.prisma           modelo Guardian e gerador Prisma
   prisma7.config.ts              CLI e caminho de migrations
   test/                          testes HTTP
   nest-cli.json                  projeto standard
@@ -28,7 +29,7 @@ backend/
   package-lock.json              instalação reproduzível
 ```
 
-O scaffold atual usa ESM, Vitest e Oxlint. Controllers recebem HTTP, services concentram lógica e módulos organizam providers conforme as convenções NestJS. DTOs representarão entradas e saídas quando existirem contratos de domínio. Não criar módulos ou abstrações antecipadamente. O único módulo adicional é Prisma.
+O scaffold atual usa ESM, Vitest e Oxlint. Controllers recebem HTTP, services concentram lógica e módulos organizam providers conforme as convenções NestJS. DTOs validam entradas e documentam os contratos de autenticação. Os módulos adicionais são Prisma e Auth.
 
 `PrismaService` conecta e executa `SELECT 1` durante a inicialização. `GET /health` consulta o banco novamente, retorna `{ "status": "ok", "database": "ok" }` ou HTTP 503 se a consulta falhar. Uma falha de conexão inicial impede a aplicação de iniciar. Shutdown hooks encerram a conexão ao receber sinais de término.
 
@@ -36,7 +37,7 @@ Swagger fica em `/docs`; OpenAPI em `/docs-json`. O ambiente local usa HTTP em l
 
 ## Executar com Docker
 
-Na raiz, copie `.env.example` para `.env` e preencha senhas locais distintas para `MYSQL_PASSWORD` e `MYSQL_ROOT_PASSWORD`. Nunca versione esse arquivo.
+Na raiz, copie `.env.example` para `.env`, preencha senhas locais distintas para `MYSQL_PASSWORD` e `MYSQL_ROOT_PASSWORD`, e defina `JWT_SECRET` com pelo menos 32 bytes aleatórios. Nunca versione esse arquivo.
 
 ```bash
 cp .env.example .env
@@ -49,6 +50,8 @@ curl --fail http://localhost:3000/health
 O Compose preserva MySQL e `mysql_data`. O backend recebe somente as credenciais da aplicação, usa `mysql:3306` na rede interna e aguarda o healthcheck MySQL. O healthcheck backend consulta `/health`. `MYSQL_PORT` controla a porta MySQL no host e `PORT` a porta HTTP no host; o backend no container escuta em 3000. Ambas são publicadas em `127.0.0.1`.
 
 O Dockerfile usa a imagem oficial Node 24 LTS sobre Debian Trixie slim, com OpenSSL requerido pelo Prisma, em estágios de dependências, geração/build e execução. Utiliza `npm ci`, dependências de produção e usuário `node`. Não executa migrations automaticamente nesta etapa. Expo permanece fora do Docker.
+
+Antes do primeiro login, aplique as migrations pelo host conforme os comandos abaixo. A imagem de execução não contém o schema/config da CLI Prisma; migrations e seed são operações explícitas de desenvolvimento.
 
 ```bash
 docker compose logs backend
@@ -66,6 +69,7 @@ docker compose up -d mysql
 cd backend
 npm ci
 npm run prisma:generate
+npm run prisma:migrate:deploy
 npm run start:dev
 ```
 
@@ -82,15 +86,29 @@ npm test
 npm run test:e2e
 ```
 
-Os testes automatizados de saúde substituem Prisma por mock; não atestam conectividade real. A conexão real exige MySQL e deve ser conferida com inicialização e `/health`. Para executar o build: `npm run start:prod`.
+Os testes Vitest substituem Prisma por mock. Para executar o build: `npm run start:prod`.
+
+O teste `npm run test:mysql` usa a API compilada e MySQL real. Exige `NODE_ENV=test`, banco dedicado com nome terminado em `_test`, variáveis MySQL e `JWT_SECRET`, migrations aplicadas e build atual. Cria um responsável aleatório e remove somente esse registro. Um arquivo de ambiente privado de teste pode ser carregado com `NODE_ENV=test node --env-file=/caminho/privado.env --test test/auth.mysql-test.mjs`; não use o banco da aplicação.
+
+## Autenticação implementada
+
+O primeiro bloco de autenticação está implementado para responsáveis. `POST /auth/login` recebe `{ "email", "password" }`, normaliza o email com trim e minúsculas e compara a senha com Argon2id. Email inválido ou campos extras retornam HTTP 400; credenciais inválidas retornam HTTP 401 com mensagem genérica. A senha aceita de 1 a 128 caracteres no login; o seed exige no mínimo 12.
+
+Sucesso retorna `{ "accessToken", "expiresIn": 1800, "guardian": { "id", "name", "email" } }`. `GET /auth/me` usa Bearer JWT para restaurar o perfil público. Tokens usam HS256, emissor `piplup-api`, audiência `piplup-mobile` e validade de 30 minutos. Cada request protegido valida assinatura, expiração e emissor/audiência, então consulta o responsável atual no MySQL; responsável removido perde acesso imediatamente. Falha operacional na consulta de autenticação retorna HTTP 503. Swagger documenta autenticação Bearer em `/docs`.
+
+`JWT_SECRET` é obrigatório em todos os ambientes de execução e deve conter pelo menos 32 bytes UTF-8. Não há valor padrão ou fallback. O arquivo `.env.example` deixa o campo vazio de propósito; configure um segredo aleatório local antes de iniciar backend ou Compose. JWT não possui endpoint de logout ou revogação: remover o token do cliente encerra a sessão local, mas um token copiado continua utilizável até expirar, salvo remoção do responsável.
+
+O seed é explícito e exclusivo para `NODE_ENV=development`. `DEV_GUARDIAN_EMAIL`, `DEV_GUARDIAN_NAME` e `DEV_GUARDIAN_PASSWORD` são obrigatórios, e a senha deve ter de 12 a 128 caracteres. O seed normaliza email, armazena hash Argon2id e falha se já houver responsável com o mesmo email; não altera usuário existente. Execute `npm run prisma:seed` após configurar essas variáveis e o MySQL. O script gera o client e compila antes de chamar `prisma db seed`.
+
+Validação deste bloco em 10/10/2026: Prisma validate/generate, lint, typecheck, build, quatro testes unitários e quatro HTTP passaram. Migration, seed e teste de autenticação/persistência passaram em MySQL 8.4 isolado. O seed recusou execução em produção. Schemas de login/perfil, segurança Bearer e erro 503 foram conferidos no OpenAPI gerado.
 
 ## Persistência
 
-O schema não possui entidades nem migrations artificiais. `npm run prisma:migrate:dev -- --name <nome>` será usado quando existir mudança real de modelo; os arquivos deverão ser versionados. `npm run prisma:migrate:deploy` aplicará migrations aprovadas em outros ambientes. Não executar resets para contornar permissões. Requisitos acadêmicos e permissões para migrations estão em [Banco](database.md).
+O schema e a migration inicial do responsável estão versionados em `backend/prisma/`. `npm run prisma:migrate:deploy` aplica migrations pendentes em outros ambientes; `npm run prisma:migrate:dev -- --name <nome>` exige banco shadow em desenvolvimento. Não executar resets para contornar permissões. Requisitos acadêmicos e permissões para migrations estão em [Banco](database.md).
 
 ## Responsabilidades esperadas
 
-Disponibilizar API ao mobile, acessar MySQL, autenticar responsáveis/dispositivos, validar autorização dos vínculos e intermediar consultas/comandos ao Lux. A aplicação das restrições pertence ao GNOME; sucesso de transporte não deve ser confundido com aplicação confirmada no computador.
+Disponibilizar API ao mobile, acessar MySQL, validar autorização dos vínculos e intermediar consultas/comandos ao Lux. Autorização por dispositivo, gerenciamento de agentes e pareamento ainda não foram implementados. A aplicação das restrições pertence ao GNOME; sucesso de transporte não deve ser confundido com aplicação confirmada no computador.
 
 ## Contrato de listagem provisório no mobile
 
@@ -102,7 +120,7 @@ Quando houver implementação HTTP, acordar endpoint, método, payload, autoriza
 
 ## Próximas responsabilidades e decisões pendentes
 
-As próximas etapas implementarão autenticação real, hashing seguro de senhas, autorização por recurso/dispositivo, gerenciamento de computadores, identidade de agentes, pareamento temporário de uso único, revogação e coordenação de comandos suportados. Sessões/tokens, hospedagem, contratos HTTP, erros e comportamento offline ainda serão definidos. O backend não aplica restrições Linux nem envia comandos arbitrários para execução.
+As próximas etapas tratarão autorização por recurso/dispositivo, gerenciamento de computadores, identidade de agentes, pareamento temporário de uso único, revogação e coordenação de comandos suportados. O contrato de login e restauração acima está implementado; ainda não há integração mobile nem comportamento offline acordado. O backend não aplica restrições Linux nem envia comandos arbitrários para execução.
 
 Referências: [Nest CLI](https://docs.nestjs.com/cli/overview), [comandos da CLI](https://docs.nestjs.com/cli/usages), [Swagger](https://docs.nestjs.com/openapi/introduction) e [Prisma 7/MySQL](https://www.prisma.io/docs/v7/prisma-orm/quickstart/mysql).
 

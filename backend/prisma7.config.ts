@@ -3,6 +3,6 @@ import { getMysqlConnection, getMysqlUrl } from './src/config/mysql-connection.j
 
 export default defineConfig({
   schema: 'prisma/schema.prisma',
-  migrations: { path: 'prisma/migrations' },
+  migrations: { path: 'prisma/migrations', seed: 'node dist/prisma/seed.js' },
   datasource: { url: getMysqlUrl(getMysqlConnection()) },
 });
