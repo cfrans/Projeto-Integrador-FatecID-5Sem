@@ -7,6 +7,15 @@ WORKDIR /app
 COPY package.json package-lock.json ./
 RUN npm ci
 
+FROM dependencies AS development
+ENV NODE_ENV=development
+WORKDIR /app
+COPY --chown=node:node . .
+RUN mkdir -p generated dist && chown node:node /app /app/generated /app/dist
+USER node
+EXPOSE 3000
+CMD ["sh", "-c", "npm run prisma:generate && npm run prisma:migrate:deploy && npm run start:dev -- --no-shell"]
+
 FROM base AS build
 WORKDIR /app
 COPY --from=dependencies /app/node_modules ./node_modules

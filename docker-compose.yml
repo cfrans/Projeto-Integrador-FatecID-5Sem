@@ -2,8 +2,9 @@ services:
   backend:
     build:
       context: ./backend
+      target: development
     environment:
-      NODE_ENV: production
+      NODE_ENV: development
       PORT: 3000
       JWT_SECRET: ${JWT_SECRET:?Set JWT_SECRET in .env (at least 32 bytes)}
       MYSQL_HOST: mysql
@@ -12,8 +13,20 @@ services:
       MYSQL_DATABASE: ${MYSQL_DATABASE:?Set MYSQL_DATABASE in .env}
       MYSQL_USER: ${MYSQL_USER:?Set MYSQL_USER in .env}
       MYSQL_PASSWORD: ${MYSQL_PASSWORD:?Set MYSQL_PASSWORD in .env}
+      DEV_GUARDIAN_EMAIL: ${DEV_GUARDIAN_EMAIL:-}
+      DEV_GUARDIAN_NAME: ${DEV_GUARDIAN_NAME:-}
+      DEV_GUARDIAN_PASSWORD: ${DEV_GUARDIAN_PASSWORD:-}
     ports:
-      - "127.0.0.1:${PORT:-3000}:3000"
+      - "${PORT:-3000}:3000"
+    init: true
+    restart: on-failure
+    volumes:
+      - ./backend/src:/app/src
+      - ./backend/prisma:/app/prisma
+      - ./backend/prisma7.config.ts:/app/prisma7.config.ts
+      - ./backend/tsconfig.json:/app/tsconfig.json
+      - ./backend/tsconfig.build.json:/app/tsconfig.build.json
+      - ./backend/nest-cli.json:/app/nest-cli.json
     depends_on:
       mysql:
         condition: service_healthy
