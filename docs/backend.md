@@ -1,14 +1,8 @@
 # Backend
 
-Fundação REST em NestJS 12.1.2, TypeScript e Node.js 24 LTS (24.15 ou superior na linha 24). Prisma 7.10.0 utiliza MySQL 8.4 por meio de `@prisma/adapter-mariadb`, que também suporta MySQL. Prisma 8 ainda era uma versão candidata durante esta implementação; a linha estável foi fixada no lockfile. Swagger 12.0.2 é compatível com NestJS 12.
+Fundação REST em NestJS 12.1.2, TypeScript e Node.js 24 LTS (24.15 ou superior na linha 24). Prisma 7.10.0 utiliza MySQL 8.4 por meio de `@prisma/adapter-mariadb`, que também suporta MySQL. As versões são fixadas no lockfile. Swagger 12.0.2 é compatível com NestJS 12.
 
 ## Estrutura e convenções
-
-O projeto foi gerado pela CLI oficial NestJS 12.0.8 em modo standard, num diretório temporário, sem Git interno. A sintaxe foi conferida com `new --help` antes da geração:
-
-```bash
-npx @nestjs/cli@12.0.8 new backend --package-manager npm --skip-git
-```
 
 ```text
 backend/
@@ -43,19 +37,29 @@ Na raiz, copie `.env.example` para `.env`, preencha senhas locais distintas para
 ```bash
 cp .env.example .env
 docker compose config --quiet
-docker compose up -d --build
+docker compose up -d
 docker compose ps
 curl --fail http://localhost:3000/health
 ```
 
-O Compose preserva MySQL e `mysql_data`. O backend recebe somente as credenciais da aplicação, usa `mysql:3306` na rede interna e aguarda o healthcheck MySQL. O healthcheck backend consulta `/health`. `MYSQL_PORT` controla a porta MySQL no host e `PORT` a porta HTTP no host; o backend no container escuta em 3000. Ambas são publicadas em `127.0.0.1`.
+O Compose preserva MySQL e `mysql_data`. O backend recebe as credenciais da aplicação e as variáveis opcionais de seed, usa `mysql:3306` na rede interna e aguarda o healthcheck MySQL. O healthcheck backend consulta `/health`. `MYSQL_PORT` controla a porta MySQL no host, publicada em `127.0.0.1`; `PORT` controla a porta HTTP no host, publicada em todas as interfaces para acesso LAN pelo celular. O backend escuta em `0.0.0.0:3000` no container. Use essa exposição apenas numa rede de desenvolvimento confiável, com firewall adequado.
 
-O Dockerfile usa a imagem oficial Node 24 LTS sobre Debian Trixie slim, com OpenSSL requerido pelo Prisma, em estágios de dependências, geração/build e execução. Utiliza `npm ci`, dependências de produção e usuário `node`. Não executa migrations automaticamente nesta etapa. Expo permanece fora do Docker.
+O Dockerfile mantém os estágios de build/produção e acrescenta `development`, selecionado pelo Compose. Esse estágio usa Node 24 LTS sobre Debian Trixie slim, OpenSSL, `npm ci`, dependências de desenvolvimento e usuário `node`. Ao iniciar, gera Prisma Client, aplica migrations versionadas com `migrate deploy` e executa `start:dev -- --no-shell`. A flag evita processos Node órfãos durante o watch na imagem slim, que não contém `ps`. O backend reinicia em caso de falha, inclusive quando o MySQL ainda está voltando de um reinício conjunto. Expo permanece fora do Docker.
 
-Antes do primeiro login, aplique as migrations pelo host conforme os comandos abaixo. A imagem de execução não contém o schema/config da CLI Prisma; migrations e seed são operações explícitas de desenvolvimento.
+Os mounts compartilham `src`, `prisma` e as configurações de compilação/Prisma; `node_modules`, `generated` e `dist` pertencem ao container. Alterações TypeScript têm hot reload sem rebuild. Após mudar dependências ou o Dockerfile, use `docker compose up -d --build`. Após mudar o schema, reinicie o backend para gerar o client; após adicionar migrations já revisadas, o reinício aplica as pendências.
+
+Seeds continuam explícitos. Preencha `DEV_GUARDIAN_*` na raiz e execute, uma vez para criar a conta e opcionalmente para as fixtures:
 
 ```bash
-docker compose logs backend
+docker compose run --rm backend npm run prisma:seed
+docker compose run --rm backend npm run prisma:seed:devices
+```
+
+Use `run --rm` para esses scripts: eles geram/compilam o projeto num container separado. Executar seed ou build com `exec` no backend em watch pode apagar seu `dist` e interferir no servidor. O seed de conta não atualiza um responsável existente; o de dispositivos pode ser repetido sem duplicar as fixtures.
+
+```bash
+docker compose logs -f backend
+docker compose restart backend
 docker compose down
 ```
 
@@ -63,20 +67,23 @@ docker compose down
 
 ## Desenvolvimento no host
 
-Use Node 24.15+ e npm. Com `.env` configurado na raiz:
+Use Node 24.15+ na linha 24 e npm, com MySQL 8.4 instalado ou um servidor de desenvolvimento acessível. Prepare banco/usuário conforme [Banco](database.md), configure `.env` na raiz e execute em `backend/`:
 
 ```bash
-docker compose up -d mysql
 cd backend
-npm ci
+npm install
 npm run prisma:generate
 npm run prisma:migrate:deploy
 npm run start:dev
 ```
 
-`MYSQL_HOST=127.0.0.1` e `MYSQL_PORT=3306` apontam para o MySQL publicado. A configuração carrega `.env` da raiz e, complementarmente, `backend/.env`, preservando variáveis já injetadas. Usuário, senha e nome do banco são codificados ao compor a URL Prisma; não é necessário duplicar credenciais numa `DATABASE_URL` manual.
+Nenhum comando Docker é necessário nesse fluxo. `MYSQL_HOST` e `MYSQL_PORT` apontam para o servidor alcançável pelo host (`127.0.0.1:3306` por padrão); o Compose substitui apenas esses valores por `mysql:3306` dentro do backend. A configuração carrega `.env` da raiz, preservando variáveis já injetadas, e mantém o fallback legado de `backend/.env`. Não crie esse segundo arquivo para duplicar a configuração. Usuário, senha e nome do banco são codificados ao compor a URL Prisma; não é necessário manter uma `DATABASE_URL` adicional. `MYSQL_ROOT_PASSWORD` só é usado na inicialização do MySQL Docker e não é necessário para iniciar NestJS/Prisma no host.
+
+Na primeira instalação, gere o client e aplique migrations conforme acima. Para criar o responsável e fixtures, configure também `NODE_ENV=development` e `DEV_GUARDIAN_*` na raiz e execute `npm run prisma:seed` e `npm run prisma:seed:devices` antes de iniciar o watch. No uso diário, basta `npm run start:dev`. Para instalação reproduzível pelo lockfile, use `npm ci`.
 
 MySQL 8.4 usa autenticação `caching_sha2_password`. O exemplo local habilita `MYSQL_ALLOW_PUBLIC_KEY_RETRIEVAL=true` para obter a chave RSA do servidor e autenticar na rede Docker/localhost sem trocar o mecanismo nativo. Fora desse ambiente isolado, mantenha a opção desabilitada e configure TLS com validação de certificado ou uma chave confiável antes de conectar a um banco remoto; transporte remoto ainda não está configurado. A opção permanece desabilitada quando não declarada. Veja as [opções oficiais do driver](https://mariadb.com/docs/connectors/mariadb-connector-nodejs/node-js-connection-options).
+
+### Verificações
 
 ```bash
 npm run prisma:validate
@@ -87,9 +94,18 @@ npm test
 npm run test:e2e
 ```
 
-Os testes Vitest substituem Prisma por mock. Para executar o build: `npm run start:prod`.
+Os testes Vitest substituem Prisma por mock. Para executar o build: `npm run start:prod`. Para conferir conexão real, inicie a API e abra `http://localhost:3000/health`; HTTP 200 com `database: "ok"` comprova a consulta MySQL. `npx prisma migrate status` em `backend/` verifica o histórico de migrations usando a mesma conexão.
 
-O teste `npm run test:mysql` usa a API compilada e MySQL real. Exige `NODE_ENV=test`, banco dedicado com nome terminado em `_test`, variáveis MySQL e `JWT_SECRET`, migrations aplicadas e build atual. Os testes criam responsáveis e dispositivos aleatórios e removem somente as fixtures criadas por cada teste. Um arquivo de ambiente privado de teste pode ser carregado com `NODE_ENV=test node --env-file=/caminho/privado.env --test test/*.mysql-test.mjs`; não use o banco da aplicação.
+O teste `npm run test:mysql` usa a API compilada e MySQL real. Exige `NODE_ENV=test`, banco dedicado com nome terminado em `_test`, variáveis MySQL e `JWT_SECRET`, migrations aplicadas e build atual. Os testes criam responsáveis e dispositivos aleatórios e removem somente as fixtures criadas por cada teste. Para carregar uma configuração privada de teste sem depender da sintaxe de variáveis do shell, crie um arquivo fora do Git contendo essas variáveis e execute em `backend/`:
+
+```bash
+node --env-file=/caminho/privado.env node_modules/prisma/build/index.js migrate deploy
+npm run prisma:generate
+npm run build
+node --env-file=/caminho/privado.env --test test/*.mysql-test.mjs
+```
+
+O arquivo deve definir todas as variáveis da conexão e `NODE_ENV=test`, que têm precedência sobre `.env` da raiz. Não aponte esses testes para o banco da aplicação. Não é necessário Docker.
 
 ## Autenticação implementada
 
@@ -99,17 +115,13 @@ Sucesso retorna `{ "accessToken", "expiresIn": 1800, "guardian": { "id", "name",
 
 `JWT_SECRET` é obrigatório em todos os ambientes de execução e deve conter pelo menos 32 bytes UTF-8. Não há valor padrão ou fallback. O arquivo `.env.example` deixa o campo vazio de propósito; configure um segredo aleatório local antes de iniciar backend ou Compose. JWT não possui endpoint de logout ou revogação: remover o token do cliente encerra a sessão local, mas um token copiado continua utilizável até expirar, salvo remoção do responsável.
 
-O seed de responsável é explícito e exclusivo para `NODE_ENV=development`. `DEV_GUARDIAN_EMAIL`, `DEV_GUARDIAN_NAME` e `DEV_GUARDIAN_PASSWORD` são obrigatórios, e a senha deve ter de 12 a 128 caracteres. O seed normaliza email, armazena hash Argon2id e falha se já houver responsável com o mesmo email; não altera usuário existente. Após configurar essas variáveis e o MySQL, aplique migrations e execute `NODE_ENV=development npm run prisma:seed`. O script gera o client e compila antes de chamar `prisma db seed`.
-
-Validação deste bloco em 10/10/2026: Prisma validate/generate, lint, typecheck, build, quatro testes unitários e quatro HTTP passaram. Migration, seed e teste de autenticação/persistência passaram em MySQL 8.4 isolado. O seed recusou execução em produção. Schemas de login/perfil, segurança Bearer e erro 503 foram conferidos no OpenAPI gerado.
+O seed de responsável é explícito e exclusivo para `NODE_ENV=development`. `DEV_GUARDIAN_EMAIL`, `DEV_GUARDIAN_NAME` e `DEV_GUARDIAN_PASSWORD` são obrigatórios, e a senha deve ter de 12 a 128 caracteres. O seed normaliza email, armazena hash Argon2id e falha se já houver responsável com o mesmo email; não altera usuário existente. Após configurar essas variáveis e `NODE_ENV=development` na `.env` da raiz, aplique migrations e execute `npm run prisma:seed` antes do servidor em watch. O script gera o client e compila antes de chamar `prisma db seed`.
 
 ## Listagem de dispositivos implementada
 
 `GET /devices` exige Bearer JWT e consulta somente registros cujo `guardianId` é o id do responsável validado pelo guard. A ordenação por nome e UUID é determinística e não há parâmetro de responsável no endpoint. A resposta é uma lista `{ id, name, managedUser, status: "unverified", lastSeen: null, isDemo }`; erro operacional no MySQL retorna HTTP 503. O backend não persiste presença nem horário de atividade. `unverified` e `lastSeen: null` evitam afirmar conexão com o computador antes de implementar e validar um agente.
 
-`Device.guardianId` registra o escopo de propriedade/acesso da API. Esse vínculo de banco não comprova pareamento, identidade do Lux ou conexão real. Todos os registros criados pelo seed de desenvolvimento são demonstrativos (`isDemo: true`) e usam nomes/contas fictícios. O seed é separado: após aplicar migrations e já existir um responsável, configure `DEV_GUARDIAN_EMAIL` com o email dele e execute `NODE_ENV=development npm run prisma:seed:devices`. Ele não cria responsáveis nem altera dados existentes e pode ser repetido.
-
-Validação do conjunto em 10/10/2026: Prisma validate/generate, lint, typecheck, build, seis testes unitários e cinco HTTP passaram. As duas migrations e os dois testes HTTP/persistência passaram em MySQL 8.4 real isolado, incluindo lista vazia e isolamento entre responsáveis. Os seeds recusaram produção; repetir o seed demonstrativo manteve duas fixtures. O cliente HTTP do mobile consumiu login, perfil e lista reais; `/health` e o contrato Bearer/erros da listagem em `/docs-json` foram conferidos. O rebuild Docker desta etapa foi interrompido por falha de DNS (`EAI_AGAIN`) ao baixar dependências do npm; a API compilada foi validada no host com o MySQL em Docker.
+`Device.guardianId` registra o escopo de propriedade/acesso da API. Esse vínculo de banco não comprova pareamento, identidade do Lux ou conexão real. Todos os registros criados pelo seed de desenvolvimento são demonstrativos (`isDemo: true`) e usam nomes/contas fictícios. O seed é separado: após aplicar migrations e já existir um responsável, configure `DEV_GUARDIAN_EMAIL` com o email dele e `NODE_ENV=development` na `.env`, e execute `npm run prisma:seed:devices` antes do servidor em watch. Ele não cria responsáveis nem altera dados existentes e pode ser repetido.
 
 ## Persistência
 
@@ -133,12 +145,4 @@ Referências: [Nest CLI](https://docs.nestjs.com/cli/overview), [comandos da CLI
 
 ## Limitações e dependências
 
-O ambiente de implementação tem Node 24.14.0 e emite aviso de engine das ferramentas de scaffold; os checks locais passaram, mas use Node 24.15+ para respeitar os requisitos declarados. O plugin `vite-tsconfig-paths` padrão da CLI emite aviso de que a resolução nativa do Vite pode substituí-lo; não impede os testes.
-
-O adapter Prisma fixa originalmente MariaDB 3.4.5. Um override restrito ao adapter utiliza MariaDB 3.5.4 para corrigir vulnerabilidades do driver, conforme o [changelog do mantenedor](https://github.com/mariadb-corporation/mariadb-connector-nodejs/releases/tag/3.5.4). Na auditoria desta fundação, `npm audit --omit=dev` ainda reporta quatro entradas altas ligadas a Prisma/config, `deepmerge-ts` e `mysql2`; a instalação completa reportou nove (duas baixas, uma moderada e seis altas). A CLI Prisma entra na árvore de produção por peer dependency do client, apesar de estar declarada em devDependencies. Os alertas seguem pendentes de atualização compatível; não aplicar downgrade major nem `npm audit fix --force` automaticamente. Checks funcionais não substituem auditoria de segurança.
-
-## Verificação da fundação
-
-Em 10/10/2026 passaram lint/typecheck do mobile, lint/typecheck/build do backend, dois testes unitários, um teste HTTP e validação/geração Prisma sem modelos. O Compose final passou `config --quiet` e `up -d --build --wait` em ambiente isolado: MySQL e backend saudáveis, `/health`, `/docs` e `/docs-json` com HTTP 200, Node 24.21.0 no container com UID 1000. Nenhuma migration foi aplicada. O ambiente de teste foi parado preservando os volumes.
-
-A primeira imagem Bookworm encontrou uma camada ausente no cache local do Docker Desktop, inclusive ao tentar criar o container. A base final Trixie, com OpenSSL, foi construída e executada pelo Compose padrão sem apagar caches ou dados existentes. A ISO Lux segue indisponível e não houve validação GNOME.
+O override de MariaDB 3.5.4 fica restrito ao adapter Prisma para corrigir vulnerabilidades do driver, conforme o [changelog do mantenedor](https://github.com/mariadb-corporation/mariadb-connector-nodejs/releases/tag/3.5.4). A CLI Prisma entra na árvore de produção por peer dependency do client, apesar de estar declarada em devDependencies. Confira dependências com `npm audit`; atualizações precisam preservar a compatibilidade entre Prisma, Node e NestJS.

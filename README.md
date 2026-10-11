@@ -1,18 +1,101 @@
 # piplup
 
-Projeto Integrador acadêmico: interface mobile para consultar e alterar remotamente o controle parental existente no GNOME dos computadores Lenovo Lux.
+Projeto Integrador: aplicativo Expo para controle parental em computadores Lenovo Lux, com API NestJS, Prisma e MySQL. Login, perfil e listagem usam a API real; pareamento continua demonstrativo e a integração Lux/GNOME é futura.
 
-## Estado atual
+## 1. Pré-requisitos e clone
 
-O piplup usa Expo SDK 57, React Native, TypeScript e Expo Router. Quatro telas demonstrativas compõem o fluxo atual: login, início, computadores e pareamento simulado. No login, qualquer e-mail com formato válido e senha não vazia segue para início; use dados fictícios, pois não há autenticação e as credenciais não são verificadas nem enviadas.
+- Git, Node.js **24.15+ na linha 24**, npm e Expo Go compatível com **SDK 57** no celular.
+- **Com Docker:** Docker Desktop no Windows/macOS ou Engine com Compose v2 no Linux.
+- **Sem Docker:** MySQL **8.4** local ou servidor de desenvolvimento acessível.
 
-Em `/home`, a lista vem de um mock com três computadores de exemplo. `/computers` mostra a lista e também permite abrir `/qr-scan`. Essa tela não ativa a câmera nem lê QR Code: o botão adiciona um quarto computador fictício, de forma idempotente e somente em memória até o processo do app reiniciar. A confirmação aparece na própria tela e leva a `/computers`; ao voltar para `/home`, a lista é atualizada. As outras oito rotas e os layouts existentes permanecem como placeholders, fora do fluxo implementado.
+Confira `git --version`, `node --version` e `npm --version`. Para Docker, também `docker --version` e `docker compose version`; para cliente MySQL local, `mysql --version`.
 
-Não há autenticação real, API/backend conectado ao mobile nem integração Linux. A fundação backend utiliza NestJS, Prisma e MySQL em Docker, com saúde e OpenAPI; o app permanece com mocks e não acessa o banco.
+```bash
+git clone https://github.com/cfrans/Projeto-Integrador-FatecID-5Sem.git
+cd Projeto-Integrador-FatecID-5Sem
+```
 
-## Executar o mobile
+## 2. Configuração inicial
 
-Requer Node.js 22.13 ou superior e npm. O repositório utiliza `package-lock.json`.
+Na raiz, copie o exemplo (no PowerShell: `Copy-Item .env.example .env`):
+
+```bash
+cp .env.example .env
+```
+
+Edite `.env`:
+
+- Preencha `MYSQL_PASSWORD`, `JWT_SECRET` e, com Docker, `MYSQL_ROOT_PASSWORD` com uma senha diferente. Para gerar o JWT_SECRET: `node -e "console.log(require('node:crypto').randomBytes(32).toString('hex'))"`.
+- Mantenha `NODE_ENV=development`. Defina `DEV_GUARDIAN_EMAIL`, `DEV_GUARDIAN_NAME` e `DEV_GUARDIAN_PASSWORD` (12–128 caracteres) para criar sua conta de teste.
+- Os valores padrão usam banco `piplup`, usuário `piplup_app`, MySQL `127.0.0.1:3306` e API `3000`. Ajuste os dados MySQL se usar outro servidor; para conexão remota, consulte [configuração de transporte](docs/backend.md#desenvolvimento-no-host).
+
+As credenciais são individuais e privadas: nunca versione `.env`. NestJS e Prisma carregam esse arquivo mesmo executados em `backend/`; não crie outra cópia nem uma `DATABASE_URL`. O mobile recebe somente a configuração pública da API, explicada no passo 4.
+
+## 3A. Preparar com Docker
+
+Abra Docker Desktop e aguarde o Engine iniciar, se usar Desktop. Na raiz:
+
+```bash
+docker compose up -d
+docker compose ps
+```
+
+A primeira execução constrói a imagem. O backend espera MySQL, gera Prisma Client, aplica migrations e inicia NestJS com hot reload. Aguarde os serviços saudáveis e teste `http://localhost:3000/health`. Swagger: `http://localhost:3000/docs` (ajuste se mudou `PORT`).
+
+Para um banco novo, crie a conta de login:
+
+```bash
+docker compose run --rm backend npm run prisma:seed
+```
+
+Opcionalmente, crie dispositivos demonstrativos com `docker compose run --rm backend npm run prisma:seed:devices`. Não repita o seed de conta se ela já existir. Seeds ficam em containers separados para preservar o servidor em watch.
+
+Logs: `docker compose logs -f backend`; reiniciar API: `docker compose restart backend`; desligar: `docker compose down`, que preserva os dados. Mudanças TypeScript têm hot reload; dependências/Dockerfile exigem `docker compose up -d --build`. [Detalhes do Docker](docs/backend.md#executar-com-docker).
+
+## 3B. Preparar sem Docker
+
+Instale/inicie MySQL 8.4 ou use um servidor provisionado. Para criar banco e conta locais, entre com `mysql -u root -p` e execute uma vez, substituindo a senha:
+
+```sql
+CREATE DATABASE piplup CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci;
+CREATE USER 'piplup_app'@'localhost' IDENTIFIED BY '<senha_local>';
+GRANT ALL PRIVILEGES ON piplup.* TO 'piplup_app'@'localhost';
+```
+
+Use esses dados na `.env`: `MYSQL_HOST=127.0.0.1`, `MYSQL_PORT=3306`, `MYSQL_DATABASE=piplup`, `MYSQL_USER=piplup_app` e a senha escolhida. `MYSQL_ROOT_PASSWORD` pode ficar vazio; a API não usa root. Para banco existente/remoto e permissões de origem, veja [MySQL sem Docker](docs/database.md#sem-docker).
+
+A partir da raiz:
+
+```bash
+cd backend
+npm install
+npm run prisma:generate
+npm run prisma:migrate:deploy
+```
+
+Em banco novo, antes do servidor, execute `npm run prisma:seed` para criar sua conta. Para dispositivos demonstrativos, use também `npm run prisma:seed:devices`. Se a conta já existir, não repita seu seed. Depois:
+
+```bash
+npm run start:dev
+```
+
+Confira `http://localhost:3000/health` e Swagger em `/docs`. Nenhum comando Docker é necessário. Para instalação reproduzível, use `npm ci` no lugar de `npm install`.
+
+### Migrations
+
+`npm run prisma:migrate:deploy` aplica migrations existentes; o Docker faz isso ao iniciar. Após receber novas migrations/schema, no host aplique as migrations e execute `npm run prisma:generate` antes do watch.
+
+Para criar uma migration, prepare as [permissões shadow](docs/database.md#prisma-e-sql) num banco exclusivo de desenvolvimento e, em `backend/`, execute:
+
+```bash
+npm run prisma:migrate:dev -- --name <nome> --create-only
+```
+
+Revise o SQL, aplique com `npm run prisma:migrate:deploy` e gere o client. Não use `db push` ou reset para contornar erros. Mudar credenciais na `.env` não altera contas de um volume MySQL existente. [Banco e migrations](docs/database.md).
+
+## 4. Abrir no celular
+
+Com a API iniciada, abra outro terminal na raiz:
 
 ```bash
 cd mobile
@@ -20,70 +103,37 @@ npm install
 npx expo start
 ```
 
-Use o QR Code do Expo Go em um dispositivo compatível ou as opções do terminal para emulador Android/iOS. iOS local requer macOS. Se a rede impedir a conexão, inicie com `npx expo start --tunnel`. O QR do Expo é apenas para desenvolvimento, não pareamento de um Lux. O app ainda não usa `expo-dev-client`.
+Leia o QR no Expo Go (Android) ou com a câmera (iPhone). Faça login com a conta criada pelo seed. O QR abre o app; não faz pareamento com o Lux.
 
-Em CI, use `npm ci` para instalar a partir do `package-lock.json`.
+O computador pode usar cabo e o celular Wi-Fi, desde que a rede permita comunicação. Descubra o IPv4 do adaptador ativo: `ipconfig` no Windows, `ip -4 addr` no Linux ou `ipconfig getifaddr en0` no macOS. Teste **no navegador do celular** `http://<IP-do-PC>:3000/health`; deve retornar `{ "status": "ok", "database": "ok" }`. `localhost` no celular aponta para o próprio aparelho.
 
-```bash
-npm run lint
-npm run typecheck
-npx expo install --check
-npx expo-doctor
+Em desenvolvimento LAN, o mobile tenta usar o IPv4 privado informado pelo Expo, com API na porta `3000`. Para WSL, outra porta/servidor ou falha dessa descoberta, copie `mobile/.env.example` para `mobile/.env.local` e preencha:
+
+```env
+EXPO_PUBLIC_API_URL=http://<IP-do-PC>:<PORT>
 ```
 
-Para validar o empacotamento sem emulador: `npx expo export --platform android --platform ios`. O script web foi preservado, mas as dependências opcionais `react-dom` e `react-native-web` ainda não estão instaladas; o foco desta entrega é mobile.
+Substitua IP/porta e reinicie o Expo. Não coloque segredos nesse arquivo.
 
-## Builds com EAS
+**WSL2:** com Docker Desktop, habilite Settings → Resources → WSL Integration e use o IP LAN do Windows. Evite manter outro Docker Engine ativo no Ubuntu. Firewall, perfil Public e isolamento do Wi-Fi podem bloquear a API; use Private somente em redes confiáveis. NestJS direto no WSL/NAT pode exigir encaminhamento. [Guia WSL e firewall](docs/mobile.md#wsl2-e-firewall).
 
-Os identificadores nativos em `mobile/app.json` são `br.edu.fatecid.piplup` para Android e iOS. Para vincular o projeto ao EAS e gerar a configuração inicial, use o CLI:
+Se o QR não conectar, tente `npx expo start --tunnel`. **O túnel expõe o Metro, não a API.** Redes sem comunicação direta exigem uma conexão privada entre os aparelhos ou um servidor de desenvolvimento protegido/HTTPS. [Conectividade e teste manual](docs/mobile.md#validação-manual-no-celular).
 
-```bash
-cd mobile
-npx eas-cli@latest login
-npx eas-cli@latest build:configure
-```
+## Uso diário
 
-Os perfis em `mobile/eas.json` permitem builds remotos após essa configuração. O perfil `development` gera APK Android debug para distribuição interna; ele não inclui `expo-dev-client`, então o fluxo de desenvolvimento em dispositivo permanece no Expo Go. Um cliente nativo de desenvolvimento poderá ser configurado quando houver necessidade, seguindo a [documentação de development builds](https://docs.expo.dev/develop/development-builds/introduction/). Este perfil não estabelece um fluxo debug funcional para iOS.
+| Terminal | Com Docker | Sem Docker |
+| --- | --- | --- |
+| Backend | Na raiz: `docker compose up -d` | Em `backend/`: `npm run start:dev`, com MySQL disponível |
+| App | Em `mobile/`: `npx expo start` | Em `mobile/`: `npx expo start` |
 
-```bash
-npx eas-cli@latest build --platform android --profile development
-npx eas-cli@latest build --platform android --profile preview
-npx eas-cli@latest build --platform android --profile production
-```
+## Problemas e referências
 
-`preview` gera APK Android interno para instalação direta. `production` gera Android App Bundle (AAB), formato destinado à publicação na Play Store. Build de produção iOS requer credenciais Apple. Esses comandos são instruções para uso futuro; nenhum build remoto foi iniciado nesta configuração.
+| Problema | Onde conferir |
+| --- | --- |
+| Porta ocupada / containers falhando | Confira `PORT` e `.env`. Com Docker: `docker compose config --quiet`, `docker compose ps -a` e `docker compose logs --tail 100 backend mysql`. [Backend](docs/backend.md#executar-com-docker). |
+| MySQL indisponível / credenciais recusadas | Confira serviço, host, porta e conta; `npx prisma migrate status` em `backend/`. Não remova volumes para corrigir credenciais. [Banco](docs/database.md). |
+| Prisma Client desatualizado / migrations pendentes | Pare o watch, gere o client e aplique migrations; no Docker, reinicie o backend. [Migrations](docs/database.md#prisma-e-sql). |
+| API funciona no PC, mas não no celular | Teste a URL mostrada no erro do app; confira IP, firewall e isolamento. [WSL e firewall](docs/mobile.md#wsl2-e-firewall). |
+| Expo Go não abre / login falha | Confira SDK 57, conexão ao Metro, URL da API e conta criada. [Mobile](docs/mobile.md#autenticação-e-api). |
 
-Referências: [configuração do EAS](https://docs.expo.dev/build/eas-json/) e [builds APK para Android](https://docs.expo.dev/build-reference/apk/).
-
-## Backend e MySQL locais
-
-O mobile não usa esse banco. Para preparar a infraestrutura, siga [Backend](docs/backend.md) e [Banco de dados](docs/database.md). Na raiz, copie o arquivo de exemplo e preencha `MYSQL_PASSWORD` e `MYSQL_ROOT_PASSWORD` com senhas locais distintas em `.env`:
-
-```bash
-cp .env.example .env
-```
-
-Depois, inicie e confira o serviço:
-
-```bash
-docker compose config --quiet
-docker compose up -d --build
-docker compose ps
-```
-
-Backend: `http://localhost:3000`, saúde: `/health`, Swagger: `/docs` e OpenAPI: `/docs-json`. As portas são locais; HTTPS deverá ser configurado no ambiente de hospedagem futuro. Para parar os serviços, execute `docker compose down`; os dados do volume são preservados.
-
-## Organização
-
-```text
-AGENTS.md
-docs/              produto, arquitetura, convenções e design
-prototypes/        PDF e HTML agrupado, referências visuais
-mobile/            aplicação Expo e dependências próprias
-backend/           NestJS, Prisma, testes e Dockerfile
-lux-agent/README.md planejamento Python 3/systemd; sem implementação
-```
-
-O mobile se comunicará com a API por REST/HTTPS. O Lux Agent iniciará polling REST/HTTPS ao backend e integrará localmente o GNOME. MySQL pertence ao backend. Hoje, Home e computadores leem o mock em `mobile/src/mocks/devices.ts` via o contrato interno de listagem. O login e o pareamento não usam API: a demonstração de pareamento é uma operação local separada do contrato de listagem.
-
-Consulte [o índice da documentação](docs/README.md) para decisões, pendências e próximos passos. Referência de compatibilidade: [Expo SDK 57](https://docs.expo.dev/versions/v57.0.0/).
+Testes: [backend](docs/backend.md#verificações), [mobile](docs/mobile.md#configuração-e-verificações) e [checklist no celular](docs/mobile.md#validação-manual-no-celular). Builds: [EAS](docs/mobile.md#builds-com-eas). Projeto: [índice](docs/README.md), [arquitetura](docs/architecture.md), [design](docs/design.md) e [Lux Agent](docs/lux-integration.md).

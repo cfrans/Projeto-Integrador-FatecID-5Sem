@@ -37,6 +37,65 @@ Esse valor é incorporado ao app e não pode conter segredos. Use HTTPS fora do 
 
 O modo automático pressupõe Metro e API no mesmo computador, API na porta `3000` e host do Expo alcançável pelo aparelho. No WSL2 com NAT, o host privado informado pelo Expo pode ser o IP interno da VM; ele não comprova acesso pela LAN. Configure a URL com o IP LAN do Windows e disponibilize a porta da API, ou use rede espelhada quando suportada. Se alterar `PORT`, usar outro servidor, emulador ou iniciar o Expo com `--tunnel`, configure `EXPO_PUBLIC_API_URL` explicitamente e reinicie o Expo/recarregue o app. O túnel do Expo expõe o Metro, não a API NestJS. Consulte [rede WSL](https://learn.microsoft.com/en-us/windows/wsl/networking) e [Expo CLI](https://docs.expo.dev/more/expo-cli/).
 
+## WSL2 e firewall
+
+Com **Docker Desktop no Windows**, abra o Desktop, aguarde o Engine iniciar e habilite a integração da distribuição em Settings → Resources → WSL Integration. Execute o Compose no WSL, teste `http://localhost:3000/health` no Windows e use o IPv4 do adaptador ativo (Ethernet ou Wi-Fi) mostrado por `ipconfig` para o celular. O Docker Desktop encaminha a porta publicada ao host Windows; não é necessário criar um portproxy por padrão. Se o Windows acessa a API, mas o celular não, confira o firewall e o isolamento de clientes do Wi-Fi. Veja [rede Docker Desktop](https://docs.docker.com/desktop/features/networking/).
+
+Evite manter simultaneamente Docker Desktop e um Docker Engine instalado diretamente no Ubuntu WSL. Eles podem manter containers distintos na mesma porta; excluir o repositório não remove containers nem suas políticas de reinício. Se optar pelo Desktop, confirme o Engine local com `pgrep -a dockerd` e `systemctl is-active docker.service docker.socket`. Parar/desabilitar essas unidades interrompe os containers desse Engine sem apagar dados; avalie os serviços existentes antes de fazê-lo. A CLI deve usar a integração Desktop. Veja [Docker Desktop/WSL](https://docs.docker.com/desktop/features/wsl/).
+
+Com **NestJS direto no WSL ou Docker Engine dentro da distribuição**, o NAT padrão do WSL2 precisa de encaminhamento para acesso LAN. Como alternativa, Windows 11 22H2 ou posterior oferece `networkingMode=mirrored`; siga a configuração e as regras Hyper-V na [documentação WSL](https://learn.microsoft.com/en-us/windows/wsl/networking). Não altere o modo de rede sem considerar os serviços que já utiliza.
+
+Para encaminhar somente a API no modo NAT, primeiro confirme que a porta Windows está livre. No PowerShell, descubra o IP do Wi-Fi com `ipconfig` e o IP da distribuição com `wsl hostname -I`. Use o IP da distribuição que executa o servidor; não copie um endereço Docker/VPN. No PowerShell **como administrador**, substitua os valores abaixo pelos IPs encontrados (e `3000` por `PORT`, se mudou):
+
+```powershell
+netsh interface portproxy add v4tov4 listenaddress=<IP_LAN_WINDOWS> listenport=3000 connectaddress=<IP_WSL> connectport=3000
+```
+
+Esse comando encaminha a porta no IP LAN do Windows ao backend WSL. Não o use sobre a porta já publicada pelo Docker Desktop. O endereço WSL pode mudar após reiniciar a distribuição; atualize o encaminhamento nesse caso. Confira as regras com `netsh interface portproxy show all`.
+
+Confira o perfil com `Get-NetConnectionProfile`. Regras explícitas `Block` para `com.docker.backend` no perfil ativo prevalecem sobre permissões de porta. Para consultar essas regras no PowerShell:
+
+```powershell
+Get-NetFirewallApplicationFilter -PolicyStore ActiveStore |
+  Where-Object { $_.Program -like '*com.docker.backend*' } |
+  Get-NetFirewallRule |
+  Format-List Name, Enabled, Direction, Action, Profile
+```
+
+Somente numa rede doméstica confiável, classifique a interface correta como privada, no PowerShell como administrador, substituindo o nome abaixo pelo mostrado em `Get-NetConnectionProfile`:
+
+```powershell
+Set-NetConnectionProfile -InterfaceAlias "<INTERFACE>" -NetworkCategory Private
+```
+
+Isso mantém o firewall ligado e passa a usar todas as regras do perfil Private, incluindo eventuais permissões de descoberta/compartilhamento e do Docker; não se limita à API. Não classifique redes desconhecidas como privadas. Uma regra específica não restringe outra permissão mais ampla já existente. Consulte [precedência de regras](https://learn.microsoft.com/en-us/windows/security/operating-system-security/network-security/windows-firewall/rules) e [perfil de conexão](https://learn.microsoft.com/en-us/powershell/module/netconnection/set-netconnectionprofile).
+
+Se faltar uma permissão de entrada numa rede **privada e confiável**, uma regra limitada à porta da API e à sub-rede local pode ser criada no PowerShell como administrador:
+
+```powershell
+New-NetFirewallRule -Name PiplupApiDev -DisplayName "Piplup API dev" -Direction Inbound -Action Allow -Protocol TCP -LocalPort 3000 -Profile Private -RemoteAddress LocalSubnet
+```
+
+A regra permite entrada na porta indicada; se já existe uma permissão aplicável ao Docker, ela pode ser desnecessária. Políticas corporativas, VPNs e firewall Hyper-V podem exigir ajustes pelo administrador. Não desative o firewall inteiro. Para remover somente essa configuração quando deixar de utilizá-la:
+
+```powershell
+netsh interface portproxy delete v4tov4 listenaddress=<IP_LAN_WINDOWS> listenport=3000
+Remove-NetFirewallRule -Name PiplupApiDev
+```
+
+Remova apenas as regras que você criou. Os comandos seguem as referências [portproxy](https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/netsh-interface) e [New-NetFirewallRule](https://learn.microsoft.com/en-us/powershell/module/netsecurity/new-netfirewallrule). Esses ajustes dependem da máquina e não são executados pelos scripts do projeto.
+
+Para o Metro, `npx expo start` usa LAN e normalmente a porta `8081`; essa porta também precisa ser alcançável ao usar LAN. Se o QR do Expo no WSL não conectar, `npx expo start --tunnel` é uma alternativa, com `EXPO_PUBLIC_API_URL` apontando explicitamente à API já acessível. Isso evita encaminhar Metro manualmente e não substitui o teste da porta da API.
+
+## Validação manual no celular
+
+1. Inicie o backend pelo modo escolhido; prepare a conta/fixtures conforme o [tutorial](../README.md).
+2. Com celular e computador na mesma rede, abra `http://<IP_LAN>:<PORT>/health` no navegador do aparelho. Espere `{ "status": "ok", "database": "ok" }`. No WSL, use o IP LAN do Windows e confira a exposição da porta acima.
+3. Inicie Expo em `mobile/`, abra o QR no Expo Go e faça login com a conta criada. Confira a lista de dispositivos demonstrativos (ou a lista vazia se não criou fixtures).
+4. Reabra o aplicativo e confira a restauração da sessão; a sessão expira após 30 minutos.
+5. Pare apenas o backend e tente atualizar a listagem: deve aparecer erro de conexão, sem substituir os dados por mock ou invalidar a sessão por falha de rede. Inicie a API novamente e tente atualizar.
+6. Confira se os erros de conexão mostram a URL da API sem expor senha, JWT ou outras credenciais.
+
 ## Dados e mock
 
 `devices.listPairedComputers()` consulta `GET /devices` com o bearer token da sessão e valida toda a resposta antes de exibi-la. O contrato atual traz `{ id, name, managedUser, status, lastSeen, isDemo }`: `id` é UUID, `managedUser` é `string` ou `null`, `status` é `unverified`, `lastSeen` é `null` e `isDemo` é booleano. A API ainda não valida a conexão do computador; por isso a interface mostra “Conexão não validada” e “Pareamento pendente”, sem afirmar que ele está online ou offline. Uma resposta inválida ou falha da API aparece como erro e não ativa fallback para mock. Erros `401` invalidam a sessão; indisponibilidade do serviço (`503`) mantém a mensagem da API. Home e lista recarregam ao recuperar foco e mostram carregamento, erro com nova tentativa ou lista vazia.
@@ -57,10 +116,20 @@ Entrada `expo-router/entry`, plugin `expo-router`, scheme `piplup` e alias `@/*`
 
 Executar `npm run lint`, `npm run typecheck` e `npm run test:api` em `mobile/`. Para validar os bundles nativos sem gerar projetos locais, usar `npx expo export --platform android --platform ios --output-dir /tmp/lux-mobile-export`. Não gerar/editar `ios/` e `android/` manualmente; configuração nativa pertence ao app config e plugins. Novos módulos nativos podem exigir development build.
 
-Na validação desta etapa passaram lint, typecheck, 11 testes do cliente/contrato e export Android/iOS. O cliente HTTP consumiu login, perfil e dispositivos de uma API compilada conectada ao MySQL real de teste. Interação da UI, armazenamento nativo e navegação em aparelho físico ainda precisam de validação; exportar bundles não comprova esses comportamentos no dispositivo.
+ESLint usa a série 9 por compatibilidade com o plugin React e `eslint-config-expo`; a atualização para a série 10 depende do suporte dos plugins. A configuração flat utiliza `eslint-config-expo`, sem regras adicionais arbitrárias.
 
-ESLint foi mantido na série 9: a série 10 falhou ao carregar `react/display-name` por uso de `getFilename` no plugin React. A versão 9 também emite aviso de fim de suporte; revisar a atualização quando a configuração/plugins Expo suportarem a série 10. A configuração flat utiliza `eslint-config-expo`, sem regras adicionais arbitrárias.
-
-O `.npmrc` preexistente com `legacy-peer-deps=true` foi preservado; não representa uma nova decisão de dependências. Na instalação/auditoria deste bootstrap, npm reportou 29 vulnerabilidades (10 moderadas, 19 altas), incluindo dependências transitivas das ferramentas Expo/React Native/ngrok. O relatório chegou a sugerir downgrades incompatíveis de Expo/React Native; não aplicar `npm audit fix --force` sem avaliar compatibilidade e cada advisory. A auditoria permanece pendente de resolução; lint/typecheck/doctor não atestam segurança das dependências.
+O `.npmrc` utiliza `legacy-peer-deps=true`. Confira dependências com `npm audit` e avalie compatibilidade antes de atualizar Expo/React Native ou aplicar correções automáticas.
 
 Referências: [instalação do Router](https://docs.expo.dev/router/installation/) e [lint do Expo](https://docs.expo.dev/guides/using-eslint/).
+
+## Builds com EAS
+
+O projeto mantém perfis EAS para Android: `development` e `preview` geram APKs internos; `production` gera AAB para a Play Store. O perfil `development` não inclui `expo-dev-client`, então o desenvolvimento atual usa Expo Go. Build iOS de produção requer credenciais Apple. Estes comandos opcionais são executados em `mobile/`:
+
+```bash
+npx eas-cli@latest login
+npx eas-cli@latest build:configure
+npx eas-cli@latest build --platform android --profile preview
+```
+
+Para os demais perfis, substitua `preview` por `development` ou `production`. Consulte [configuração EAS](https://docs.expo.dev/build/eas-json/) e [builds APK](https://docs.expo.dev/build-reference/apk/).

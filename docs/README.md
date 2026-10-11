@@ -1,12 +1,14 @@
 # Documentação
 
+Para instalar e abrir o aplicativo no celular, comece pelo [tutorial da raiz](../README.md). Os documentos abaixo detalham decisões e responsabilidades.
+
 | Documento | Onde procurar |
 | --- | --- |
 | [Produto](product.md) | Propósito, estado atual e MVP planejado |
 | [Arquitetura](architecture.md) | Componentes, etapas, contratos e fronteiras entre mocks e integração real |
-| [Mobile](mobile.md) | Organização, rotas, estado, mocks e conexão REST futura |
+| [Mobile](mobile.md) | Organização, sessão REST, URL da API e Expo Go |
 | [Backend](backend.md) | Responsabilidades, implementação e contrato da API |
-| [Banco](database.md) | MySQL 8.4 local, Prisma e política de migrations |
+| [Banco](database.md) | MySQL 8.4 com Docker ou local, Prisma e migrations |
 | [Lux](lux-integration.md) | Agente, hipóteses GNOME, segurança planejada e provas técnicas |
 | [Design](design.md) | PDF, padrões visuais e componentes |
 
@@ -14,8 +16,8 @@ Este diretório descreve o estado presente e decisões planejadas. Leia [Produto
 
 ## Próximas etapas
 
-1. Fundação atual: app mobile demonstrativo, backend NestJS executável com Prisma, Docker/MySQL e documentação; o mobile ainda usa mocks e não está conectado à API.
-2. Implementar autenticação real, cadastro/listagem de dispositivos e endpoints do MVP; conectar o mobile ao backend.
+1. Fundação concluída: Expo, NestJS, Prisma e MySQL; desenvolvimento com Docker ou execução direta.
+2. Autenticação e listagem autorizada integradas ao mobile; responsáveis e registros demonstrativos são criados por seeds explícitos. Não há cadastro público nem criação de dispositivos pela API.
 3. Implementar pareamento seguro de computador/agente à conta responsável.
 4. Fazer uma prova técnica mínima de GNOME no Lenovo Lux quando o ambiente estiver disponível; essa investigação pode avançar em paralelo às etapas 2 e 3.
 5. Validar fluxo ponta a ponta no computador real, incluindo aplicação das operações suportadas, disponibilidade, erros e revogação.
