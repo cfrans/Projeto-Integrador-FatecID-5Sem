@@ -21,19 +21,21 @@ Criar hooks, stores, lib ou outras features apenas quando houver responsabilidad
 
 ## Autenticação e API
 
-`src/lib/api.ts` é o cliente HTTP compartilhado. Ele lê `EXPO_PUBLIC_API_URL` em tempo de build, sem endereço padrão, aplica timeout, envia `Authorization: Bearer` nas solicitações autenticadas e diferencia configuração, indisponibilidade, validação e sessão não autorizada. Respostas `401` invalidam a sessão somente quando pertencem ao token ainda ativo; uma resposta atrasada de uma sessão anterior não encerra uma sessão mais recente.
+`src/lib/api.ts` é o cliente HTTP compartilhado. Ele prioriza `EXPO_PUBLIC_API_URL`, validada como URL HTTP/HTTPS sem credenciais, consulta ou fragmento; caminhos base são permitidos. Sem essa variável, no modo de desenvolvimento usa o host informado pelo Expo apenas quando `hostUri` contém um IPv4 privado RFC1918 e aponta a API para a porta `3000`. O adaptador `src/lib/api-runtime.ts` fornece `Constants.expoConfig?.hostUri` somente em desenvolvimento. Endereços ausentes, loopback, públicos, IPv6 e túneis não geram uma URL presumida: inicie o Expo no modo LAN ou configure `EXPO_PUBLIC_API_URL`. O cliente aplica timeout, envia `Authorization: Bearer` nas solicitações autenticadas e diferencia configuração, indisponibilidade, validação e sessão não autorizada. Respostas `401` invalidam a sessão somente quando pertencem ao token ainda ativo; uma resposta atrasada de uma sessão anterior não encerra uma sessão mais recente.
 
 O contrato atual é `POST /auth/login` com `{ email, password }`, que retorna `{ accessToken, expiresIn, guardian }`, e `GET /auth/me`, que retorna `{ id, name, email }`. A senha fica apenas no estado do formulário e é limpa depois do envio. A sessão consulta `/auth/me` ao restaurar um token, usa `expiresIn` para a validade local e encerra automaticamente quando expira. Não há refresh token nem endpoint de logout no servidor; sair remove o token local. Erros de conexão durante a restauração mantêm o token para uma nova tentativa. Acesso às rotas existentes é controlado com `Stack.Protected` após a restauração.
 
 No Android e iOS, o token e a data de expiração são armazenados com `expo-secure-store`. No navegador, a sessão fica somente em memória e termina ao recarregar a página; o app não grava tokens em `localStorage`. Erros ao ler, gravar ou remover a sessão segura são mostrados na interface, sem tratar uma falha de rede como logout.
 
-Configure `EXPO_PUBLIC_API_URL` no ambiente usado pelo Expo, por exemplo em `mobile/.env.local`:
+Copie `mobile/.env.example` para `mobile/.env.local` apenas quando for configurar uma URL explícita; vazio mantém o modo automático de desenvolvimento quando o host LAN do Expo é um IPv4 privado. Por exemplo:
 
 ```env
 EXPO_PUBLIC_API_URL=http://192.168.1.10:3000
 ```
 
-Esse valor é incorporado ao app e não pode conter segredos. Use HTTPS fora do desenvolvimento local. Em simuladores, use o endereço do host acessível pelo simulador; um celular físico precisa do endereço LAN do computador que hospeda a API. Para desenvolvimento local, `cd backend && npm run start:dev` inicia a API na porta `3000`; `backend/src/main.ts` faz o bind em `0.0.0.0`, então o celular na mesma rede pode usar o IP LAN do computador, desde que o firewall permita a conexão. O `docker-compose.yml` atual publica a API somente em `127.0.0.1`, portanto um celular físico não a alcança por padrão. Essa exposição padrão do Docker permanece restrita; não use `localhost` no celular para tentar alcançar o computador.
+Esse valor é incorporado ao app e não pode conter segredos. Use HTTPS fora do desenvolvimento local. Em simuladores, use o endereço do host acessível pelo simulador; um celular físico precisa do endereço LAN do computador que hospeda a API. `backend/src/main.ts` faz o bind em `0.0.0.0`, e o Compose publica a porta HTTP em todas as interfaces do host (`3000` por padrão). Nos dois modos, o firewall e a rede precisam permitir acesso pelo celular. MySQL continua publicado somente em `127.0.0.1` no Docker. Não use `localhost` no celular para alcançar o computador. Erros de rede mostram a URL efetivamente utilizada, sem headers ou credenciais; teste essa URL com `/health` no navegador do celular.
+
+O modo automático pressupõe Metro e API no mesmo computador, API na porta `3000` e host do Expo alcançável pelo aparelho. No WSL2 com NAT, o host privado informado pelo Expo pode ser o IP interno da VM; ele não comprova acesso pela LAN. Configure a URL com o IP LAN do Windows e disponibilize a porta da API, ou use rede espelhada quando suportada. Se alterar `PORT`, usar outro servidor, emulador ou iniciar o Expo com `--tunnel`, configure `EXPO_PUBLIC_API_URL` explicitamente e reinicie o Expo/recarregue o app. O túnel do Expo expõe o Metro, não a API NestJS. Consulte [rede WSL](https://learn.microsoft.com/en-us/windows/wsl/networking) e [Expo CLI](https://docs.expo.dev/more/expo-cli/).
 
 ## Dados e mock
 

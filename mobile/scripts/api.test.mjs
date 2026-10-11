@@ -9,7 +9,93 @@ afterEach(() => {
   globalThis.fetch = originalFetch;
   api.setAccessToken(null);
   api.onUnauthorized(null);
+  api.setDevelopmentHostUri(null);
   process.env.EXPO_PUBLIC_API_URL = 'http://127.0.0.1:3000';
+});
+
+test('derives the development API URL from RFC1918 hosts on port 3000', async () => {
+  const cases = [
+    ['10.0.0.1:8081', '10.0.0.1'],
+    ['10.255.255.254:8081', '10.255.255.254'],
+    ['172.16.0.1:8081', '172.16.0.1'],
+    ['172.31.255.254:8081', '172.31.255.254'],
+    ['192.168.0.1:8081', '192.168.0.1'],
+    ['192.168.255.254:8081', '192.168.255.254'],
+  ];
+
+  delete process.env.EXPO_PUBLIC_API_URL;
+  for (const [hostUri, ip] of cases) {
+    api.setDevelopmentHostUri(hostUri);
+    let requestUrl;
+    globalThis.fetch = async (url) => {
+      requestUrl = url;
+      return Response.json({ ok: true });
+    };
+
+    await api.request('/health');
+    assert.equal(requestUrl, `http://${ip}:3000/health`);
+  }
+});
+
+test('explicit API URL takes priority over the development host', async () => {
+  process.env.EXPO_PUBLIC_API_URL = 'https://api.example.test/v1/';
+  api.setDevelopmentHostUri('192.168.1.25:8081');
+  let requestUrl;
+  globalThis.fetch = async (url) => {
+    requestUrl = url;
+    return Response.json({ ok: true });
+  };
+
+  await api.request('/health');
+  assert.equal(requestUrl, 'https://api.example.test/v1/health');
+});
+
+test('invalid explicit API URL does not fall back to a development host', async () => {
+  process.env.EXPO_PUBLIC_API_URL = 'https://user:password@api.example.test?key=value';
+  api.setDevelopmentHostUri('192.168.1.25:8081');
+  globalThis.fetch = () => { throw new Error('fetch must not be called'); };
+
+  await assert.rejects(
+    api.request('/health'),
+    (error) => error instanceof ApiError && error.kind === 'configuration' && error.message.includes('inválida'),
+  );
+});
+
+test('rejects invalid explicit API URL query and fragment delimiters', async () => {
+  for (const value of ['http://192.168.1.10:3000?', 'http://192.168.1.10:3000#']) {
+    process.env.EXPO_PUBLIC_API_URL = value;
+    api.setDevelopmentHostUri('192.168.1.25:8081');
+    await assert.rejects(api.request('/health'), (error) => error instanceof ApiError && error.kind === 'configuration');
+  }
+});
+
+test('does not derive URLs for unknown, loopback, public, tunneled or IPv6 hosts', async () => {
+  const hostUris = [
+    undefined,
+    null,
+    'localhost:8081',
+    '127.0.0.1:8081',
+    '172.15.255.254:8081',
+    '172.32.0.1:8081',
+    '192.167.1.1:8081',
+    '8.8.8.8:8081',
+    'abc123.ngrok-free.app:8081',
+    'https://abc123.trycloudflare.com:8081',
+    '[fd00::1]:8081',
+  ];
+
+  delete process.env.EXPO_PUBLIC_API_URL;
+  for (const hostUri of hostUris) {
+    api.setDevelopmentHostUri(hostUri);
+    globalThis.fetch = () => { throw new Error('fetch must not be called'); };
+    await assert.rejects(
+      api.request('/health'),
+      (error) => error instanceof ApiError
+        && error.kind === 'configuration'
+        && error.message.includes('modo LAN')
+        && error.message.includes('EXPO_PUBLIC_API_URL'),
+    );
+  }
 });
 
 test('sends the bearer token and reports the token used by an old 401 response', async () => {
@@ -73,8 +159,27 @@ test('classifies connection failures as unavailable', async () => {
 
   await assert.rejects(
     api.request('/auth/me'),
-    (error) => error instanceof ApiError && error.kind === 'unavailable',
+    (error) => error instanceof ApiError
+      && error.kind === 'unavailable'
+      && error.message.includes('http://127.0.0.1:3000')
+      && error.message.includes('backend está iniciado'),
   );
+});
+
+test('aborts a stalled request after ten seconds without invalidating the session', async (context) => {
+  context.mock.timers.enable({ apis: ['setTimeout'] });
+  let invalidated = false;
+  api.setAccessToken('active-token');
+  api.onUnauthorized(() => { invalidated = true; });
+  globalThis.fetch = (_url, init) => new Promise((_resolve, reject) => {
+    init.signal.addEventListener('abort', () => reject(new Error('aborted')), { once: true });
+  });
+
+  const request = api.request('/devices');
+  context.mock.timers.tick(10_000);
+
+  await assert.rejects(request, (error) => error instanceof ApiError && error.kind === 'unavailable');
+  assert.equal(invalidated, false);
 });
 
 test('classifies backend 400 responses as validation errors', async () => {

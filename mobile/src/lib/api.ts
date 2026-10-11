@@ -26,21 +26,64 @@ type RequestOptions = Omit<RequestInit, 'body' | 'headers'> & {
 const requestTimeoutMs = 10_000;
 let accessToken: string | null = null;
 let unauthorizedHandler: ((token: string) => void) | null = null;
+let developmentBaseUrl: string | null = null;
+
+function explicitBaseUrl(value: string) {
+  try {
+    const url = new URL(value);
+    if ((url.protocol !== 'http:' && url.protocol !== 'https:')
+      || !url.hostname
+      || url.username
+      || url.password
+      || value.includes('?')
+      || value.includes('#')
+      || url.search
+      || url.hash) throw new Error();
+    return url.toString().replace(/\/$/, '');
+  } catch {
+    throw new ApiError('configuration', 'A URL da API é inválida. Use uma URL HTTP ou HTTPS sem credenciais, consulta ou fragmento.');
+  }
+}
+
+function privateDevelopmentBaseUrl(hostUri: string | null | undefined) {
+  if (!hostUri?.trim()) return null;
+
+  try {
+    const value = hostUri.trim();
+    const url = new URL(value.includes('://') ? value : `http://${value}`);
+    if ((url.protocol !== 'http:' && url.protocol !== 'https:')
+      || !url.hostname
+      || url.username
+      || url.password
+      || (url.pathname !== '/' && url.pathname !== '')
+      || url.search
+      || url.hash) return null;
+
+    const octets = url.hostname.split('.').map(Number);
+    if (octets.length !== 4 || octets.some((octet) => !Number.isInteger(octet) || octet < 0 || octet > 255)) return null;
+
+    const [first, second] = octets;
+    const isPrivate = first === 10
+      || (first === 172 && second >= 16 && second <= 31)
+      || (first === 192 && second === 168);
+
+    if (!isPrivate) return null;
+    return `http://${url.hostname}:3000`;
+  } catch {
+    return null;
+  }
+}
 
 function apiBaseUrl() {
   const value = process.env.EXPO_PUBLIC_API_URL?.trim();
 
-  if (!value) {
-    throw new ApiError('configuration', 'A API não está configurada neste aplicativo.');
-  }
+  if (value) return explicitBaseUrl(value);
+  if (developmentBaseUrl) return developmentBaseUrl;
 
-  try {
-    const url = new URL(value);
-    if (url.protocol !== 'http:' && url.protocol !== 'https:') throw new Error();
-    return url.toString().replace(/\/$/, '');
-  } catch {
-    throw new ApiError('configuration', 'A URL da API é inválida.');
-  }
+  throw new ApiError(
+    'configuration',
+    'API não configurada. Inicie o Expo no modo LAN ou defina EXPO_PUBLIC_API_URL.',
+  );
 }
 
 function responseMessage(payload: unknown) {
@@ -65,6 +108,10 @@ async function parseResponse(response: Response) {
 }
 
 export const api = {
+  setDevelopmentHostUri(hostUri?: string | null) {
+    developmentBaseUrl = privateDevelopmentBaseUrl(hostUri);
+  },
+
   setAccessToken(token: string | null) {
     accessToken = token;
   },
@@ -100,7 +147,7 @@ export const api = {
       payload = await parseResponse(response);
     } catch (error) {
       if (error instanceof ApiError) throw error;
-      throw new ApiError('unavailable', 'Não foi possível conectar à API. Confira a conexão e tente novamente.');
+      throw new ApiError('unavailable', `Não foi possível conectar à API em ${baseUrl}. Confira a rede e se o backend está iniciado.`);
     } finally {
       clearTimeout(timeout);
     }

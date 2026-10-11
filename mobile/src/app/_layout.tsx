@@ -1,3 +1,4 @@
+import '@/lib/api-runtime';
 import { ActivityIndicator, StyleSheet, View } from 'react-native';
 import { ThemeProvider } from 'expo-router/react-navigation';
 import { Stack } from 'expo-router';
