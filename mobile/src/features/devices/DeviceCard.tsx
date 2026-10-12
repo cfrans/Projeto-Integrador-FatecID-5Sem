@@ -1,11 +1,16 @@
 import { StyleSheet, Text, View } from 'react-native';
 import { Card } from '@/components/ui/Card';
+import { Button } from '@/components/ui/Button';
 import { colors, radius, spacing, typography } from '@/theme';
 import type { PairedComputer } from '@/features/devices/services/devices';
 
-type DeviceCardProps = { computer: PairedComputer };
+type DeviceCardProps = {
+  computer: PairedComputer;
+  onRemove?: () => void;
+  removing?: boolean;
+};
 
-export function DeviceCard({ computer }: DeviceCardProps) {
+export function DeviceCard({ computer, onRemove, removing = false }: DeviceCardProps) {
   const online = computer.status === 'online';
   const unverified = computer.status === 'unverified';
   const lastSeen = computer.lastSeen
@@ -19,36 +24,51 @@ export function DeviceCard({ computer }: DeviceCardProps) {
 
   return (
     <Card style={styles.card}>
-      <View style={[styles.deviceMark, online && styles.deviceMarkOnline]}>
-        <View style={[styles.dot, online && styles.dotOnline]} />
+      <View style={styles.row}>
+        <View style={[styles.deviceMark, online && styles.deviceMarkOnline]}>
+          <View style={[styles.dot, online && styles.dotOnline]} />
+        </View>
+        <View style={styles.details}>
+          <Text style={styles.name}>{computer.name}</Text>
+          <Text style={styles.managedUser}>
+            Conta gerenciada: {computer.managedUser ?? 'não informada'}
+          </Text>
+          {computer.isDemo ? <Text style={styles.demoLabel}>Demonstração</Text> : null}
+        </View>
+        <View style={styles.statusBlock}>
+          <Text style={[styles.status, online ? styles.online : styles.offline]}>
+            {unverified ? 'Conexão não validada' : online ? 'Online' : 'Offline'}
+          </Text>
+          {unverified ? (
+            <Text style={styles.lastSeen}>{computer.isPaired ? 'Vínculo ativo' : 'Sem vínculo ativo'}</Text>
+          ) : lastSeen ? (
+            <Text style={styles.lastSeen}>Visto em {lastSeen}</Text>
+          ) : null}
+        </View>
       </View>
-      <View style={styles.details}>
-        <Text style={styles.name}>{computer.name}</Text>
-        <Text style={styles.managedUser}>
-          Conta gerenciada: {computer.managedUser ?? 'não informada'}
-        </Text>
-        {computer.isDemo ? <Text style={styles.demoLabel}>Demonstração</Text> : null}
-      </View>
-      <View style={styles.statusBlock}>
-        <Text style={[styles.status, online ? styles.online : styles.offline]}>
-          {unverified ? 'Conexão não validada' : online ? 'Online' : 'Offline'}
-        </Text>
-        {unverified ? (
-          <Text style={styles.lastSeen}>Pareamento pendente</Text>
-        ) : lastSeen ? (
-          <Text style={styles.lastSeen}>Visto em {lastSeen}</Text>
-        ) : null}
-      </View>
+      {computer.isPaired && onRemove ? (
+        <Button
+          accessibilityHint={`Remove o vínculo de ${computer.name} da sua conta`}
+          accessibilityState={{ disabled: removing }}
+          disabled={removing}
+          label={removing ? 'Removendo vínculo…' : 'Remover vínculo'}
+          onPress={onRemove}
+          style={styles.removeButton}
+        />
+      ) : null}
     </Card>
   );
 }
 
 const styles = StyleSheet.create({
   card: {
+    gap: spacing.md,
+    padding: spacing.md,
+  },
+  row: {
     alignItems: 'center',
     flexDirection: 'row',
     gap: spacing.md,
-    padding: spacing.md,
   },
   deviceMark: {
     alignItems: 'center',
@@ -70,4 +90,5 @@ const styles = StyleSheet.create({
   online: { color: colors.success },
   offline: { color: colors.textSecondary },
   lastSeen: { color: colors.textMuted, fontSize: typography.label },
+  removeButton: { alignSelf: 'flex-end', minHeight: 44, paddingVertical: spacing.xs },
 });

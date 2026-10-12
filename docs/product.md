@@ -6,7 +6,7 @@ O piplup é um projeto acadêmico de interface mobile para que o responsável co
 
 ## Estado atual
 
-O aplicativo Expo contém quatro telas demonstrativas: login, início, computadores e pareamento simulado. A autenticação não é real, não há API conectada ao mobile, e os dados de computador vêm de mocks em memória. O pareamento demonstrativo não lê QR Code nem se conecta a um Lux. A fundação do backend executável existe, mas ainda não há integração Linux.
+O aplicativo Expo usa autenticação real de responsáveis e consulta registros de computadores pela API NestJS. A persistência utiliza Prisma e MySQL. A infraestrutura de pareamento seguro está implementada no backend e integrada ao mobile; ainda não há Lux Agent nem integração Linux validada. Fixtures permanecem identificadas como demonstração.
 
 ## Funcionalidades previstas
 
@@ -20,7 +20,7 @@ O primeiro MVP deverá reunir autenticação real, gerenciamento de dispositivos
 
 ## Etapa atual e fora de escopo
 
-A etapa atual entrega a fundação: aplicativo Expo, backend NestJS executável com Prisma, Docker/MySQL e documentação. A autenticação, dispositivos e pareamento do MVP ainda são módulos/funcionalidades futuras; o app mobile continua sem conexão à API. O agente Lux e a aplicação de restrições reais também não fazem parte desta etapa. Criar um mecanismo próprio de bloqueio parental está fora do escopo.
+A fundação, autenticação e listagem autorizada já foram entregues. A etapa atual implementa a infraestrutura de pareamento, com um responsável ativo por computador, tokens temporários de uso único e revogação. A identidade do computador exige provisionamento administrativo separado do pareamento. O agente Lux e a aplicação de restrições reais não fazem parte desta etapa. Criar um mecanismo próprio de bloqueio parental está fora do escopo.
 
 ## Referências e limites
 

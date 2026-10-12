@@ -71,7 +71,7 @@ O login usa a hierarquia observada no HTML: marca no topo, “Bem-vindo de volta
 
 A Home e a lista mantêm cards compactos com nome, conta gerenciada e status acompanhado de texto. As ações contornadas abrem a lista ou o pareamento. Carregamento, erro com nova tentativa e lista vazia usam a mesma paleta. A lista utiliza `FlatList`; o conteúdo da Home pode rolar.
 
-O pareamento adapta a moldura de leitura e a confirmação do HTML para uma única rota, com indicação de demonstração. A câmera permanece inativa. A confirmação mostra o computador fictício e retorna à lista. O Button recebeu estado desativado visual e acessível para a ação pendente; não foram adicionados componentes ou dependências além dos efetivamente usados.
+O pareamento preserva a moldura de leitura e a confirmação do HTML numa única rota. A leitura usa `expo-camera`; confirmação do computador e remoção de vínculo reutilizam os componentes existentes. Dados demonstrativos continuam identificados como demonstração. O Button mantém estado desativado visual e acessível durante solicitações pendentes; nenhuma mudança de paleta ou estrutura de navegação foi necessária.
 
 ## React Native Reusables
 
@@ -79,7 +79,7 @@ Foram consultados [instalação](https://reactnativereusables.com/docs/installat
 
 O login usa wrappers locais `Button` e `Input`, adaptados dos componentes [Button](https://github.com/founded-labs/react-native-reusables/blob/main/packages/registry/src/nativewind/components/ui/button.tsx) e [Input](https://github.com/founded-labs/react-native-reusables/blob/main/packages/registry/src/nativewind/components/ui/input.tsx) do React Native Reusables. O Button mantém a ação contornada e recebe um `label`; o Input preserva as props, callbacks, estilo e ref de `TextInput`, com estado inválido baseado nos tokens do app. As adaptações usam `Pressable`, `TextInput` e `StyleSheet`; não instalaram NativeWind/Uniwind nem adicionaram dependências. Nenhum contexto genérico de Text foi criado.
 
-A Home usa `Card`, adaptado do [Card do React Native Reusables](https://github.com/founded-labs/react-native-reusables/blob/main/packages/registry/src/nativewind/components/ui/card.tsx) com `View`, `StyleSheet` e os tokens existentes, sem novas dependências. O `DeviceCard` pertence à feature de dispositivos e apresenta nome, conta gerenciada, status textual e última conexão; sua composição pode ser reutilizada na lista. `Dialog` não foi adicionado. Customizações preservam contorno, paleta, hierarquia e estados observados.
+A Home usa `Card`, adaptado do [Card do React Native Reusables](https://github.com/founded-labs/react-native-reusables/blob/main/packages/registry/src/nativewind/components/ui/card.tsx) com `View`, `StyleSheet` e os tokens existentes, sem novas dependências. O `DeviceCard` pertence à feature de dispositivos e apresenta nome, conta gerenciada, status textual e última conexão; sua composição pode ser reutilizada na lista. `Dialog` não foi adicionado; a confirmação de revogação usa `Alert` nativo no Android/iOS, sem um novo componente genérico. Customizações preservam contorno, paleta, hierarquia e estados observados.
 
 ## Estados, acessibilidade e pendências
 

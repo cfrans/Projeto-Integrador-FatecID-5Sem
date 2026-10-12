@@ -1,5 +1,5 @@
 import { useCallback, useRef, useState } from 'react';
-import { ActivityIndicator, FlatList, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Alert, FlatList, StyleSheet, Text, View } from 'react-native';
 import { router, useFocusEffect } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Button } from '@/components/ui/Button';
@@ -14,7 +14,11 @@ type ComputersState =
 
 export function ComputersScreen() {
   const [state, setState] = useState<ComputersState>({ status: 'loading' });
+  const [removingId, setRemovingId] = useState<string | null>(null);
+  const [removalError, setRemovalError] = useState<string | null>(null);
   const requestId = useRef(0);
+  const removeOperation = useRef(0);
+  const removalPromptOpen = useRef(false);
 
   const loadComputers = useCallback(() => {
     const request = ++requestId.current;
@@ -29,9 +33,13 @@ export function ComputersScreen() {
   }, []);
 
   useFocusEffect(useCallback(() => {
+    setRemovingId(null);
     loadComputers();
     return () => {
       requestId.current += 1;
+      removeOperation.current += 1;
+      removalPromptOpen.current = false;
+      setRemovingId(null);
     };
   }, [loadComputers]));
 
@@ -41,6 +49,38 @@ export function ComputersScreen() {
   }, [loadComputers]);
 
   const computers = state.status === 'loaded' ? state.computers : [];
+
+  const removeAssociation = useCallback((computer: PairedComputer) => {
+    if (!computer.isPaired || removingId || removalPromptOpen.current) return;
+    removalPromptOpen.current = true;
+
+    Alert.alert(
+      'Remover vínculo?',
+      `“${computer.name}” deixará de aparecer entre os computadores associados à sua conta.`,
+      [
+        { text: 'Cancelar', style: 'cancel', onPress: () => { removalPromptOpen.current = false; } },
+        {
+          text: 'Remover vínculo',
+          style: 'destructive',
+          onPress: async () => {
+            removalPromptOpen.current = false;
+            const operation = ++removeOperation.current;
+            setRemovingId(computer.id);
+            setRemovalError(null);
+            try {
+              await devices.removeAssociation(computer.id);
+              if (operation === removeOperation.current) loadComputers();
+            } catch (error) {
+              if (operation === removeOperation.current) setRemovalError(devicesErrorMessage(error));
+            } finally {
+              if (operation === removeOperation.current) setRemovingId(null);
+            }
+          },
+        },
+      ],
+      { cancelable: false },
+    );
+  }, [loadComputers, removingId]);
 
   return (
     <SafeAreaView edges={['bottom', 'left', 'right']} style={styles.safeArea}>
@@ -67,7 +107,7 @@ export function ComputersScreen() {
             {state.status === 'loaded' ? (
               <>
                 <Text style={styles.stateTitle}>Nenhum computador associado</Text>
-                <Text style={styles.stateText}>O pareamento seguro ainda não está disponível.</Text>
+                <Text style={styles.stateText}>Leia o QR Code temporário exibido no computador para criar um vínculo.</Text>
               </>
             ) : null}
           </View>
@@ -78,12 +118,19 @@ export function ComputersScreen() {
               Confira os computadores associados à sua conta.
             </Text>
             <Button
-              label="Simular pareamento"
+              label="Adicionar computador"
               onPress={() => router.push('/qr-scan')}
             />
+            {removalError ? <Text accessibilityRole="alert" style={styles.error}>{removalError}</Text> : null}
           </View>
         }
-        renderItem={({ item }) => <DeviceCard computer={item} />}
+        renderItem={({ item }) => (
+          <DeviceCard
+            computer={item}
+            onRemove={() => removeAssociation(item)}
+            removing={removingId === item.id}
+          />
+        )}
       />
     </SafeAreaView>
   );
@@ -110,4 +157,5 @@ const styles = StyleSheet.create({
   },
   stateTitle: { color: colors.textPrimary, fontSize: typography.body, fontWeight: '600' },
   stateText: { color: colors.textSecondary, fontSize: typography.label, textAlign: 'center' },
+  error: { color: colors.accentText, fontSize: typography.label, lineHeight: 18 },
 });

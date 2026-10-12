@@ -13,6 +13,8 @@ const apiDevice = {
   status: 'unverified',
   lastSeen: null,
   isDemo: true,
+  paired: false,
+  associationId: null,
 };
 
 test('parses the device list contract, including nullable owner and demo fixtures', () => {
@@ -31,9 +33,11 @@ test('rejects malformed list responses and records', () => {
   assert.throws(() => parseDevicesResponse([{ ...apiDevice, managedUser: 42 }]), DeviceResponseError);
   assert.throws(() => parseDevicesResponse([{ ...apiDevice, lastSeen: '2026-10-10T12:00:00Z' }]), DeviceResponseError);
   assert.throws(() => parseDevicesResponse([{ ...apiDevice, isDemo: 'true' }]), DeviceResponseError);
+  assert.throws(() => parseDevicesResponse([{ ...apiDevice, paired: 'true' }]), DeviceResponseError);
+  assert.throws(() => parseDevicesResponse([{ ...apiDevice, paired: true }]), DeviceResponseError);
 });
 
-test('requests only GET /devices and returns the API list unchanged', async () => {
+test('loads the device list and separates association from connection status', async () => {
   const request = async (path, options) => {
     assert.equal(path, '/devices');
     assert.deepEqual(options, { method: 'GET' });
@@ -41,7 +45,30 @@ test('requests only GET /devices and returns the API list unchanged', async () =
   };
 
   const source = createHttpDevicesSource(request);
-  assert.deepEqual(await source.listPairedComputers(), [apiDevice]);
+  assert.deepEqual(await source.listPairedComputers(), [{
+    id: apiDevice.id,
+    name: apiDevice.name,
+    managedUser: apiDevice.managedUser,
+    status: apiDevice.status,
+    lastSeen: apiDevice.lastSeen,
+    isDemo: apiDevice.isDemo,
+    isPaired: false,
+    associationId: null,
+  }]);
+});
+
+test('preserves active association IDs and sends DELETE to the association endpoint', async () => {
+  const associationId = '5a9cfd5c-9e62-4c08-94dd-d77f617c0975';
+  const source = createHttpDevicesSource(async (path, options) => {
+    if (options.method === 'GET') return [{ ...apiDevice, paired: true, associationId }];
+    assert.equal(path, `/devices/${apiDevice.id}/association`);
+    assert.deepEqual(options, { method: 'DELETE' });
+    return undefined;
+  });
+
+  assert.equal((await source.listPairedComputers())[0].isPaired, true);
+  assert.equal((await source.listPairedComputers())[0].associationId, associationId);
+  await source.removeAssociation(apiDevice.id);
 });
 
 test('propagates API failures without falling back to mock data', async () => {

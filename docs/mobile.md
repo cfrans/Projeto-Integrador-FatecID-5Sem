@@ -9,7 +9,7 @@ Expo + React Native + TypeScript estrito + Expo Router. Dependências e comandos
 - `src/theme`: tokens e tema de navegação já existentes; preservados para evitar reorganização estética.
 - `src/features/auth`: login REST, serviço de autenticação, sessão compartilhada e armazenamento do token.
 - `src/features/devices`: Home e lista carregam registros da API; o cartão distingue conexão não validada e fixtures de demonstração.
-- `src/features/pairing`: tela visual de pareamento demonstrativo; não ativa câmera nem verifica QR.
+- `src/features/pairing`: leitura de QR, validação e confirmação de vínculo pela API; estados e token temporário ficam na feature.
 - `src/mocks/devices.ts`: listagem de três computadores fictícios e serviço de pareamento simulado.
 - `src/components/ui`: componentes de interface compartilhados usados pelas features.
 
@@ -17,7 +17,7 @@ Criar hooks, stores, lib ou outras features apenas quando houver responsabilidad
 
 ## Rotas preservadas
 
-`/`, `/home`, `/computers` e `/qr-scan` formam o fluxo de login, início, computadores e simulação de pareamento. Login, Home, lista e pareamento usam telas de feature. `/pairing-done`, `/access-request`, `/sync-failure`, `/about` e `/restrictions/{browsers,apps,install,age}` continuam como oito rotas placeholder, fora do fluxo implementado. Stack principal e Tabs foram preservados; a existência de uma rota não confirma viabilidade da funcionalidade.
+`/`, `/home`, `/computers` e `/qr-scan` formam o fluxo de login, início, computadores e pareamento pela API. Login, Home, lista e pareamento usam telas de feature. `/pairing-done`, `/access-request`, `/sync-failure`, `/about` e `/restrictions/{browsers,apps,install,age}` continuam como oito rotas placeholder, fora do fluxo implementado. Stack principal e Tabs foram preservados; a existência de uma rota não confirma viabilidade da funcionalidade.
 
 ## Autenticação e API
 
@@ -98,15 +98,140 @@ Para o Metro, `npx expo start` usa LAN e normalmente a porta `8081`; essa porta 
 
 ## Dados e mock
 
-`devices.listPairedComputers()` consulta `GET /devices` com o bearer token da sessão e valida toda a resposta antes de exibi-la. O contrato atual traz `{ id, name, managedUser, status, lastSeen, isDemo }`: `id` é UUID, `managedUser` é `string` ou `null`, `status` é `unverified`, `lastSeen` é `null` e `isDemo` é booleano. A API ainda não valida a conexão do computador; por isso a interface mostra “Conexão não validada” e “Pareamento pendente”, sem afirmar que ele está online ou offline. Uma resposta inválida ou falha da API aparece como erro e não ativa fallback para mock. Erros `401` invalidam a sessão; indisponibilidade do serviço (`503`) mantém a mensagem da API. Home e lista recarregam ao recuperar foco e mostram carregamento, erro com nova tentativa ou lista vazia.
+`devices.listPairedComputers()` consulta `GET /devices` com o bearer token da sessão e valida toda a resposta antes de exibi-la. O contrato atual traz `{ id, name, managedUser, status, lastSeen, isDemo, paired, associationId? }`: `id` é UUID, `managedUser` é `string` ou `null`, `status` é `unverified`, `lastSeen` é `null` e `isDemo` é booleano. A API ainda não valida a conexão do computador; por isso a interface mostra “Conexão não validada” e distingue “Vínculo ativo” de “Sem vínculo ativo”, sem afirmar que ele está online ou offline. Uma resposta inválida ou falha da API aparece como erro e não ativa fallback para mock. Erros `401` invalidam a sessão; indisponibilidade do serviço (`503`) mantém a mensagem da API. Home e lista recarregam ao recuperar foco e mostram carregamento, erro com nova tentativa ou lista vazia.
 
-`src/mocks/devices.ts` preserva três registros fictícios com `isDemo: true` e estados demonstrativos online/offline; a listagem atual não os consome. `pairingDemo.simulatePairing()` adiciona um registro fictício, idempotente e mantido apenas em memória, exibido na própria confirmação da simulação. O serviço de listagem usa apenas a API e permanece separado desse mock: simular pareamento não altera a lista do backend. A tela não lê QR, autentica nem conecta ao Lux.
+`src/mocks/devices.ts` preserva três registros fictícios com `isDemo: true` e estados demonstrativos online/offline; a listagem atual não os consome. O mock `pairingDemo.simulatePairing()` é preservado em memória para desenvolvimento, mas não autoriza dispositivos e não participa do fluxo real de leitura. Não é fallback para erro da API.
 
-O login e a sessão usam o contrato REST de autenticação descrito acima. A leitura da lista também é real; pareamento, criação, edição e remoção de dispositivos não estão implementados. Pareamento seguro e controles parentais continuam pendentes e dependerão de contratos e capacidades comprovadas no GNOME/Lux.
+## Pareamento por QR e revogação
+
+A integração está implementada nesta etapa. A tela `/qr-scan` usa `expo-camera`, compatível com o SDK 57, preservando a moldura, os tokens e os componentes existentes. A câmera exige permissão explícita; negativa ou ausência de suporte não implica falha de autenticação.
+
+O QR aceito é `piplup://pair?token=<token-base64url>`, com token de 32 bytes aleatórios. Dados fora desse formato são rejeitados no mobile antes de enviar qualquer solicitação. O conteúdo não define o servidor: o app usa exclusivamente a API previamente configurada. Tokens não são persistidos, enviados em parâmetros de navegação ou registrados em logs.
+
+O responsável autenticado envia `{ token }` para `POST /pairing/validate`, confere o computador retornado e confirma `POST /pairing/complete`. A validação não reserva o computador; expiração, consumo concorrente ou revogação entre as duas solicitações podem impedir a conclusão. O backend é a fonte de autorização, e a tela deve distinguir falha de rede de confirmação de vínculo. Depois de uma resposta perdida, consultar a lista é a forma de verificar se a operação chegou a concluir.
+
+Uma associação persistida não comprova presença online. O campo `paired` distingue vínculo ativo de fixtures antigas; `status: unverified` e `lastSeen: null` continuam indicando conexão não validada. Dispositivos `isDemo: true` permanecem identificados como demonstração, inclusive na confirmação. Nenhuma resposta simulada comprova integração real com o Lux.
+
+A lista oferece remoção somente para vínculo ativo, com confirmação antes de `DELETE /devices/:id/association`. Depois da revogação, o dispositivo desaparece da lista daquele responsável. Não há exclusão do computador nem execução de controles Linux; outro responsável só poderá associar após uma nova sessão criada pelo Agent autorizado. O MVP permite um responsável ativo por Lux.
+
+## Teste manual de pareamento com dispositivo de demonstração
+
+Este roteiro usa Docker e um registro fictício com `isDemo: true`. O trecho Python solicita uma sessão autenticada como faria o futuro Agent; o vínculo é persistido pela API, mas nenhum computador físico é controlado. Não são testadas autorização administrativa Linux, instalação systemd ou integração GNOME. Identidades demonstrativas só autenticam em desenvolvimento/teste.
+
+### 1. Preparar API e celular
+
+Na raiz, com `.env` e a conta do responsável já preparados conforme [Backend](backend.md):
+
+```bash
+docker compose up -d --build
+curl --fail http://localhost:3000/health
+```
+
+O rebuild é necessário para atualizar scripts do `package.json` dentro da imagem; evita `Missing script: "agent:provision"`. A inicialização aplica as migrations pendentes sem remover o volume MySQL.
+
+No navegador do celular, confira `http://<IP_LAN>:<PORT>/health`. Se necessário, configure `EXPO_PUBLIC_API_URL` em `mobile/.env.local` conforme a seção de rede acima. Em um terminal, inicie Expo dentro de `mobile/`:
+
+```bash
+npx expo start
+```
+
+Abra o app no Expo Go e faça login. O QR do Expo abre o aplicativo; o QR de pareamento será lido dentro do app em **Computadores → Adicionar computador**.
+
+### 2. Provisionar a fixture uma única vez
+
+Em outro terminal, na raiz do repositório:
+
+```bash
+mkdir -m 700 -p /tmp/piplup-pairing-demo
+
+docker compose run --rm --build \
+  --volume /tmp/piplup-pairing-demo:/credentials \
+  backend npm run agent:provision -- \
+  --demo \
+  --name "Lux de demonstração" \
+  --output /credentials/agent-credential
+```
+
+Guarde o UUID exibido. A credencial fica em `/tmp/piplup-pairing-demo/agent-credential`, com permissão `0600`; não a copie para o mobile ou para geradores de QR. O comando cria um novo dispositivo sem responsável e recusa sobrescrever arquivos. Se essa credencial já existe, prossiga para a geração da sessão em vez de repetir o provisionamento. Use `run --rm` para que o build administrativo não interfira no backend em watch.
+
+### 3. Preparar o gerador local
+
+O gerador é uma ferramenta de desenvolvimento em `/tmp`, sem dependência adicional no projeto:
+
+```bash
+python3 -m venv /tmp/piplup-pairing-demo/qr-tools
+/tmp/piplup-pairing-demo/qr-tools/bin/pip install qrcode
+```
+
+O pacote gera a imagem localmente, conforme sua [documentação](https://github.com/lincolnloop/python-qrcode). Não envie o conteúdo do QR para serviços externos.
+
+### 4. Solicitar uma sessão e gerar o QR
+
+Com a API iniciada, execute o trecho abaixo. Ajuste `3000` se a porta publicada for outra:
+
+```bash
+/tmp/piplup-pairing-demo/qr-tools/bin/python - <<'PY'
+import json
+import os
+from pathlib import Path
+from urllib.request import Request, urlopen
+
+import qrcode
+from qrcode.image.svg import SvgPathFillImage
+
+folder = Path("/tmp/piplup-pairing-demo")
+credential = (folder / "agent-credential").read_text().strip()
+
+request = Request(
+    "http://127.0.0.1:3000/agent/pairing-sessions",
+    data=b"{}",
+    headers={
+        "Authorization": f"Bearer {credential}",
+        "Content-Type": "application/json",
+    },
+    method="POST",
+)
+
+with urlopen(request, timeout=10) as response:
+    session = json.load(response)
+
+os.umask(0o077)
+output = folder / "pareamento.svg"
+qrcode.make(
+    session["qrPayload"],
+    image_factory=SvgPathFillImage,
+).save(str(output))
+
+print("QR salvo:", output)
+print("Expira em:", session["expiresAt"])
+PY
+```
+
+Abra `pareamento.svg` no navegador do computador. No WSL, abra a pasta no Explorador do Windows e escolha **Abrir com → Edge ou Chrome**:
+
+```bash
+explorer.exe "$(wslpath -w /tmp/piplup-pairing-demo)"
+```
+
+### 5. Confirmar e conferir o resultado
+
+No celular, abra **Computadores → Adicionar computador**, permita a câmera, leia a imagem e confirme **Lux de demonstração**. A tela deve mostrar **Vínculo de demonstração criado**. Na lista, espere **Demonstração**, **Vínculo ativo** e **Conexão não validada**.
+
+O QR expira em cinco minutos. Para renová-lo, repita somente a etapa 4 e atualize a imagem no navegador; criar outra sessão invalida a anterior. Depois de confirmar, uma nova sessão é recusada com `409` enquanto o vínculo estiver ativo. Para repetir o pareamento, remova o vínculo no app e gere uma nova sessão.
+
+| Verificação | Resultado esperado |
+| --- | --- |
+| Ler o mesmo QR depois de confirmar | Erro de token usado; nenhuma segunda associação. |
+| Esperar mais de cinco minutos antes de ler | Erro de token expirado. |
+| Ler um QR fora do formato de pareamento | Erro de formato, sem associação. |
+| Remover vínculo na lista | Dispositivo deixa de aparecer para esse responsável. |
+| Gerar sessão após remover o vínculo | Novo QR permite novo pareamento. |
+
+`FileNotFoundError` para `agent-credential` indica que o provisionamento não concluiu ou que o arquivo temporário não existe mais. Resolva primeiro a etapa 2. Remover o vínculo mantém a identidade do dispositivo; para invalidar também essa credencial, use a ferramenta administrativa de revogação descrita em [Backend](backend.md).
 
 ## UI e segurança
 
-Antes de implementar UI, consultar [design](design.md) e o protótipo correspondente. Verificar React Native Reusables antes de criar componentes genéricos. Usar tokens existentes, padrões mobile e compatibilidade Android/iOS. O único módulo nativo adicionado nesta etapa é `expo-secure-store`, compatível com Expo Go; o fluxo de câmera/QR continua inativo. Se uma futura dependência nativa não estiver incluída no Expo Go, será necessário configurar um development build e ajustar o fluxo EAS conforme a documentação Expo da versão instalada. Os perfis EAS existentes são configuração, não evidência de build publicado ou de funcionalidade nativa disponível.
+Antes de implementar UI, consultar [design](design.md) e o protótipo correspondente. Verificar React Native Reusables antes de criar componentes genéricos. Usar tokens existentes, padrões mobile e compatibilidade Android/iOS. O armazenamento da sessão usa `expo-secure-store`, compatível com Expo Go; a câmera/QR usa `expo-camera` nesta etapa, com permissão apenas de câmera para leitura. Se uma futura dependência nativa não estiver incluída no Expo Go, será necessário configurar um development build e ajustar o fluxo EAS conforme a documentação Expo da versão instalada. Os perfis EAS existentes são configuração, não evidência de build publicado ou de funcionalidade nativa disponível.
 
 Nunca armazenar senha root/admin ou tratar QR como credencial administrativa permanente. A sessão usa armazenamento seguro nativo e não persiste credenciais no navegador.
 
@@ -120,7 +245,9 @@ ESLint usa a série 9 por compatibilidade com o plugin React e `eslint-config-ex
 
 O `.npmrc` utiliza `legacy-peer-deps=true`. Confira dependências com `npm audit` e avalie compatibilidade antes de atualizar Expo/React Native ou aplicar correções automáticas.
 
-Referências: [instalação do Router](https://docs.expo.dev/router/installation/) e [lint do Expo](https://docs.expo.dev/guides/using-eslint/).
+Referências: [instalação do Router](https://docs.expo.dev/router/installation/) e [lint do Expo](https://docs.expo.dev/guides/using-eslint/) e [Camera no SDK 57](https://docs.expo.dev/versions/v57.0.0/sdk/camera/).
+
+A validação desta etapa inclui lint, typecheck, testes dos contratos HTTP/parsing do QR e exportação dos bundles Android/iOS. A exportação não testa câmera, permissões ou acessibilidade num aparelho físico. Há relato de teste manual bem-sucedido do fluxo de pareamento demonstrativo no celular. O pareamento ponta a ponta, a autorização administrativa local e a exibição do QR pelo Agent só poderão ser validados com o Agent real.
 
 ## Builds com EAS
 

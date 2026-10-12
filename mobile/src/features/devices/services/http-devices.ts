@@ -5,9 +5,11 @@ export type HttpPairedComputer = {
   status: 'unverified';
   lastSeen: null;
   isDemo: boolean;
+  paired: boolean;
+  associationId: string | null;
 };
 
-type DeviceRequest = (path: string, options: { method: 'GET' }) => Promise<unknown>;
+type DeviceRequest = (path: string, options: { method: 'GET' | 'DELETE' }) => Promise<unknown>;
 
 export class DeviceResponseError extends Error {
   constructor() {
@@ -25,7 +27,12 @@ function isDevice(value: unknown): value is HttpPairedComputer {
     && (typeof device.managedUser === 'string' || device.managedUser === null)
     && device.status === 'unverified'
     && device.lastSeen === null
-    && typeof device.isDemo === 'boolean';
+    && typeof device.isDemo === 'boolean'
+    && typeof device.paired === 'boolean'
+    && (device.paired
+      ? typeof device.associationId === 'string'
+        && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(device.associationId)
+      : device.associationId === null || device.associationId === undefined);
 }
 
 export function parseDevicesResponse(value: unknown): HttpPairedComputer[] {
@@ -37,7 +44,14 @@ export function createHttpDevicesSource(request: DeviceRequest) {
   return {
     async listPairedComputers() {
       const response = await request('/devices', { method: 'GET' });
-      return parseDevicesResponse(response);
+      return parseDevicesResponse(response).map(({ paired, ...device }) => ({
+        ...device,
+        isPaired: paired,
+        associationId: paired ? device.associationId : null,
+      }));
+    },
+    async removeAssociation(id: string) {
+      await request(`/devices/${encodeURIComponent(id)}/association`, { method: 'DELETE' });
     },
   };
 }

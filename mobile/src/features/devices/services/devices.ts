@@ -11,10 +11,13 @@ export type PairedComputer = {
   managedUser: string | null;
   lastSeen: string | null;
   isDemo: boolean;
+  isPaired: boolean;
+  associationId: string | null;
 };
 
 export type DevicesSource = {
   listPairedComputers(): Promise<PairedComputer[]>;
+  removeAssociation(id: string): Promise<void>;
 };
 
 export type PairingDemoSource = {

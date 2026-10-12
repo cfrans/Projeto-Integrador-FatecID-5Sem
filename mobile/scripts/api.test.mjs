@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import { afterEach, test } from 'node:test';
 import { ApiError, api, apiErrorMessage } from '../src/lib/api.ts';
 import './devices.test.mjs';
+import './pairing.test.mjs';
 
 const originalFetch = globalThis.fetch;
 

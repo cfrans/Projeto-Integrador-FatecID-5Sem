@@ -8,6 +8,8 @@ const pairedComputers: PairedComputer[] = [
     managedUser: 'Ana',
     lastSeen: '2026-10-07T10:15:00-03:00',
     isDemo: true,
+    isPaired: true,
+    associationId: 'demo-association-living-room',
   },
   {
     id: 'computer-bedroom',
@@ -16,6 +18,8 @@ const pairedComputers: PairedComputer[] = [
     managedUser: 'Ana',
     lastSeen: '2026-10-06T21:42:00-03:00',
     isDemo: true,
+    isPaired: true,
+    associationId: 'demo-association-bedroom',
   },
   {
     id: 'computer-notebook',
@@ -24,6 +28,8 @@ const pairedComputers: PairedComputer[] = [
     managedUser: 'Ana',
     lastSeen: '2026-10-07T09:58:00-03:00',
     isDemo: true,
+    isPaired: true,
+    associationId: 'demo-association-notebook',
   },
 ];
 
@@ -34,11 +40,17 @@ const simulatedComputer: PairedComputer = {
   managedUser: 'Demonstração',
   lastSeen: null,
   isDemo: true,
+  isPaired: true,
+  associationId: 'demo-association-new',
 };
 
 export const mockDevices: DevicesSource & PairingDemoSource = {
   async listPairedComputers() {
     return pairedComputers.map((computer) => ({ ...computer }));
+  },
+  async removeAssociation(id) {
+    const index = pairedComputers.findIndex((computer) => computer.id === id && computer.isPaired);
+    if (index >= 0) pairedComputers.splice(index, 1);
   },
   async simulatePairing() {
     const existing = pairedComputers.find((computer) => computer.id === simulatedComputer.id);
