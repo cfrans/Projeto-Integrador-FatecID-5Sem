@@ -1,6 +1,6 @@
 # piplup
 
-Projeto Integrador: aplicativo Expo para controle parental em computadores Lenovo Lux, com API NestJS, Prisma e MySQL. Login, perfil e listagem usam a API real; pareamento continua demonstrativo e a integração Lux/GNOME é futura.
+Projeto Integrador: aplicativo Expo para controle parental em computadores Lenovo Lux, com API NestJS, Prisma e MySQL. Login, perfil, listagem, pareamento e revogação de vínculos usam a API real. A demonstração usa computadores fictícios; ainda não há Lux Agent, interface GTK ou integração Lux/GNOME. Consulte o [estado das etapas](docs/architecture.md#etapas-de-implementação).
 
 ## 1. Pré-requisitos e clone
 
@@ -121,19 +121,23 @@ Se o QR não conectar, tente `npx expo start --tunnel`. **O túnel expõe o Metr
 
 ## Uso diário
 
-| Terminal | Com Docker | Sem Docker |
-| --- | --- | --- |
-| Backend | Na raiz: `docker compose up -d` | Em `backend/`: `npm run start:dev`, com MySQL disponível |
-| App | Em `mobile/`: `npx expo start` | Em `mobile/`: `npx expo start` |
+| Terminal | Com Docker                      | Sem Docker                                               |
+| -------- | ------------------------------- | -------------------------------------------------------- |
+| Backend  | Na raiz: `docker compose up -d` | Em `backend/`: `npm run start:dev`, com MySQL disponível |
+| App      | Em `mobile/`: `npx expo start`  | Em `mobile/`: `npx expo start`                           |
+
+## Limites de validação dos fluxos
+
+Os fluxos com e sem Docker usam os mesmos scripts, configuração e migrations. `docker compose config --quiet` verifica a configuração; `/health` com HTTP 200 e `database: "ok"` verifica o acesso da API ao banco. Esses checks não comprovam instalação do zero, execução com MySQL independente do Docker ou acesso por celular físico. O fluxo sem Docker está configurado, mas sua validação completa permanece pendente. Use a versão Node declarada nos pré-requisitos e execute o [roteiro manual](docs/mobile.md#validação-manual-no-celular) para verificar rede, WSL/firewall e câmera no ambiente de cada integrante.
 
 ## Problemas e referências
 
-| Problema | Onde conferir |
-| --- | --- |
-| Porta ocupada / containers falhando | Confira `PORT` e `.env`. Com Docker: `docker compose config --quiet`, `docker compose ps -a` e `docker compose logs --tail 100 backend mysql`. [Backend](docs/backend.md#executar-com-docker). |
-| MySQL indisponível / credenciais recusadas | Confira serviço, host, porta e conta; `npx prisma migrate status` em `backend/`. Não remova volumes para corrigir credenciais. [Banco](docs/database.md). |
-| Prisma Client desatualizado / migrations pendentes | Pare o watch, gere o client e aplique migrations; no Docker, reinicie o backend. [Migrations](docs/database.md#prisma-e-sql). |
-| API funciona no PC, mas não no celular | Teste a URL mostrada no erro do app; confira IP, firewall e isolamento. [WSL e firewall](docs/mobile.md#wsl2-e-firewall). |
-| Expo Go não abre / login falha | Confira SDK 57, conexão ao Metro, URL da API e conta criada. [Mobile](docs/mobile.md#autenticação-e-api). |
+| Problema                                           | Onde conferir                                                                                                                                                                                  |
+| -------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Porta ocupada / containers falhando                | Confira `PORT` e `.env`. Com Docker: `docker compose config --quiet`, `docker compose ps -a` e `docker compose logs --tail 100 backend mysql`. [Backend](docs/backend.md#executar-com-docker). |
+| MySQL indisponível / credenciais recusadas         | Confira serviço, host, porta e conta; `npx prisma migrate status` em `backend/`. Não remova volumes para corrigir credenciais. [Banco](docs/database.md).                                      |
+| Prisma Client desatualizado / migrations pendentes | Pare o watch, gere o client e aplique migrations; no Docker, reinicie o backend. [Migrations](docs/database.md#prisma-e-sql).                                                                  |
+| API funciona no PC, mas não no celular             | Teste a URL mostrada no erro do app; confira IP, firewall e isolamento. [WSL e firewall](docs/mobile.md#wsl2-e-firewall).                                                                      |
+| Expo Go não abre / login falha                     | Confira SDK 57, conexão ao Metro, URL da API e conta criada. [Mobile](docs/mobile.md#autenticação-e-api).                                                                                      |
 
 Testes: [backend](docs/backend.md#verificações), [mobile](docs/mobile.md#configuração-e-verificações) e [checklist no celular](docs/mobile.md#validação-manual-no-celular). Builds: [EAS](docs/mobile.md#builds-com-eas). Projeto: [índice](docs/README.md), [arquitetura](docs/architecture.md), [design](docs/design.md) e [Lux Agent](docs/lux-integration.md).

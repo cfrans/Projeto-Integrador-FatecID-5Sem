@@ -28,6 +28,8 @@ backend/
 
 O scaffold atual usa ESM, Vitest e Oxlint. Controllers recebem HTTP, services concentram lógica e módulos organizam providers conforme as convenções NestJS. DTOs validam entradas e documentam os contratos de autenticação e dispositivos. Os módulos adicionais são Prisma, Auth, Devices e Pairing.
 
+Para novos scaffolds, use os comandos oficiais compatíveis com as versões adotadas: `npx @nestjs/cli new` e `npx prisma init`. Antes de usar APIs NestJS, Prisma ou MySQL, consulte a documentação oficial correspondente às versões declaradas no projeto; não gere manualmente estruturas já fornecidas pelos scaffolds nem introduza camadas ou dependências sem necessidade demonstrada.
+
 `PrismaService` conecta e executa `SELECT 1` durante a inicialização. `GET /health` consulta o banco novamente, retorna `{ "status": "ok", "database": "ok" }` ou HTTP 503 se a consulta falhar. Uma falha de conexão inicial impede a aplicação de iniciar. Shutdown hooks encerram a conexão ao receber sinais de término.
 
 Swagger fica em `/docs`; OpenAPI em `/docs-json`. O ambiente local usa HTTP em localhost. HTTPS e exposição da API serão decisões de hospedagem futuras, antes de conectar responsáveis ou agentes reais.
@@ -109,7 +111,9 @@ node --env-file=/caminho/privado.env --test test/*.mysql-test.mjs
 
 O arquivo deve definir todas as variáveis da conexão e `NODE_ENV=test`, que têm precedência sobre `.env` da raiz. Não aponte esses testes para o banco da aplicação. Não é necessário Docker.
 
-O teste de pareamento cobre autenticação independente do Agent, dados inválidos, expiração durante espera por lock, consumo concorrente e reutilização, autorização por recurso, revogação, restrições e rollback reais. Também executa a ferramenta administrativa, verificando arquivo exclusivo `0600`, ausência do segredo no stdout e invalidação da identidade. Esta etapa passou em lint, typecheck, build, testes unitários/HTTP e MySQL 8.4 isolado, com Node 24.21. Migrations foram aplicadas no banco de teste e comparadas com o schema, sem diferenças nos recursos representados pelo Prisma. Esses testes não validam um Agent real ou autorização Linux.
+O teste de pareamento cobre autenticação independente do Agent, dados inválidos, expiração durante espera por lock, consumo concorrente e reutilização, autorização por recurso, revogação, restrições e rollback reais. Também executa a ferramenta administrativa, verificando arquivo exclusivo `0600`, ausência do segredo no stdout e invalidação da identidade. Esses testes não validam Agent real ou autorização Linux.
+
+Lint, typecheck, validação do schema e testes unitários/HTTP verificam aspectos distintos do backend; os testes HTTP usam Prisma mockado e exigem permissão para abrir porta local. `/health` verifica a conexão real com MySQL, mas não substitui testes num banco dedicado ou comparação entre migrations e schema. A validação completa do fluxo sem Docker e da instalação do zero permanece pendente. Execute as verificações com a versão Node declarada; resultados obtidos em outra versão não comprovam compatibilidade suportada.
 
 ## Autenticação implementada
 
@@ -180,7 +184,7 @@ O [roteiro mobile](mobile.md) documenta o teste manual completo com Docker/WSL: 
 
 ## Próximas responsabilidades e decisões pendentes
 
-As próximas etapas implementarão o Agent Python/systemd e validarão no Lux a proteção da identidade, a autorização local e o fluxo de QR. Coordenação de comandos parentais continua fora desta etapa. Autenticação e listagem já estão integradas ao mobile; comportamento offline ainda não foi acordado. O backend não aplica restrições Linux nem envia comandos arbitrários para execução.
+As próximas etapas implementarão o Agent Python/systemd e a interface independente Python/GTK4/libadwaita, validando no Lux proteção da identidade, autorização local e QR. Coordenação de comandos parentais continua planejada: faltam modelos e endpoints para registrar comandos, disponibilizar trabalho por polling e receber/persistir resultados. O backend deverá distinguir pendência, falha/indisponibilidade e aplicação confirmada; aceite HTTP não comprova alteração no GNOME. Estados, repetição segura e sincronização serão definidos antes da implementação. Autenticação e listagem já estão integradas ao mobile; comportamento offline ainda não foi acordado. O backend não aplica restrições Linux nem envia comandos arbitrários para execução.
 
 Referências: [Nest CLI](https://docs.nestjs.com/cli/overview), [comandos da CLI](https://docs.nestjs.com/cli/usages), [Swagger](https://docs.nestjs.com/openapi/introduction) e [Prisma 7/MySQL](https://www.prisma.io/docs/v7/prisma-orm/quickstart/mysql).
 

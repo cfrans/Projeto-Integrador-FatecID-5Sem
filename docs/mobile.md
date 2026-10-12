@@ -1,6 +1,6 @@
 # Mobile
 
-Expo + React Native + TypeScript estrito + Expo Router. Dependências e comandos vivem em `mobile/`; instalação reproduzível com `npm ci`. Consulte o README da raiz para execução. O mobile é a interface remota do responsável: restrições só poderão ser aplicadas no computador Lux pelo GNOME/agente, após a integração ser validada.
+Expo + React Native + TypeScript estrito + Expo Router; Button, Input e Card são adaptações locais de React Native Reusables, conforme [Design](design.md#react-native-reusables). Dependências e comandos vivem em `mobile/`; instalação reproduzível com `npm ci`. Consulte o README da raiz para execução. O mobile é a interface remota do responsável: restrições só poderão ser aplicadas no computador Lux pelo GNOME/agente, após a integração ser validada.
 
 ## Organização
 
@@ -15,9 +15,21 @@ Expo + React Native + TypeScript estrito + Expo Router. Dependências e comandos
 
 Criar hooks, stores, lib ou outras features apenas quando houver responsabilidade concreta. UI de uma única feature permanece nela. Estado local permanece em React até haver necessidade real de compartilhamento global.
 
+## Convenções de ferramentas
+
+Use npm e `package-lock.json`, executando comandos mobile em `mobile/`. Antes de escrever código com APIs Expo/React Native, confira a versão de `expo` em `package.json` e consulte `https://docs.expo.dev/versions/v<major>.0.0/`. Para Router, EAS e demais tópicos, consulte [o índice Expo](https://docs.expo.dev/llms.txt) e siga o documento específico; não dependa apenas de memória.
+
+Instale dependências mobile com `npx expo install <package>` para resolver versões compatíveis com o SDK. Prefira módulos Expo recomendados e consulte as skills disponíveis antes de adicionar dependências. Use Expo Router para navegação, com `Link`, `router` e `useLocalSearchParams` de `expo-router`. Configuração nativa, limites do Expo Go e EAS estão nas seções de [UI e segurança](#ui-e-segurança), [verificações](#configuração-e-verificações) e [builds](#builds-com-eas).
+
 ## Rotas preservadas
 
 `/`, `/home`, `/computers` e `/qr-scan` formam o fluxo de login, início, computadores e pareamento pela API. Login, Home, lista e pareamento usam telas de feature. `/pairing-done`, `/access-request`, `/sync-failure`, `/about` e `/restrictions/{browsers,apps,install,age}` continuam como oito rotas placeholder, fora do fluxo implementado. Stack principal e Tabs foram preservados; a existência de uma rota não confirma viabilidade da funcionalidade.
+
+## Pendências de implementação
+
+A Home ainda apresenta “Demonstração de pareamento”, “Simular pareamento” e, na lista vazia, “O pareamento seguro ainda não está disponível”. Esses textos de `src/features/devices/HomeScreen.tsx` estão desatualizados: o botão abre `/qr-scan`, que usa a API real. A atualização desses textos permanece pendente. Para o teste demonstrativo atual, use **Computadores → Adicionar computador**.
+
+Consulta de configurações parentais, solicitação de alterações e acompanhamento de resultados ainda não existem; as rotas de restrições são placeholders. O comportamento futuro deve seguir o [fluxo de operações](architecture.md#fluxo-esperado-de-operações-parentais): mostrar aplicação somente após confirmação apropriada do Agent, sem tratar comandos pendentes como concluídos. O mobile se comunica apenas com NestJS, sem MySQL ou APIs GNOME locais.
 
 ## Autenticação e API
 
@@ -83,7 +95,7 @@ netsh interface portproxy delete v4tov4 listenaddress=<IP_LAN_WINDOWS> listenpor
 Remove-NetFirewallRule -Name PiplupApiDev
 ```
 
-Remova apenas as regras que você criou. Os comandos seguem as referências [portproxy](https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/netsh-interface) e [New-NetFirewallRule](https://learn.microsoft.com/en-us/powershell/module/netsecurity/new-netfirewallrule). Esses ajustes dependem da máquina e não são executados pelos scripts do projeto.
+Remova apenas as regras criadas para essa configuração. Os comandos seguem as referências [portproxy](https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/netsh-interface) e [New-NetFirewallRule](https://learn.microsoft.com/en-us/powershell/module/netsecurity/new-netfirewallrule). Esses ajustes dependem da máquina e não são executados pelos scripts do projeto.
 
 Para o Metro, `npx expo start` usa LAN e normalmente a porta `8081`; essa porta também precisa ser alcançável ao usar LAN. Se o QR do Expo no WSL não conectar, `npx expo start --tunnel` é uma alternativa, com `EXPO_PUBLIC_API_URL` apontando explicitamente à API já acessível. Isso evita encaminhar Metro manualmente e não substitui o teste da porta da API.
 
@@ -247,7 +259,7 @@ O `.npmrc` utiliza `legacy-peer-deps=true`. Confira dependências com `npm audit
 
 Referências: [instalação do Router](https://docs.expo.dev/router/installation/) e [lint do Expo](https://docs.expo.dev/guides/using-eslint/) e [Camera no SDK 57](https://docs.expo.dev/versions/v57.0.0/sdk/camera/).
 
-A validação desta etapa inclui lint, typecheck, testes dos contratos HTTP/parsing do QR e exportação dos bundles Android/iOS. A exportação não testa câmera, permissões ou acessibilidade num aparelho físico. Há relato de teste manual bem-sucedido do fluxo de pareamento demonstrativo no celular. O pareamento ponta a ponta, a autorização administrativa local e a exibição do QR pelo Agent só poderão ser validados com o Agent real.
+Lint, typecheck e `npm run test:api` verificam código e contratos HTTP, dispositivos e parsing do QR. A exportação Android/iOS verifica a geração de bundles, mas não testa câmera, permissões ou acessibilidade num aparelho físico. O roteiro manual deve ser executado no ambiente de cada integrante. Pareamento ponta a ponta, autorização administrativa local e exibição do QR pelo Agent continuam pendentes de validação com o Agent real.
 
 ## Builds com EAS
 

@@ -1,51 +1,33 @@
-This is an Expo/React Native mobile application. Prioritize mobile-first patterns, performance, and cross-platform compatibility.
+# Instruções para agentes
 
-## Expo has changed — do not trust your training data
+## Regras gerais
 
-Expo ships breaking changes every SDK release. APIs you remember are likely renamed, moved, or removed. Before writing any code that touches an Expo, EAS, or React Native API:
+- Responda no idioma do usuário, de forma concisa e direta.
+- Entenda o escopo antes de editar. Se houver ambiguidade, pergunte; em execução não assistida, use a interpretação mais razoável e registre-a.
+- Inspecione a implementação existente e consulte a documentação relevante antes de propor mudanças. Não trate planejamento, mocks ou protótipos como funcionalidades implementadas.
+- Faça alterações pequenas e direcionadas. Preserve estrutura, convenções e ferramentas; evite refatorações estéticas, abstrações e dependências sem necessidade demonstrada.
+- Investigue a causa dos erros antes de corrigir. Aponte riscos e alternativas quando relevantes.
+- Não faça commits sem pedido explícito e nunca se adicione como coautor.
 
-1. Read the major version of the `expo` package in `package.json`.
-2. Fetch the matching versioned docs: `https://docs.expo.dev/versions/v<major>.0.0/`
-3. For anything else, fetch https://docs.expo.dev/llms.txt — an index of all Expo docs with corrections to common LLM misconceptions. Follow its links to the specific page you need; never answer from memory.
+## Código e organização
 
-## Commands
+- Prefira soluções simples, legíveis e responsabilidades claras. Mantenha regras de negócio separadas da apresentação e respeite as fronteiras documentadas.
+- Siga as configurações de TypeScript, lint e formatação existentes. Prefira tipos explícitos e valide dados externos nas fronteiras da aplicação.
+- Trate erros e operações assíncronas de forma explícita; preserve a distinção entre falha, pendência e sucesso confirmado.
+- Consulte a documentação oficial compatível com as versões declaradas antes de usar APIs ou alterar dependências. Use os comandos de instalação e geração indicados pelo projeto.
+- Não adicione comentários ao código sem pedido.
 
-Use `bunx` instead of `npx` if the project uses bun (`bun.lock` present).
+## Documentação
 
-```bash
-npx expo install <package>  # ALWAYS use instead of npm/yarn/pnpm/bun add — resolves SDK-compatible versions
-npx expo start              # start the dev server
-npx expo lint               # lint
-npx tsc --noEmit            # typecheck
-npx expo-doctor             # diagnose dependency and config issues
-npx expo install --fix      # fix incompatible package versions
-```
+- Comece por [docs/README.md](docs/README.md) e leia somente os documentos pertinentes à tarefa.
+- Consulte [README.md](README.md) para instalação e execução; [Produto](docs/product.md) para escopo; [Arquitetura](docs/architecture.md) para responsabilidades, contratos e roadmap.
+- Para mudanças técnicas, consulte [Mobile](docs/mobile.md), [Backend](docs/backend.md), [Banco](docs/database.md) ou [Integração Linux](docs/lux-integration.md), conforme a área afetada. Para UI, leia [Design](docs/design.md) e a referência correspondente em `prototypes/`.
+- Mantenha a documentação curta e alinhada ao código. Separe decisões confirmadas, implementação, planejamento, hipóteses e verificações pendentes; evite duplicar informações entre arquivos.
 
-Run lint and typecheck before declaring any task done.
+## Qualidade e segurança
 
-## Navigation & Routing
-
-- Use **Expo Router** for all navigation. Routes live in `src/app/` — every file there is a screen, `_layout.tsx` files define navigators. Keep non-route code (components, hooks, utils) outside `src/app/`.
-- Import `Link`, `router`, and `useLocalSearchParams` from `expo-router`.
-- Docs: https://docs.expo.dev/router/introduction.md
-
-## Building with EAS
-
-Use EAS to build, sign, and submit the app in the cloud (`eas build`, `eas submit`) and to ship over-the-air updates (`eas update`) — no local Xcode or Android Studio required. Run EAS CLI as `bunx eas-cli <command>` in Bun projects, or `npx eas-cli@latest <command>` otherwise; substitute that for bare `eas` in docs examples.
-Docs: https://docs.expo.dev/eas/index.md
-
-## Rules
-
-- If `ios/` and `android/` directories do not exist, they are generated (Continuous Native Generation). Never create or edit them by hand — configure native behavior in `app.json` and config plugins.
-- Expo Go only includes its bundled native modules. After adding a library with native code, the app needs a development build: `npx expo run:ios|android` locally, or `eas build --profile development`.
-- Prefer recommended Expo modules over third-party libraries, and check your available skills before adding dependencies. Docs: https://docs.expo.dev/versions/latest/index.md
-
-## Backend, Lux Agent e documentação
-
-- Backend: TypeScript/Node.js LTS, NestJS, REST, Prisma e MySQL, como monólito modular. Não introduza serviços, camadas ou dependências adicionais sem necessidade demonstrada.
-- O código do backend fica em `backend/`, o agente em `lux-agent/` e a documentação do projeto em `docs/`. Preserve essa separação de responsabilidades.
-- Para criar scaffolds, use os comandos oficiais compatíveis com as versões atuais: `npx @nestjs/cli new` para o backend e `npx prisma init` para a integração Prisma. Não gere manualmente estrutura que esses scaffolds fornecem.
-- Antes de usar APIs NestJS, Prisma ou MySQL, consulte a documentação oficial compatível com as versões declaradas no projeto. Para mudanças Expo/React Native, mantenha obrigatórias as instruções de versão e documentação acima.
-- Mantenha fronteiras claras: o mobile não acessa MySQL nem executa controles localmente; o backend é responsável pela API e persistência; o agente integra operações locais autorizadas. Trate interfaces GNOME, D-Bus, malcontent/libmalcontent, AccountsService e polkit como hipóteses até comprovação no Lenovo Lux real.
-- Segurança de autenticação, autorização por recurso, identidade do computador, comunicação autenticada e pareamento por token aleatório temporário de uso único são requisitos futuros a implementar e validar. Nunca envie senha root/admin ao mobile ou exponha execução arbitrária de comandos.
-- Preserve dados e comportamentos de mock documentados até existir contrato real que os substitua. Registre no diretório `docs/` decisões confirmadas, etapas, limites e hipóteses, sem apresentar planejamento como implementação.
+- Execute lint, typecheck e testes aplicáveis pelos comandos do projeto, no diretório correspondente. Testes devem verificar comportamentos e falhas relevantes, com isolamento e resultados reproduzíveis.
+- Revise o diff antes de concluir: escopo, responsabilidades, dependências sem uso, duplicação e mudanças acidentais. Em documentação, confira também links, comandos e coerência com a implementação.
+- Informe o que foi realmente validado e as limitações; distinga resultados verificáveis de afirmações sem evidência.
+- Nunca exponha ou versione segredos e credenciais. Respeite autenticação, autorização e privilégio mínimo.
+- Avise antes de ações destrutivas ou de risco relevante. Não faça commits sem pedido explícito nem adicione coautoria; quando autorizado, siga Conventional Commits.

@@ -9,19 +9,17 @@ Para instalar e abrir o aplicativo no celular, comece pelo [tutorial da raiz](..
 | [Mobile](mobile.md) | Organização, sessão REST, URL da API e Expo Go |
 | [Backend](backend.md) | Responsabilidades, implementação e contrato da API |
 | [Banco](database.md) | MySQL 8.4 com Docker ou local, Prisma e migrations |
-| [Lux](lux-integration.md) | Agente, hipóteses GNOME, segurança planejada e provas técnicas |
+| [Lux](lux-integration.md) | Agent Python/systemd, interface GTK, hipóteses GNOME, segurança e provas técnicas |
 | [Design](design.md) | PDF, padrões visuais e componentes |
 
 Este diretório descreve o estado presente e decisões planejadas. Leia [Produto](product.md) e [Arquitetura](architecture.md) para distinguir claramente os mocks atuais dos recursos ainda não implementados.
 
-## Próximas etapas
+## Estado e próximas etapas
 
-1. Fundação concluída: Expo, NestJS, Prisma e MySQL; desenvolvimento com Docker ou execução direta.
-2. Autenticação e listagem autorizada integradas ao mobile; responsáveis e registros demonstrativos são criados por seeds explícitos. Não há cadastro público nem criação de dispositivos pela API.
-3. Implementar pareamento seguro de computador/agente à conta responsável.
-4. Fazer uma prova técnica mínima de GNOME no Lenovo Lux quando o ambiente estiver disponível; essa investigação pode avançar em paralelo às etapas 2 e 3.
-5. Validar fluxo ponta a ponta no computador real, incluindo aplicação das operações suportadas, disponibilidade, erros e revogação.
+O [roadmap em Arquitetura](architecture.md#etapas-de-implementação) é a referência única para estado, evidência e pendências de cada etapa. Fundação e infraestrutura de pareamento existem; a etapa conjunta de autenticação/gerenciamento de dispositivos é parcial, com login implementado e gerenciamento limitado. Agent Python/systemd, interface GTK e operações parentais reais ainda não existem. A prova GNOME depende do acesso ao ambiente Lux.
 
-Controles parentais além do fluxo de autenticação/dispositivos/pareamento dependem do que for demonstrado como disponível no GNOME instalado no Lux. GNOME 50.5 foi informado, mas não há ISO Lux disponível para validar o ambiente; por isso D-Bus, malcontent/libmalcontent, AccountsService e polkit continuam hipóteses. Consulte [Integração Lux](lux-integration.md).
+Prioridades: validar o ambiente GNOME em paralelo ao mobile, desenvolver o Agent mínimo, adicionar a interface GTK e integrar operações nativas comprovadas antes da validação ponta a ponta. Os detalhes e limites dos fluxos com/sem Docker estão no [README](../README.md#limites-de-validação-dos-fluxos).
+
+Controles parentais além do fluxo de autenticação/dispositivos/pareamento dependem do que for demonstrado como disponível no GNOME instalado no Lux. O ambiente de referência previsto é GNOME 50.5, mas não há ISO Lux disponível para validar o sistema; por isso D-Bus, malcontent/libmalcontent, AccountsService e polkit continuam hipóteses. Consulte [Integração Lux](lux-integration.md).
 
 O ambiente MySQL local é usado pelo backend; o app mobile não acessa o banco. Consulte [Banco de dados](database.md) para inicialização, limites do volume e decisões de schema/migrations.

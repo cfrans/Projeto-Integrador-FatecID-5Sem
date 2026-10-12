@@ -2,11 +2,18 @@
 
 ## Propósito
 
-O piplup é um projeto acadêmico de interface mobile para que o responsável consulte e altere remotamente o controle parental disponível nos computadores Lenovo Lux usados pela criança. O celular é um cliente remoto; quem aplica restrições é o GNOME/Lux.
+O Lenovo Lux Parental (PIPLUP, identificado como `piplup` no código) é um projeto acadêmico de interface mobile para que o responsável consulte e altere remotamente o controle parental disponível nos computadores Lenovo Lux usados pela criança. O celular é um cliente remoto; quem aplica restrições é o GNOME/Lux.
 
 ## Estado atual
 
 O aplicativo Expo usa autenticação real de responsáveis e consulta registros de computadores pela API NestJS. A persistência utiliza Prisma e MySQL. A infraestrutura de pareamento seguro está implementada no backend e integrada ao mobile; ainda não há Lux Agent nem integração Linux validada. Fixtures permanecem identificadas como demonstração.
+
+## Usuários
+
+- Responsável: usa o mobile para autenticar-se, consultar computadores autorizados, parear/revogar vínculos e, futuramente, consultar restrições, solicitar alterações e acompanhar resultados.
+- Administrador local do Lux: autoriza o pareamento e operações locais que exigirem permissão; usará a interface GTK independente do serviço.
+- Criança/conta gerenciada: utiliza o computador sujeito às políticas nativas; essa conta não equivale à conta do responsável na API.
+- Administrador do backend: provisiona/invalida a identidade do computador antes do pareamento, conforme a decisão de confiança inicial.
 
 ## Funcionalidades previstas
 
@@ -20,7 +27,7 @@ O primeiro MVP deverá reunir autenticação real, gerenciamento de dispositivos
 
 ## Etapa atual e fora de escopo
 
-A fundação, autenticação e listagem autorizada já foram entregues. A etapa atual implementa a infraestrutura de pareamento, com um responsável ativo por computador, tokens temporários de uso único e revogação. A identidade do computador exige provisionamento administrativo separado do pareamento. O agente Lux e a aplicação de restrições reais não fazem parte desta etapa. Criar um mecanismo próprio de bloqueio parental está fora do escopo.
+A fundação, autenticação e listagem autorizada já foram entregues. A infraestrutura de pareamento já existe na API/mobile, com um responsável ativo por computador, tokens temporários de uso único e revogação. A identidade do computador exige provisionamento administrativo separado do pareamento. O agente Lux e a aplicação de restrições reais não fazem parte desta etapa. A pequena interface local Python/GTK4/libadwaita de pareamento é planejada, separada do Agent systemd; a prova de conceito poderá começar com QR no terminal. Criar um mecanismo próprio de bloqueio parental ou modificar o código-fonte do GNOME/Controle Parental está fora do escopo.
 
 ## Referências e limites
 
