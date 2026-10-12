@@ -6,15 +6,27 @@ import { AppModule } from './app.module.js';
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
   app.enableShutdownHooks();
-  app.useGlobalPipes(new ValidationPipe({ transform: true, whitelist: true, forbidNonWhitelisted: true }));
+  app.useGlobalPipes(
+    new ValidationPipe({
+      transform: true,
+      whitelist: true,
+      forbidNonWhitelisted: true,
+    }),
+  );
   const openApi = new DocumentBuilder()
     .setTitle('Piplup API')
     .setDescription('API do projeto integrador.')
     .setVersion('1.0.0')
     .addBearerAuth()
+    .addBearerAuth(
+      { type: 'http', scheme: 'bearer', bearerFormat: 'token do Agent' },
+      'agentBearer',
+    )
     .build();
 
-  SwaggerModule.setup('docs', app, () => SwaggerModule.createDocument(app, openApi));
+  SwaggerModule.setup('docs', app, () =>
+    SwaggerModule.createDocument(app, openApi),
+  );
 
   await app.listen(Number(process.env.PORT ?? 3000), '0.0.0.0');
 }

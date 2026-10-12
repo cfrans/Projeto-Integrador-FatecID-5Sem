@@ -1,6 +1,6 @@
 # Banco de dados
 
-O banco é MySQL 8.4, executado em Docker ou instalado localmente/em um servidor de desenvolvimento acessível. Os dois modos usam o mesmo schema e migrations Prisma. Mobile e Lux Agent não recebem credenciais MySQL. O schema contém Guardian para autenticação e Device para registros associados ao escopo de acesso de um responsável. Device não comprova pareamento, identidade do agente ou presença online; ainda não há contrato de associação real com o Lux.
+O banco é MySQL 8.4, executado em Docker ou instalado localmente/em um servidor de desenvolvimento acessível. Os dois modos usam o mesmo schema e migrations Prisma. Mobile e Lux Agent não recebem credenciais MySQL. O schema contém Guardian para autenticação e Device para registros associados ao escopo de acesso de um responsável. Fixtures legadas não comprovam pareamento. A infraestrutura de identidade e vínculo está descrita abaixo; associação na API não comprova presença online nem integração Linux.
 
 ## Com Docker
 
@@ -42,6 +42,16 @@ npm run start:dev
 
 ## Prisma e SQL
 
+### Contrato de persistência do pareamento
+
+O MVP permite um responsável ativo por dispositivo, representado por `Device.guardianId`. Esse campo é opcional para computadores provisionados ainda sem responsável; fixtures existentes conservam seu vínculo demonstrativo. O provisionamento de identidade não atribui um responsável automaticamente.
+
+O pareamento acrescenta `AgentIdentity` (uma identidade por dispositivo, hash único de credencial e revogação), `PairingSession` (hash único do token, criação, expiração, consumo e revogação) e `DeviceAssociation` (histórico do responsável, dispositivo, criação e revogação). Segredos aleatórios de alta entropia são armazenados por hash SHA-256; o token em texto aparece somente na resposta de criação da sessão. A validade é de cinco minutos, sem extensão na validação.
+
+Criação de sessão, consumo e revogação são serializados pelo bloqueio da linha do dispositivo, dentro de transações curtas. O consumo revalida identidade, validade e estado do token após obter o bloqueio, atualiza o token e cria o vínculo na mesma transação. Uma falha desfaz todas as alterações. A revogação retira o responsável ativo e invalida sessões pendentes; uma nova associação exige nova sessão. A consulta de validade não consome o token nem reserva o computador.
+
+`DeviceAssociation.activeDeviceId` é igual ao dispositivo enquanto o vínculo está ativo e fica `NULL` quando revogado. Um índice único permite no máximo um vínculo ativo por computador; a CHECK `DeviceAssociation_active_state_check` impõe a correspondência entre esses campos e `revokedAt`. A CHECK é mantida no SQL versionado porque não é expressa pelo schema Prisma. A relação do histórico com Device usa `RESTRICT` para exclusão e atualização, compatível com essa CHECK no MySQL 8.4. Não remover a CHECK em futuras migrations. O procedimento administrativo e a obrigação de autorização local estão em [Integração Lux](lux-integration.md).
+
 Migrations Prisma são versionadas junto ao código e aplicadas de forma controlada entre ambientes. Prisma é o caminho padrão para acesso e alterações de dados. Os requisitos acadêmicos incluem views, funções, procedures, triggers, transações e tratamento de erros SQL; implemente-os quando os casos de uso e o schema estiverem definidos. SQL direto via Prisma é permitido para esses recursos, com consultas parametrizadas e sem concatenar dados de usuário.
 
 `backend/prisma/schema.prisma` define `Guardian` com UUID, email único, nome e hash Argon2id da senha, e `Device` com UUID, nome, usuário gerenciado opcional, `guardianId` e `isDemo`. As migrations versionadas criam esses modelos. A relação usa comportamento restritivo para exclusão e índice simples por `guardianId`; nomes não são identidade única. `prisma:generate` gera código ignorado pelo Git, sem alterar o banco. Comandos e execução estão em [Backend](backend.md).
@@ -70,4 +80,4 @@ O Prisma reinicializa somente os bancos shadow temporários nesse fluxo. Se dete
 
 Recursos SQL não expressos no schema deverão ser mantidos em SQL versionado nas migrations reais; evite alterações manuais sem histórico. Transações e tratamento de erros devem acompanhar os casos de uso que precisarem de atomicidade e distinguir falhas de validação, conflito e indisponibilidade.
 
-O seed de dispositivos de desenvolvimento requer `DEV_GUARDIAN_EMAIL` de uma conta existente e cria registros fictícios com `isDemo=true`. Com `NODE_ENV=development` na `.env` da raiz, execute `npm run prisma:seed:devices` após as migrations e antes do servidor em watch, ou `docker compose run --rm backend npm run prisma:seed:devices`. Ele não cria responsáveis nem atualiza registros existentes. Vínculo de pareamento revogável, identidade real do computador, contas gerenciadas e configurações parentais ainda dependem de requisitos e validação da integração.
+O seed de dispositivos de desenvolvimento requer `DEV_GUARDIAN_EMAIL` de uma conta existente e cria registros fictícios com `isDemo=true`. Com `NODE_ENV=development` na `.env` da raiz, execute `npm run prisma:seed:devices` após as migrations e antes do servidor em watch, ou `docker compose run --rm backend npm run prisma:seed:devices`. Ele não cria responsáveis nem atualiza registros existentes. Esses registros legados não recebem identidade de Agent ou associação real automaticamente. Contas gerenciadas e configurações parentais ainda dependem da validação Linux.

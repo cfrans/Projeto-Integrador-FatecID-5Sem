@@ -12,8 +12,10 @@ backend/
   src/config/                    ambiente e conexão MySQL
   src/prisma/                    módulo e serviço Prisma
   src/auth/                      login, contratos e proteção JWT
-  src/devices/                   listagem de registros por responsável
-  prisma/schema.prisma           modelos Guardian/Device e gerador Prisma
+  src/devices/                   listagem e revogação por responsável
+  src/pairing/                   sessões e autenticação individual do Agent
+  src/agent/agent-admin.ts        ferramenta administrativa de identidade
+  prisma/schema.prisma           modelos de autenticação, dispositivos e pareamento
   prisma7.config.ts              CLI e caminho de migrations
   test/                          testes HTTP
   nest-cli.json                  projeto standard
@@ -24,7 +26,7 @@ backend/
   package-lock.json              instalação reproduzível
 ```
 
-O scaffold atual usa ESM, Vitest e Oxlint. Controllers recebem HTTP, services concentram lógica e módulos organizam providers conforme as convenções NestJS. DTOs validam entradas e documentam os contratos de autenticação e dispositivos. Os módulos adicionais são Prisma, Auth e Devices.
+O scaffold atual usa ESM, Vitest e Oxlint. Controllers recebem HTTP, services concentram lógica e módulos organizam providers conforme as convenções NestJS. DTOs validam entradas e documentam os contratos de autenticação e dispositivos. Os módulos adicionais são Prisma, Auth, Devices e Pairing.
 
 `PrismaService` conecta e executa `SELECT 1` durante a inicialização. `GET /health` consulta o banco novamente, retorna `{ "status": "ok", "database": "ok" }` ou HTTP 503 se a consulta falhar. Uma falha de conexão inicial impede a aplicação de iniciar. Shutdown hooks encerram a conexão ao receber sinais de término.
 
@@ -46,7 +48,7 @@ O Compose preserva MySQL e `mysql_data`. O backend recebe as credenciais da apli
 
 O Dockerfile mantém os estágios de build/produção e acrescenta `development`, selecionado pelo Compose. Esse estágio usa Node 24 LTS sobre Debian Trixie slim, OpenSSL, `npm ci`, dependências de desenvolvimento e usuário `node`. Ao iniciar, gera Prisma Client, aplica migrations versionadas com `migrate deploy` e executa `start:dev -- --no-shell`. A flag evita processos Node órfãos durante o watch na imagem slim, que não contém `ps`. O backend reinicia em caso de falha, inclusive quando o MySQL ainda está voltando de um reinício conjunto. Expo permanece fora do Docker.
 
-Os mounts compartilham `src`, `prisma` e as configurações de compilação/Prisma; `node_modules`, `generated` e `dist` pertencem ao container. Alterações TypeScript têm hot reload sem rebuild. Após mudar dependências ou o Dockerfile, use `docker compose up -d --build`. Após mudar o schema, reinicie o backend para gerar o client; após adicionar migrations já revisadas, o reinício aplica as pendências.
+Os mounts compartilham `src`, `prisma` e as configurações de compilação/Prisma; `node_modules`, `generated` e `dist` pertencem ao container. Alterações TypeScript têm hot reload sem rebuild. O `package.json` é copiado na imagem: mudanças nele, mesmo somente em scripts npm, exigem `docker compose up -d --build`, assim como alterações de dependências ou do Dockerfile. Após mudar o schema, reinicie o backend para gerar o client; após adicionar migrations já revisadas, o reinício aplica as pendências.
 
 Seeds continuam explícitos. Preencha `DEV_GUARDIAN_*` na raiz e execute, uma vez para criar a conta e opcionalmente para as fixtures:
 
@@ -107,6 +109,8 @@ node --env-file=/caminho/privado.env --test test/*.mysql-test.mjs
 
 O arquivo deve definir todas as variáveis da conexão e `NODE_ENV=test`, que têm precedência sobre `.env` da raiz. Não aponte esses testes para o banco da aplicação. Não é necessário Docker.
 
+O teste de pareamento cobre autenticação independente do Agent, dados inválidos, expiração durante espera por lock, consumo concorrente e reutilização, autorização por recurso, revogação, restrições e rollback reais. Também executa a ferramenta administrativa, verificando arquivo exclusivo `0600`, ausência do segredo no stdout e invalidação da identidade. Esta etapa passou em lint, typecheck, build, testes unitários/HTTP e MySQL 8.4 isolado, com Node 24.21. Migrations foram aplicadas no banco de teste e comparadas com o schema, sem diferenças nos recursos representados pelo Prisma. Esses testes não validam um Agent real ou autorização Linux.
+
 ## Autenticação implementada
 
 O primeiro bloco de autenticação está implementado para responsáveis. `POST /auth/login` recebe `{ "email", "password" }`, normaliza o email com trim e minúsculas e compara a senha com Argon2id. Email inválido ou campos extras retornam HTTP 400; credenciais inválidas retornam HTTP 401 com mensagem genérica. A senha aceita de 1 a 128 caracteres no login; o seed exige no mínimo 12.
@@ -119,9 +123,9 @@ O seed de responsável é explícito e exclusivo para `NODE_ENV=development`. `D
 
 ## Listagem de dispositivos implementada
 
-`GET /devices` exige Bearer JWT e consulta somente registros cujo `guardianId` é o id do responsável validado pelo guard. A ordenação por nome e UUID é determinística e não há parâmetro de responsável no endpoint. A resposta é uma lista `{ id, name, managedUser, status: "unverified", lastSeen: null, isDemo }`; erro operacional no MySQL retorna HTTP 503. O backend não persiste presença nem horário de atividade. `unverified` e `lastSeen: null` evitam afirmar conexão com o computador antes de implementar e validar um agente.
+`GET /devices` exige Bearer JWT e consulta somente registros cujo `guardianId` é o id do responsável validado pelo guard. A ordenação por nome e UUID é determinística e não há parâmetro de responsável no endpoint. A resposta é uma lista `{ id, name, managedUser, status: "unverified", lastSeen: null, isDemo, paired, associationId? }`; erro operacional no MySQL retorna HTTP 503. O backend não persiste presença nem horário de atividade. `unverified` e `lastSeen: null` evitam afirmar conexão com o computador antes de implementar e validar um agente.
 
-`Device.guardianId` registra o escopo de propriedade/acesso da API. Esse vínculo de banco não comprova pareamento, identidade do Lux ou conexão real. Todos os registros criados pelo seed de desenvolvimento são demonstrativos (`isDemo: true`) e usam nomes/contas fictícios. O seed é separado: após aplicar migrations e já existir um responsável, configure `DEV_GUARDIAN_EMAIL` com o email dele e `NODE_ENV=development` na `.env`, e execute `npm run prisma:seed:devices` antes do servidor em watch. Ele não cria responsáveis nem altera dados existentes e pode ser repetido.
+`Device.guardianId` registra o escopo de propriedade/acesso da API. Nas fixtures legadas, esse campo não comprova pareamento. O campo `paired` só é verdadeiro quando há uma associação ativa; identidade do Lux e conexão Linux não são comprovadas pela listagem. Todos os registros criados pelo seed de desenvolvimento são demonstrativos (`isDemo: true`) e usam nomes/contas fictícios. O seed é separado: após aplicar migrations e já existir um responsável, configure `DEV_GUARDIAN_EMAIL` com o email dele e `NODE_ENV=development` na `.env`, e execute `npm run prisma:seed:devices` antes do servidor em watch. Ele não cria responsáveis nem altera dados existentes e pode ser repetido.
 
 ## Persistência
 
@@ -129,17 +133,54 @@ O schema e migrations aditivas de responsável e dispositivos estão versionados
 
 ## Responsabilidades do backend
 
-O backend implementa autenticação de responsáveis e leitura de registros de dispositivos limitada ao responsável autenticado. Não há operações por dispositivo, gerenciamento de agentes nem pareamento implementados. A aplicação das restrições pertence ao GNOME; sucesso de transporte não deve ser confundido com aplicação confirmada no computador.
+O backend implementa autenticação de responsáveis e leitura de registros de dispositivos limitada ao responsável autenticado. O módulo Pairing implementa sessões e vínculos revogáveis; a ferramenta administrativa provisiona e invalida identidades individuais. O Agent Linux não está implementado. A aplicação das restrições pertence ao GNOME; sucesso de transporte não deve ser confundido com aplicação confirmada no computador.
 
 ## Integração do mobile
 
 O mobile usa a API para autenticação (`POST /auth/login` e `GET /auth/me`) e lista registros com `GET /devices`, enviando o Bearer token e validando a resposta antes de exibir. Os itens aparecem como `unverified` com `lastSeen: null`, sem afirmar que o computador está online ou offline. O serviço de lista não usa fallback para fixtures locais quando a API falha.
 
-`pairingDemo.simulatePairing()` continua sendo uma operação de demonstração do mobile e não cria Device no banco. Esse mock de pareamento permanece separado da lista da API. O endpoint de listagem não faz pareamento ou consulta o Lux; operações reais dependem de contrato e validação no computador.
+`pairingDemo.simulatePairing()` permanece como utilitário de mock e não cria Device no banco. O fluxo de QR utiliza os endpoints de validação e consumo descritos abaixo, sem fallback para mock. A listagem não consulta presença ou aplica operações no Lux.
+
+## Contratos de pareamento
+
+O MVP permite um responsável ativo por computador. A identidade do Agent é independente do JWT do responsável: uma credencial aleatória exclusiva é provisionada por operação administrativa no backend e instalada por um administrador local no Lux. Não há endpoint público de cadastro de computadores. A API armazena somente o hash da credencial; o `deviceId` não autentica o Agent. A decisão e a obrigação de autorização administrativa local estão em [Integração Lux](lux-integration.md).
+
+| Endpoint | Autenticação e finalidade |
+| --- | --- |
+| `POST /agent/pairing-sessions` | Credencial individual do Agent; cria sessão após autorização local obrigatória no futuro Agent. |
+| `GET /agent/associations` | Credencial do Agent; consulta vínculos somente do seu computador. |
+| `DELETE /agent/associations/:associationId` | Credencial do Agent; revoga vínculo do seu computador, após autorização local. |
+| `POST /pairing/validate` | JWT do responsável; recebe `{ token }` e valida sem consumir. |
+| `POST /pairing/complete` | JWT do responsável; recebe `{ token }` e consome o token junto à criação do vínculo. |
+| `GET /devices` | JWT do responsável; lista somente os dispositivos atualmente acessíveis. |
+| `DELETE /devices/:id/association` | JWT do responsável; revoga seu vínculo ativo, sem excluir o computador. |
+
+Os contratos estão implementados nesta etapa; a autorização local e a integração Linux continuam pendentes. O token de pareamento contém 32 bytes aleatórios codificados em base64url, expira em cinco minutos e só pode ser consumido uma vez. Seu hash SHA-256 é único no banco; o token original não aparece em consultas de sessões ou associações. O QR usa `piplup://pair?token=<token>` e não transporta URL da API, senha Linux ou credencial do Agent. O cliente utiliza exclusivamente a API já configurada.
+
+`POST /agent/pairing-sessions` recebe corpo vazio e retorna `{ token, expiresAt, qrPayload }`. `POST /pairing/validate` retorna `{ valid: true, expiresAt, device: { id, name, managedUser, isDemo } }`; `POST /pairing/complete` retorna a representação de dispositivo com `paired: true` e `associationId`. `GET /agent/associations` retorna histórico `{ id, createdAt, revokedAt, guardian: { id, name } }`, sem tokens, hashes ou email do responsável. As operações DELETE bem-sucedidas retornam `204`.
+
+A validação não reserva o dispositivo nem prolonga o prazo. O consumo revalida token e identidade dentro de uma transação serializada por dispositivo. Dispositivo já associado não pode ganhar outro responsável. Revogar um vínculo retira o acesso imediatamente na API e invalida sessões pendentes; novo pareamento exige nova sessão. A revogação não executa ações GNOME nem confirma alterações no Linux.
+
+Corpos inválidos retornam `400`; autenticação ausente/inválida retorna `401`; recurso de terceiros retorna `404`; conflito com vínculo existente retorna `409`; token inválido, expirado, consumido ou revogado retorna `410`; indisponibilidade do banco retorna `503`. Não enviar tokens em URLs HTTP, registrar credenciais em logs ou armazená-las no mobile. HTTPS é obrigatório fora do desenvolvimento local. Identidades demonstrativas só são aceitas quando `NODE_ENV` é `development` ou `test`; produção e ambiente não definido recusam essas credenciais.
+
+### Provisionamento e invalidação administrativa
+
+A ferramenta administrativa deverá ser executada por quem administra o backend, com suas credenciais MySQL protegidas. Seu acesso não é disponibilizado ao mobile nem ao Agent por HTTP. Após migrations e build, o procedimento é:
+
+```bash
+npm run agent:provision -- --name "Lux sala" --output /caminho/seguro/agent-credential
+npm run agent:revoke -- --device-id <uuid>
+```
+
+O provisionamento cria o computador sem responsável e grava a credencial em arquivo novo e exclusivo, com permissão `0600`; nunca imprime o segredo no terminal. O administrador transfere esse arquivo por canal seguro e o instalará no Lux com acesso restrito ao serviço. A invalidação administrativa da identidade também revoga sessões e o vínculo ativo. Reprovisionar uma instalação após perda/comprometimento da credencial exige novo procedimento administrativo, que cria novo registro/identidade; o histórico anterior é preservado, sem transferência automática de vínculos. Não há recuperação pública de segredo.
+
+Para uma fixture de desenvolvimento, acrescente `--demo` ao provisionamento, com `NODE_ENV=development`. O computador recebe `isDemo: true`; essa identidade não autentica em produção. A ferramenta não implementa o Agent, autorização Linux ou exibição de QR. Não provisione fixtures como computadores reais.
+
+O [roteiro mobile](mobile.md) documenta o teste manual completo com Docker/WSL: provisionamento da fixture, solicitação autenticada de sessão, geração local do QR e validação no celular.
 
 ## Próximas responsabilidades e decisões pendentes
 
-As próximas etapas tratarão criação e ciclo de vida dos dispositivos, identidade de agentes, pareamento temporário de uso único, revogação e coordenação de comandos suportados. Autenticação e listagem já estão integradas ao mobile; comportamento offline ainda não foi acordado. O backend não aplica restrições Linux nem envia comandos arbitrários para execução.
+As próximas etapas implementarão o Agent Python/systemd e validarão no Lux a proteção da identidade, a autorização local e o fluxo de QR. Coordenação de comandos parentais continua fora desta etapa. Autenticação e listagem já estão integradas ao mobile; comportamento offline ainda não foi acordado. O backend não aplica restrições Linux nem envia comandos arbitrários para execução.
 
 Referências: [Nest CLI](https://docs.nestjs.com/cli/overview), [comandos da CLI](https://docs.nestjs.com/cli/usages), [Swagger](https://docs.nestjs.com/openapi/introduction) e [Prisma 7/MySQL](https://www.prisma.io/docs/v7/prisma-orm/quickstart/mysql).
 

@@ -8,20 +8,63 @@ datasource db {
 }
 
 model Guardian {
-  id           String @id @default(uuid()) @db.Char(36)
-  email        String @unique @db.VarChar(254)
-  name         String @db.VarChar(100)
-  passwordHash String @db.VarChar(255)
-  devices      Device[]
+  id              String              @id @default(uuid()) @db.Char(36)
+  email           String              @unique @db.VarChar(254)
+  name            String              @db.VarChar(100)
+  passwordHash    String              @db.VarChar(255)
+  devices         Device[]
+  associations    DeviceAssociation[]
+  pairingSessions PairingSession[]
 }
 
 model Device {
-  id          String   @id @default(uuid()) @db.Char(36)
-  name        String   @db.VarChar(100)
-  managedUser String?  @db.VarChar(100)
-  guardianId  String   @db.Char(36)
-  isDemo      Boolean  @default(true)
-  guardian    Guardian @relation(fields: [guardianId], references: [id])
+  id              String              @id @default(uuid()) @db.Char(36)
+  name            String              @db.VarChar(100)
+  managedUser     String?             @db.VarChar(100)
+  guardianId      String?             @db.Char(36)
+  isDemo          Boolean             @default(true)
+  guardian        Guardian?           @relation(fields: [guardianId], references: [id], onDelete: Restrict)
+  agentIdentity   AgentIdentity?
+  pairingSessions PairingSession[]
+  associations    DeviceAssociation[] @relation("AssociationDevice")
 
   @@index([guardianId])
+}
+
+model AgentIdentity {
+  id             String    @id @default(uuid()) @db.Char(36)
+  deviceId       String    @unique @db.Char(36)
+  credentialHash String    @unique @db.Char(64)
+  createdAt      DateTime  @default(now()) @db.DateTime(3)
+  revokedAt      DateTime? @db.DateTime(3)
+  device         Device    @relation(fields: [deviceId], references: [id], onDelete: Cascade)
+}
+
+model PairingSession {
+  id                   String    @id @default(uuid()) @db.Char(36)
+  deviceId             String    @db.Char(36)
+  tokenHash            String    @unique @db.Char(64)
+  createdAt            DateTime  @default(now()) @db.DateTime(3)
+  expiresAt            DateTime  @db.DateTime(3)
+  consumedAt           DateTime? @db.DateTime(3)
+  revokedAt            DateTime? @db.DateTime(3)
+  consumedByGuardianId String?   @db.Char(36)
+  device               Device    @relation(fields: [deviceId], references: [id], onDelete: Cascade)
+  consumedByGuardian   Guardian? @relation(fields: [consumedByGuardianId], references: [id], onDelete: SetNull)
+
+  @@index([deviceId, expiresAt])
+}
+
+model DeviceAssociation {
+  id             String    @id @default(uuid()) @db.Char(36)
+  deviceId       String    @db.Char(36)
+  guardianId     String    @db.Char(36)
+  activeDeviceId String?   @unique @db.Char(36)
+  createdAt      DateTime  @default(now()) @db.DateTime(3)
+  revokedAt      DateTime? @db.DateTime(3)
+  device         Device    @relation("AssociationDevice", fields: [deviceId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  guardian       Guardian  @relation(fields: [guardianId], references: [id], onDelete: Restrict)
+
+  @@index([deviceId, createdAt])
+  @@index([guardianId, revokedAt])
 }

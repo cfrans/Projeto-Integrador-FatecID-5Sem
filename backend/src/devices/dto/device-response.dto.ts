@@ -13,9 +13,20 @@ export class DeviceResponseDto {
   @ApiProperty({ enum: ['unverified'], example: 'unverified' })
   status!: 'unverified';
 
-  @ApiProperty({ nullable: true, type: String, format: 'date-time', example: null })
+  @ApiProperty({
+    nullable: true,
+    type: String,
+    format: 'date-time',
+    example: null,
+  })
   lastSeen!: null;
 
   @ApiProperty({ example: true })
   isDemo!: boolean;
+
+  @ApiProperty({ example: false })
+  paired!: boolean;
+
+  @ApiProperty({ required: false, format: 'uuid' })
+  associationId?: string;
 }

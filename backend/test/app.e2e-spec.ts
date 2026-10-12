@@ -62,7 +62,10 @@ describe('AppController (e2e)', () => {
       }) => Promise.resolve(devices
         .filter((entry) => entry.guardianId === where.guardianId)
         .sort((a, b) => a.name.localeCompare(b.name) || a.id.localeCompare(b.id))
-        .map((entry) => Object.fromEntries(Object.keys(select).map((key) => [key, entry[key as keyof typeof entry]])))),
+        .map((entry) => Object.fromEntries(Object.keys(select).map((key) => [
+          key,
+          key === 'associations' ? [] : entry[key as keyof typeof entry],
+        ])))),
       ),
     },
   };
@@ -171,10 +174,21 @@ describe('AppController (e2e)', () => {
       isDemo: true,
       status: 'unverified',
       lastSeen: null,
+      paired: false,
     }]);
     expect(prisma.device.findMany).toHaveBeenLastCalledWith({
       where: { guardianId: guardian.id },
-      select: { id: true, name: true, managedUser: true, isDemo: true },
+      select: {
+        id: true,
+        name: true,
+        managedUser: true,
+        isDemo: true,
+        associations: {
+          where: { guardianId: guardian.id, activeDeviceId: { not: null }, revokedAt: null },
+          select: { id: true },
+          take: 1,
+        },
+      },
       orderBy: [{ name: 'asc' }, { id: 'asc' }],
     });
 
