@@ -9,16 +9,21 @@ import {
   View,
   type TextInput as TextInputType,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { Baloo2_800ExtraBold, useFonts } from '@expo-google-fonts/baloo-2';
+import { router } from 'expo-router';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
+import { AuthBackground } from '@/components/ui/AuthBackground';
+import { PenguinLogo } from '@/components/ui/PenguinLogo';
 import { useSession } from '@/features/auth/SessionProvider';
-import { colors, radius, spacing, typography } from '@/theme';
+import { colors, spacing, typography } from '@/theme';
 
 type FieldErrors = {
   email?: string;
   password?: string;
 };
+
+const TAGLINE = 'Parental Insight Platform for Lux User Protection';
 
 export default function LoginScreen() {
   const emailInput = useRef<TextInputType>(null);
@@ -27,6 +32,7 @@ export default function LoginScreen() {
   const [password, setPassword] = useState('');
   const [errors, setErrors] = useState<FieldErrors>({});
   const [notice, setNotice] = useState('');
+  const [fontsLoaded] = useFonts({ Baloo2_800ExtraBold });
   const { busy, canRetryRestore, clearError, error, retryRestore, signIn } = useSession();
 
   function updateEmail(value: string) {
@@ -75,7 +81,7 @@ export default function LoginScreen() {
   }
 
   return (
-    <SafeAreaView style={styles.safeArea}>
+    <AuthBackground>
       <KeyboardAvoidingView
         style={styles.keyboardView}
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
@@ -88,12 +94,11 @@ export default function LoginScreen() {
           <View style={styles.page}>
             <View style={styles.content}>
               <View style={styles.brand}>
-                <View style={styles.brandMark}>
-                  <Text style={styles.brandMarkText}>p</Text>
-                </View>
-                <View>
-                  <Text style={styles.brandName}>piplup</Text>
+                <PenguinLogo size={58} />
+                <View style={styles.brandText}>
+                  <Text style={[styles.brandName, fontsLoaded && styles.brandNameRounded]}>piplup</Text>
                   <View style={styles.brandUnderline} />
+                  <Text style={styles.tagline}>{TAGLINE}</Text>
                 </View>
               </View>
 
@@ -170,7 +175,13 @@ export default function LoginScreen() {
                 </Text>
               ) : null}
 
-              <Button label={busy ? 'Entrando…' : 'Entrar'} disabled={busy} onPress={submit} style={styles.submitButton} />
+              <Button
+                label={busy ? 'Entrando…' : 'Entrar'}
+                variant="solid"
+                disabled={busy}
+                onPress={submit}
+                style={styles.submitButton}
+              />
 
               {canRetryRestore ? (
                 <Button label="Tentar conexão novamente" disabled={busy} onPress={() => void retryRestore()} />
@@ -178,11 +189,21 @@ export default function LoginScreen() {
 
               <Pressable
                 accessibilityRole="button"
+                disabled={busy}
+                hitSlop={12}
+                onPress={() => router.push('/register')}
+                style={[styles.linkButton, styles.registerButton]}
+              >
+                <Text style={styles.registerText}>Não tem conta? Cadastre-se</Text>
+              </Pressable>
+
+              <Pressable
+                accessibilityRole="button"
                 accessibilityState={{ disabled: busy }}
                 disabled={busy}
-                hitSlop={8}
+                hitSlop={12}
                 onPress={() => setNotice('Recuperação de senha indisponível no momento.')}
-                style={styles.forgotButton}
+                style={styles.linkButton}
               >
                 <Text style={styles.forgotText}>Esqueci minha senha</Text>
               </Pressable>
@@ -191,12 +212,11 @@ export default function LoginScreen() {
           </View>
         </ScrollView>
       </KeyboardAvoidingView>
-    </SafeAreaView>
+    </AuthBackground>
   );
 }
 
 const styles = StyleSheet.create({
-  safeArea: { flex: 1, backgroundColor: colors.background },
   keyboardView: { flex: 1 },
   scrollContent: { flexGrow: 1 },
   page: {
@@ -208,29 +228,33 @@ const styles = StyleSheet.create({
   },
   content: { width: '100%', maxWidth: 420, alignSelf: 'center' },
   brand: { flexDirection: 'row', alignItems: 'center', gap: spacing.md },
-  brandMark: {
-    width: 46,
-    height: 46,
-    borderRadius: radius.md,
-    borderWidth: 1,
-    borderColor: colors.accent,
-    backgroundColor: colors.accentSoft,
-    alignItems: 'center',
-    justifyContent: 'center',
+  brandText: { flexShrink: 1 },
+  brandName: { color: colors.textPrimary, fontSize: typography.brand, fontWeight: '600', textTransform: 'uppercase' },
+  brandNameRounded: {
+    fontFamily: 'Baloo2_800ExtraBold',
+    fontSize: typography.brand + spacing.md,
+    fontWeight: 'normal',
+    includeFontPadding: false,
+    lineHeight: typography.brand + spacing.md,
+    marginBottom: -spacing.xs,
   },
-  brandMarkText: { color: colors.accentText, fontSize: typography.title, fontWeight: '600' },
-  brandName: { color: colors.textPrimary, fontSize: typography.brand, fontWeight: '600' },
   brandUnderline: {
     width: 26,
     height: 2,
     marginTop: spacing.xs,
     backgroundColor: colors.accent,
   },
+  tagline: {
+    marginTop: spacing.sm,
+    color: colors.textSecondary,
+    fontSize: typography.label,
+    lineHeight: typography.label + spacing.xs,
+  },
   title: {
     marginTop: spacing.xxl,
     color: colors.textPrimary,
-    fontSize: typography.title,
-    lineHeight: typography.title + spacing.xs,
+    fontSize: typography.title - spacing.xs,
+    lineHeight: typography.title,
     fontWeight: '500',
   },
   description: {
@@ -250,12 +274,13 @@ const styles = StyleSheet.create({
     fontSize: typography.label,
     lineHeight: typography.label + spacing.xs,
   },
-  submitButton: { marginTop: spacing.lg },
-  forgotButton: {
-    minHeight: 44,
+  submitButton: { marginTop: spacing.xl, alignSelf: 'center', minWidth: 220 },
+  linkButton: {
     alignItems: 'center',
     justifyContent: 'center',
-    marginTop: spacing.xs,
+    paddingVertical: spacing.xs,
   },
   forgotText: { color: colors.textSecondary, fontSize: typography.label },
+  registerButton: { marginTop: spacing.xs },
+  registerText: { color: colors.accentText, fontSize: typography.label },
 });
