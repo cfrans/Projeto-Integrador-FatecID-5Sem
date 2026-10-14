@@ -29,6 +29,7 @@ function RootNavigator() {
         <Stack>
           <Stack.Protected guard={status !== 'authenticated'}>
             <Stack.Screen name="index" options={{ headerShown: false }} />
+            <Stack.Screen name="register" options={{ headerShown: false }} />
           </Stack.Protected>
 
           <Stack.Protected guard={status === 'authenticated'}>

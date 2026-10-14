@@ -3,10 +3,11 @@ import { colors, radius, spacing, typography } from '@/theme';
 
 type ButtonProps = Omit<PressableProps, 'children'> & {
   label: string;
+  variant?: 'outline' | 'solid';
   style?: StyleProp<ViewStyle>;
 };
 
-export function Button({ label, style, disabled = false, accessibilityState, ...props }: ButtonProps) {
+export function Button({ label, style, variant = 'outline', disabled = false, accessibilityState, ...props }: ButtonProps) {
   const isDisabled = disabled || Boolean(accessibilityState?.disabled);
 
   return (
@@ -14,10 +15,10 @@ export function Button({ label, style, disabled = false, accessibilityState, ...
       accessibilityRole="button"
       accessibilityState={{ ...accessibilityState, disabled: isDisabled }}
       disabled={isDisabled}
-      style={({ pressed }) => [styles.button, pressed && styles.pressed, style, isDisabled && styles.disabled]}
+      style={({ pressed }) => [styles.button, variant === 'solid' && styles.solid, pressed && styles.pressed, style, isDisabled && styles.disabled]}
       {...props}
     >
-      <Text style={styles.label}>{label}</Text>
+      <Text style={[styles.label, variant === 'solid' && styles.solidLabel]}>{label}</Text>
     </Pressable>
   );
 }
@@ -34,7 +35,9 @@ const styles = StyleSheet.create({
     borderRadius: radius.md,
     backgroundColor: 'transparent',
   },
+  solid: { backgroundColor: colors.accent },
   pressed: { opacity: 0.72 },
   disabled: { opacity: 0.5 },
   label: { color: colors.accentText, fontSize: typography.button, fontWeight: '500' },
+  solidLabel: { color: colors.textPrimary },
 });
