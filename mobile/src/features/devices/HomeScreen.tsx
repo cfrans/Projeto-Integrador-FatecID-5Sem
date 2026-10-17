@@ -12,6 +12,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Button } from '@/components/ui/Button';
 import { prefetchTeamAvatars } from '@/features/about/AboutScreen';
 import { useSession } from '@/features/auth/SessionProvider';
+import { useLanguage } from '@/features/i18n/LanguageProvider';
 import { DeviceCard } from '@/features/devices/DeviceCard';
 import { devices, devicesErrorMessage, type PairedComputer } from '@/features/devices/services/devices';
 import { colors, radius, spacing, typography } from '@/theme';
@@ -23,6 +24,7 @@ type HomeState =
 
 export function HomeScreen() {
   const { busy, clearError, error, guardian, signOut } = useSession();
+  const { t } = useLanguage();
   const [state, setState] = useState<HomeState>({ status: 'loading' });
   const requestId = useRef(0);
 
@@ -60,14 +62,14 @@ export function HomeScreen() {
     <SafeAreaView style={styles.safeArea}>
       <ScrollView contentContainerStyle={styles.content}>
         <View style={styles.greeting}>
-          <Text style={styles.eyebrow}>PIPLUP · CONTROLE FAMILIAR</Text>
-          <Text style={styles.title}>Olá, {guardian?.name}</Text>
-          <Text style={styles.subtitle}>Acompanhe os computadores da sua família.</Text>
+          <Text style={styles.eyebrow}>{t('home.eyebrow')}</Text>
+          <Text style={styles.title}>{t('home.greeting', { name: guardian?.name ?? '' })}</Text>
+          <Text style={styles.subtitle}>{t('home.subtitle')}</Text>
           {error ? (
             <Text accessibilityLiveRegion="polite" style={styles.logoutError}>{error}</Text>
           ) : null}
           <Button
-            label={busy ? 'Saindo…' : 'Sair'}
+            label={busy ? t('common.signingOut') : t('common.signOut')}
             disabled={busy}
             onPress={() => {
               clearError();
@@ -78,20 +80,18 @@ export function HomeScreen() {
 
         <View style={styles.pairingCard}>
           <View style={styles.pairingCopy}>
-            <Text style={styles.pairingTitle}>Adicionar computador</Text>
-            <Text style={styles.pairingDescription}>
-              Leia o QR Code exibido no Lux para associar um novo computador.
-            </Text>
+            <Text style={styles.pairingTitle}>{t('common.addComputer')}</Text>
+            <Text style={styles.pairingDescription}>{t('home.addDescription')}</Text>
           </View>
           <Button
-            label="Adicionar computador"
+            label={t('common.addComputer')}
             onPress={() => router.push('/qr-scan')}
           />
         </View>
 
         <View style={styles.sectionHeader}>
           <View style={styles.sectionHeading}>
-            <Text style={styles.sectionTitle}>Computadores</Text>
+            <Text style={styles.sectionTitle}>{t('common.computers')}</Text>
             {state.status === 'loaded' ? (
               <Text style={styles.count}>{computers.length}</Text>
             ) : null}
@@ -101,31 +101,29 @@ export function HomeScreen() {
             onPress={() => router.push('/computers')}
             style={({ pressed }) => [styles.linkButton, pressed && styles.pressed]}
           >
-            <Text style={styles.link}>Ver todos</Text>
+            <Text style={styles.link}>{t('common.viewAll')}</Text>
           </Pressable>
         </View>
 
         {state.status === 'loading' ? (
           <View style={styles.stateContainer}>
             <ActivityIndicator color={colors.accent} />
-            <Text style={styles.stateText}>Carregando computadores…</Text>
+            <Text style={styles.stateText}>{t('common.loadingComputers')}</Text>
           </View>
         ) : null}
 
         {state.status === 'error' ? (
           <View style={styles.stateContainer}>
-            <Text style={styles.stateTitle}>Não foi possível carregar</Text>
+            <Text style={styles.stateTitle}>{t('common.loadError')}</Text>
             <Text style={styles.stateText}>{state.message}</Text>
-            <Button label="Tentar novamente" onPress={retry} />
+            <Button label={t('common.retry')} onPress={retry} />
           </View>
         ) : null}
 
         {state.status === 'loaded' && computers.length === 0 ? (
           <View style={styles.stateContainer}>
-            <Text style={styles.stateTitle}>Nenhum computador associado</Text>
-            <Text style={styles.stateText}>
-              Leia o QR Code temporário exibido no computador para criar um vínculo.
-            </Text>
+            <Text style={styles.stateTitle}>{t('home.noneTitle')}</Text>
+            <Text style={styles.stateText}>{t('home.noneDescription')}</Text>
           </View>
         ) : null}
 
@@ -138,7 +136,7 @@ export function HomeScreen() {
         ) : null}
 
         <View style={styles.shortcutsSection}>
-          <Text style={styles.shortcutsHeader}>ATALHOS DE RESTRIÇÃO</Text>
+          <Text style={styles.shortcutsHeader}>{t('home.shortcuts')}</Text>
 
           <View style={styles.shortcutsGrid}>
             <View style={styles.shortcutsRow}>
@@ -155,8 +153,8 @@ export function HomeScreen() {
                   </View>
                 </View>
                 <View style={styles.shortcutCopy}>
-                  <Text style={styles.shortcutTitle}>Navegadores</Text>
-                  <Text style={styles.shortcutSubtitle}>Bloqueados</Text>
+                  <Text style={styles.shortcutTitle}>{t('home.browsers')}</Text>
+                  <Text style={styles.shortcutSubtitle}>{t('home.blocked')}</Text>
                 </View>
               </Pressable>
 
@@ -175,8 +173,8 @@ export function HomeScreen() {
                   </View>
                 </View>
                 <View style={styles.shortcutCopy}>
-                  <Text style={styles.shortcutTitle}>Aplicativos</Text>
-                  <Text style={styles.shortcutSubtitle}>Ver instalados</Text>
+                  <Text style={styles.shortcutTitle}>{t('home.apps')}</Text>
+                  <Text style={styles.shortcutSubtitle}>{t('home.installed')}</Text>
                 </View>
               </Pressable>
             </View>
@@ -195,8 +193,8 @@ export function HomeScreen() {
                   </View>
                 </View>
                 <View style={styles.shortcutCopy}>
-                  <Text style={styles.shortcutTitle}>Instalação</Text>
-                  <Text style={styles.shortcutSubtitle}>Bloqueada</Text>
+                  <Text style={styles.shortcutTitle}>{t('home.installation')}</Text>
+                  <Text style={styles.shortcutSubtitle}>{t('home.blocked')}</Text>
                 </View>
               </Pressable>
 
@@ -210,8 +208,8 @@ export function HomeScreen() {
                   <Text style={styles.ageBadgeIconText}>12+</Text>
                 </View>
                 <View style={styles.shortcutCopy}>
-                  <Text style={styles.shortcutTitle}>Faixa etária</Text>
-                  <Text style={styles.shortcutSubtitle}>Até 12 anos</Text>
+                  <Text style={styles.shortcutTitle}>{t('home.age')}</Text>
+                  <Text style={styles.shortcutSubtitle}>{t('home.upTo12')}</Text>
                 </View>
               </Pressable>
             </View>
@@ -219,7 +217,7 @@ export function HomeScreen() {
         </View>
 
         <Button
-          label="Sobre o projeto"
+          label={t('nav.about')}
           onPress={() => router.push('/about')}
         />
       </ScrollView>

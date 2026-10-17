@@ -8,6 +8,7 @@ import { Card } from '@/components/ui/Card';
 import { parsePairingToken, PairingTokenError, pairingCompletionErrorMessage, pairingErrorMessage, type PairingPreview, type PairingResult } from '@/features/pairing/services/pairing';
 import { pairing } from '@/features/pairing/services/http-pairing';
 import { colors, radius, spacing, typography } from '@/theme';
+import { useLanguage } from '@/features/i18n/LanguageProvider';
 
 type PairingState =
   | { status: 'scanning' }
@@ -18,6 +19,7 @@ type PairingState =
   | { status: 'complete'; result: PairingResult };
 
 export function PairingScreen() {
+  const { t } = useLanguage();
   const [permission, requestPermission, getPermission] = useCameraPermissions();
   const [permissionOverride, setPermissionOverride] = useState<typeof permission>();
   const [state, setState] = useState<PairingState>({ status: 'scanning' });
@@ -149,49 +151,47 @@ export function PairingScreen() {
       <ScrollView contentContainerStyle={styles.content}>
         <View style={styles.main}>
           <View style={styles.intro}>
-            <Text style={styles.eyebrow}>PAREAMENTO SEGURO</Text>
-            <Text style={styles.title}>Adicionar computador</Text>
-            <Text style={styles.description}>
-              Leia o QR Code temporário exibido no computador. Confira os dados antes de criar o vínculo.
-            </Text>
+            <Text style={styles.eyebrow}>{t('pairing.eyebrow')}</Text>
+            <Text style={styles.title}>{t('pairing.title')}</Text>
+            <Text style={styles.description}>{t('pairing.description')}</Text>
           </View>
 
           {state.status === 'complete' ? (
             <Card style={styles.resultCard}>
               <Text style={styles.resultTitle}>
-                {state.result.isDemo ? 'Vínculo de demonstração criado' : 'Computador associado'}
+                {state.result.isDemo ? t('pairing.demoCreated') : t('pairing.computerAssociated')}
               </Text>
               <Text style={styles.description}>{state.result.name}</Text>
               <Text style={styles.resultNote}>
                 {state.result.isDemo
-                  ? 'Este computador é uma simulação. A integração real com o Lux ainda não foi validada.'
-                  : 'O vínculo está ativo. A conexão com o Lux ainda não foi validada.'}
+                  ? t('pairing.demoNote')
+                  : t('pairing.activeNote')}
               </Text>
-              <Button label="Ver computadores" onPress={() => router.dismissTo('/computers')} style={styles.actionButton} />
+              <Button label={t('pairing.viewComputers')} onPress={() => router.dismissTo('/computers')} style={styles.actionButton} />
             </Card>
           ) : state.status === 'confirming' || state.status === 'completing' ? (
             <Card style={styles.confirmCard}>
-              <Text style={styles.sectionTitle}>Confirme este computador</Text>
+              <Text style={styles.sectionTitle}>{t('pairing.confirm')}</Text>
               <Text style={styles.deviceName}>{state.preview.device.name}</Text>
               <Text style={styles.description}>
-                Conta gerenciada: {state.preview.device.managedUser ?? 'não informada'}
+                {t('pairing.managedAccount', { name: state.preview.device.managedUser ?? 'não informada' })}
               </Text>
               {state.preview.device.isDemo ? (
                 <Text style={styles.demoNote}>
-                  Demonstração: confirmar cria somente um vínculo de demonstração; não comprova integração com o Lux.
+                  {t('pairing.demoConfirm')}
                 </Text>
               ) : null}
-              <Text style={styles.expiry}>QR válido até {new Date(state.preview.expiresAt).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}</Text>
+              <Text style={styles.expiry}>{t('pairing.qrValid', { time: new Date(state.preview.expiresAt).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }) })}</Text>
               <Button
                 accessibilityState={{ disabled: state.status === 'completing' }}
                 disabled={state.status === 'completing'}
-                label={state.status === 'completing' ? 'Criando vínculo…' : 'Confirmar vínculo'}
+                label={state.status === 'completing' ? t('pairing.creating') : t('pairing.confirmLink')}
                 onPress={confirmPairing}
                 style={styles.actionButton}
               />
               {state.status === 'completing' ? <ActivityIndicator color={colors.accent} /> : null}
               <Button
-                label="Cancelar"
+                label={t('common.cancel')}
                 disabled={state.status === 'completing'}
                 onPress={cancelConfirmation}
                 style={styles.secondaryButton}
@@ -222,12 +222,12 @@ export function PairingScreen() {
                 {pending ? (
                   <View style={styles.pendingOverlay}>
                     <ActivityIndicator color={colors.accentText} />
-                    <Text style={styles.scannerText}>{state.status === 'checking' ? 'Validando QR Code…' : 'Criando vínculo…'}</Text>
+                    <Text style={styles.scannerText}>{state.status === 'checking' ? t('pairing.validating') : t('pairing.creating')}</Text>
                   </View>
                 ) : state.status === 'error' && cameraGranted ? (
                   <View style={styles.permissionPrompt}>
                     <Text accessibilityRole="alert" style={styles.error}>{state.message}</Text>
-                    <Button label="Ler outro QR Code" onPress={() => setState({ status: 'scanning' })} style={styles.permissionButton} />
+                    <Button label={t('pairing.readAnother')} onPress={() => setState({ status: 'scanning' })} style={styles.permissionButton} />
                     {state.canCheckDevices ? (
                       <Button label="Ver computadores" onPress={() => router.dismissTo('/computers')} style={styles.permissionButton} />
                     ) : null}
@@ -237,24 +237,24 @@ export function PairingScreen() {
                     {state.status === 'error' ? (
                       <Text accessibilityRole="alert" style={styles.error}>{state.message}</Text>
                     ) : null}
-                    <Text style={styles.scannerTitle}>A câmera é necessária</Text>
-                    <Text style={styles.scannerText}>O acesso é usado para ler QR Codes de pareamento.</Text>
+                    <Text style={styles.scannerTitle}>{t('pairing.cameraNeeded')}</Text>
+                    <Text style={styles.scannerText}>{t('pairing.cameraDescription')}</Text>
                     {currentPermission?.canAskAgain !== false ? (
                       <Button
-                        label={permissionPending ? 'Solicitando acesso…' : 'Ativar câmera'}
+                        label={permissionPending ? t('pairing.requestAccess') : t('pairing.enableCamera')}
                         disabled={permissionPending}
                         onPress={enableCamera}
                         style={styles.permissionButton}
                       />
                     ) : (
-                      <Button label="Abrir configurações" onPress={() => void openSettings()} style={styles.permissionButton} />
+                      <Button label={t('pairing.openSettings')} onPress={() => void openSettings()} style={styles.permissionButton} />
                     )}
                   </View>
                 ) : null}
               </View>
 
               <Text style={styles.demoNote}>
-                QR temporário de uso único. Não compartilhe o código; ele não é salvo no aparelho.
+                {t('pairing.qrNote')}
               </Text>
             </>
           )}

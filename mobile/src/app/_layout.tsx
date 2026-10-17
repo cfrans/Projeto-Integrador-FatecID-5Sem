@@ -4,13 +4,16 @@ import { ThemeProvider } from 'expo-router/react-navigation';
 import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { SessionProvider, useSession } from '@/features/auth/SessionProvider';
+import { LanguageProvider, useLanguage } from '@/features/i18n/LanguageProvider';
 import { colors, navigationTheme } from '@/theme';
 
 export default function RootLayout() {
   return (
     <ThemeProvider value={navigationTheme}>
       <SessionProvider>
-        <RootNavigator />
+        <LanguageProvider>
+          <RootNavigator />
+        </LanguageProvider>
       </SessionProvider>
     </ThemeProvider>
   );
@@ -18,6 +21,7 @@ export default function RootLayout() {
 
 function RootNavigator() {
   const { status } = useSession();
+  const { t } = useLanguage();
 
   return (
     <>
@@ -34,13 +38,13 @@ function RootNavigator() {
 
           <Stack.Protected guard={status === 'authenticated'}>
             <Stack.Screen name="home" options={{ headerShown: false }} />
-            <Stack.Screen name="computers" options={{ title: 'Computadores' }} />
-            <Stack.Screen name="qr-scan" options={{ title: 'Parear computador' }} />
+            <Stack.Screen name="computers" options={{ title: t('nav.computers') }} />
+            <Stack.Screen name="qr-scan" options={{ title: t('nav.pairComputer') }} />
             <Stack.Screen name="pairing-done" options={{ headerShown: false }} />
-            <Stack.Screen name="restrictions" options={{ title: 'Restrições' }} />
-            <Stack.Screen name="access-request" options={{ title: 'Pedido de liberação' }} />
-            <Stack.Screen name="sync-failure" options={{ title: 'Sincronização' }} />
-            <Stack.Screen name="about" options={{ title: 'Sobre o projeto' }} />
+            <Stack.Screen name="restrictions" options={{ title: t('nav.restrictions') }} />
+            <Stack.Screen name="access-request" options={{ title: t('nav.accessRequest') }} />
+            <Stack.Screen name="sync-failure" options={{ title: t('nav.sync') }} />
+            <Stack.Screen name="about" options={{ title: t('nav.about') }} />
           </Stack.Protected>
         </Stack>
       )}

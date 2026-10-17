@@ -3,6 +3,7 @@ import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, TextInput, 
 import { router, useFocusEffect } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { devices, devicesErrorMessage, type PairedComputer } from '@/features/devices/services/devices';
+import { useLanguage } from '@/features/i18n/LanguageProvider';
 import {
   applicationsErrorMessage,
   listInstalledApplications,
@@ -23,6 +24,7 @@ export function ApplicationsRestrictionScreen() {
   const [loadState, setLoadState] = useState<LoadState>('loading');
   const [errorMessage, setErrorMessage] = useState('');
   const [query, setQuery] = useState('');
+  const { t } = useLanguage();
 
   useFocusEffect(
     useCallback(() => {
@@ -69,7 +71,7 @@ export function ApplicationsRestrictionScreen() {
     `${application.name} ${application.category}`.toLocaleLowerCase().includes(query.trim().toLocaleLowerCase()),
   );
   const allowedCount = applications.filter((application) => application.allowed).length;
-  const computerName = computer?.name ?? 'Aplicativos';
+  const computerName = computer?.name ?? t('nav.apps');
 
   function toggleApplication(id: string) {
     setApplications((current) => current.map((application) => (
@@ -97,12 +99,12 @@ export function ApplicationsRestrictionScreen() {
             </Pressable>
             <View style={styles.headerCopy}>
               <Text numberOfLines={1} style={styles.computerName}>{computerName}</Text>
-              <Text style={styles.screenSubtitle}>Aplicativos</Text>
+              <Text style={styles.screenSubtitle}>{t('nav.apps')}</Text>
             </View>
             {computer ? (
               <View style={styles.syncBadge}>
                 <View style={styles.syncDot} />
-                <Text style={styles.syncText}>Sincronizado</Text>
+                <Text style={styles.syncText}>{t('restriction.sync')}</Text>
               </View>
             ) : null}
           </View>
@@ -110,22 +112,20 @@ export function ApplicationsRestrictionScreen() {
           {loadState === 'loading' ? (
             <View style={styles.centerState}>
               <ActivityIndicator color={colors.accent} />
-              <Text style={styles.stateText}>Consultando aplicativos instalados…</Text>
+              <Text style={styles.stateText}>{t('restriction.loadingComputer')}</Text>
             </View>
           ) : null}
 
           {loadState === 'empty' ? (
             <View style={styles.emptyState}>
-              <Text style={styles.emptyTitle}>Nenhum computador conectado</Text>
-              <Text style={styles.stateText}>
-                Faça o pareamento de um computador para consultar os aplicativos instalados nele.
-              </Text>
+              <Text style={styles.emptyTitle}>{t('restriction.noComputer')}</Text>
+              <Text style={styles.stateText}>{t('restriction.pairToContinue')}</Text>
             </View>
           ) : null}
 
           {loadState === 'error' ? (
             <View style={styles.emptyState}>
-              <Text style={styles.emptyTitle}>Aplicativos indisponíveis</Text>
+              <Text style={styles.emptyTitle}>{t('restriction.appsUnavailable')}</Text>
               <Text style={styles.stateText}>{errorMessage}</Text>
             </View>
           ) : null}
@@ -138,7 +138,7 @@ export function ApplicationsRestrictionScreen() {
                   accessibilityLabel="Buscar aplicativo"
                   autoCapitalize="none"
                   onChangeText={setQuery}
-                  placeholder="Buscar aplicativo"
+                  placeholder={t('restriction.searchApp')}
                   placeholderTextColor={colors.textMuted}
                   style={styles.searchInput}
                   value={query}
@@ -146,9 +146,9 @@ export function ApplicationsRestrictionScreen() {
               </View>
 
               <View style={styles.summaryRow}>
-                <Text style={styles.summaryText}>{allowedCount} de {applications.length} aplicativos liberados</Text>
+                <Text style={styles.summaryText}>{t('restriction.allowedApps', { allowed: allowedCount, total: applications.length })}</Text>
                 <Pressable accessibilityRole="button" onPress={restrictAll}>
-                  <Text style={styles.restrictText}>Restringir todos</Text>
+                  <Text style={styles.restrictText}>{t('restriction.restrictAll')}</Text>
                 </Pressable>
               </View>
 
@@ -175,7 +175,7 @@ export function ApplicationsRestrictionScreen() {
                   ))}
                 </View>
               ) : (
-                <Text style={styles.stateText}>Nenhum aplicativo corresponde à busca.</Text>
+                <Text style={styles.stateText}>{t('restriction.noAppMatch')}</Text>
               )}
             </>
           ) : null}

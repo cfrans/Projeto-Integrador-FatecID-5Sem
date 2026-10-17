@@ -9,6 +9,7 @@ import {
   type PairedComputer,
 } from '@/features/devices/services/devices';
 import { colors, radius, spacing, typography } from '@/theme';
+import { useLanguage } from '@/features/i18n/LanguageProvider';
 
 type AgeRatingId = 'L' | '10' | '12' | '16' | '18';
 
@@ -74,6 +75,7 @@ const DEFAULT_AGE_RATING: AgeRatingId = '12';
 const SYNC_FEEDBACK_DURATION_MS = 900;
 
 export function AgeRestrictionScreen() {
+  const { t } = useLanguage();
   const params = useLocalSearchParams<{ deviceId?: string; computer?: string }>();
   const [devicesState, setDevicesState] = useState<ComputersLoadState>({ status: 'loading' });
   const [selectedDeviceId, setSelectedDeviceId] = useState<string | null>(null);
@@ -157,6 +159,21 @@ export function AgeRestrictionScreen() {
   const activeOption =
     AGE_RATING_OPTIONS.find((option) => option.id === selectedId) ?? AGE_RATING_OPTIONS[2];
 
+  function localizedTitle(id: AgeRatingId) {
+    return t(`restriction.${id === 'L' ? 'free' : `age${id}`}`);
+  }
+
+  function localizedDescription(id: AgeRatingId) {
+    const keys: Record<AgeRatingId, string> = {
+      L: 'restriction.noAgeRestriction',
+      '10': 'restriction.contentLight',
+      '12': 'restriction.violenceLight',
+      '16': 'restriction.moderateAdult',
+      '18': 'restriction.noRatingFilter',
+    };
+    return t(keys[id]);
+  }
+
   return (
     <SafeAreaView edges={['left', 'right']} style={styles.safeArea}>
       <View style={styles.container}>
@@ -167,8 +184,8 @@ export function AgeRestrictionScreen() {
                 <Text style={styles.computerName}>{computerTitle}</Text>
                 <Text style={styles.screenSubtitle}>
                   {activeComputer?.managedUser
-                    ? `Adequação etária · conta ${activeComputer.managedUser}`
-                    : 'Adequação etária'}
+                    ? `${t('restriction.ageAdjustment')} · ${t('restriction.account', { name: activeComputer.managedUser })}`
+                    : t('restriction.ageAdjustment')}
                 </Text>
               </View>
 
@@ -178,7 +195,7 @@ export function AgeRestrictionScreen() {
               >
                 <View style={styles.syncDot} />
                 <Text style={styles.syncBadgeText}>
-                  {syncStatus === 'syncing' ? 'Sincronizando' : 'Sincronizado'}
+                  {syncStatus === 'syncing' ? t('restriction.syncing') : t('restriction.sync')}
                 </Text>
               </View>
             </View>
@@ -186,7 +203,7 @@ export function AgeRestrictionScreen() {
             {devicesState.status === 'loading' ? (
               <View style={styles.computerStatusRow}>
                 <ActivityIndicator color={colors.accent} size="small" />
-                <Text style={styles.computerStatusText}>Carregando computadores da conta…</Text>
+                <Text style={styles.computerStatusText}>{t('restriction.loadingAccountComputers')}</Text>
               </View>
             ) : null}
 
@@ -196,7 +213,7 @@ export function AgeRestrictionScreen() {
 
             {computers.length > 1 ? (
               <View style={styles.computerSwitcher}>
-                <Text style={styles.switcherLabel}>COMPUTADOR</Text>
+                <Text style={styles.switcherLabel}>{t('restriction.computer')}</Text>
                 <ScrollView
                   contentContainerStyle={styles.switcherList}
                   horizontal
@@ -243,7 +260,7 @@ export function AgeRestrictionScreen() {
                 return (
                   <Pressable
                     key={option.id}
-                    accessibilityLabel={`${option.title}, ${option.description}`}
+                    accessibilityLabel={`${localizedTitle(option.id)}, ${localizedDescription(option.id)}`}
                     accessibilityRole="radio"
                     accessibilityState={{ checked: selected }}
                     onPress={() => selectAgeRating(option.id)}
@@ -262,8 +279,8 @@ export function AgeRestrictionScreen() {
                     </View>
 
                     <View style={styles.optionCopy}>
-                      <Text style={styles.optionTitle}>{option.title}</Text>
-                      <Text style={styles.optionDescription}>{option.description}</Text>
+                      <Text style={styles.optionTitle}>{localizedTitle(option.id)}</Text>
+                      <Text style={styles.optionDescription}>{localizedDescription(option.id)}</Text>
                     </View>
 
                     <View style={[styles.radioOuter, selected && styles.radioOuterSelected]}>

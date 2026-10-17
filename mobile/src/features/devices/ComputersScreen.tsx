@@ -4,6 +4,7 @@ import { router, useFocusEffect } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Button } from '@/components/ui/Button';
 import { DeviceCard } from '@/features/devices/DeviceCard';
+import { useLanguage } from '@/features/i18n/LanguageProvider';
 import { devices, devicesErrorMessage, type PairedComputer } from '@/features/devices/services/devices';
 import { colors, radius, spacing, typography } from '@/theme';
 
@@ -13,6 +14,7 @@ type ComputersState =
   | { status: 'loaded'; computers: PairedComputer[] };
 
 export function ComputersScreen() {
+  const { t } = useLanguage();
   const [state, setState] = useState<ComputersState>({ status: 'loading' });
   const [removingId, setRemovingId] = useState<string | null>(null);
   const [removalError, setRemovalError] = useState<string | null>(null);
@@ -94,20 +96,20 @@ export function ComputersScreen() {
             {state.status === 'loading' ? (
               <>
                 <ActivityIndicator color={colors.accent} />
-                <Text style={styles.stateText}>Carregando computadores…</Text>
+                <Text style={styles.stateText}>{t('common.loadingComputers')}</Text>
               </>
             ) : null}
             {state.status === 'error' ? (
               <>
-                <Text style={styles.stateTitle}>Não foi possível carregar</Text>
+                <Text style={styles.stateTitle}>{t('common.loadError')}</Text>
                 <Text style={styles.stateText}>{state.message}</Text>
-                <Button label="Tentar novamente" onPress={retry} />
+                <Button label={t('common.retry')} onPress={retry} />
               </>
             ) : null}
             {state.status === 'loaded' ? (
               <>
-                <Text style={styles.stateTitle}>Nenhum computador associado</Text>
-                <Text style={styles.stateText}>Leia o QR Code temporário exibido no computador para criar um vínculo.</Text>
+                <Text style={styles.stateTitle}>{t('home.noneTitle')}</Text>
+                <Text style={styles.stateText}>{t('home.noneDescription')}</Text>
               </>
             ) : null}
           </View>
@@ -115,10 +117,10 @@ export function ComputersScreen() {
         ListHeaderComponent={
           <View style={styles.listHeader}>
             <Text style={styles.description}>
-              Confira os computadores associados à sua conta.
+              {t('home.subtitle')}
             </Text>
             <Button
-              label="Adicionar computador"
+              label={t('common.addComputer')}
               onPress={() => router.push('/qr-scan')}
             />
             {removalError ? <Text accessibilityRole="alert" style={styles.error}>{removalError}</Text> : null}

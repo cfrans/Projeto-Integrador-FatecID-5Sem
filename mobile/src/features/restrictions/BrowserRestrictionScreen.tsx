@@ -3,6 +3,7 @@ import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from
 import { router } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { devices, devicesErrorMessage, type PairedComputer } from '@/features/devices/services/devices';
+import { useLanguage } from '@/features/i18n/LanguageProvider';
 import { colors, radius, spacing, typography } from '@/theme';
 
 type BrowserId = 'firefox' | 'chromium' | 'brave' | 'gnome-web';
@@ -28,6 +29,7 @@ export function BrowserRestrictionScreen() {
     'gnome-web': true,
   });
   const [syncStatus, setSyncStatus] = useState<SyncStatus>('synced');
+  const { t } = useLanguage();
 
   useEffect(() => {
     let active = true;
@@ -63,8 +65,8 @@ export function BrowserRestrictionScreen() {
     });
   }
 
-  const computerName = computer?.name ?? 'Notebook da Ana';
-  const managedUser = computer?.managedUser ? `conta ${computer.managedUser}` : 'Navegadores';
+  const computerName = computer?.name ?? t('nav.browsers');
+  const managedUser = computer?.managedUser ? t('restriction.account', { name: computer.managedUser }) : t('nav.browsers');
 
   return (
     <SafeAreaView edges={['top', 'left', 'right']} style={styles.safeArea}>
@@ -88,24 +90,22 @@ export function BrowserRestrictionScreen() {
 
             <View accessibilityLiveRegion="polite" style={styles.syncBadge}>
               <View style={styles.syncDot} />
-              <Text style={styles.syncText}>{syncStatus === 'syncing' ? 'Sincronizando' : 'Sincronizado'}</Text>
+              <Text style={styles.syncText}>{syncStatus === 'syncing' ? t('restriction.syncing') : t('restriction.sync')}</Text>
             </View>
           </View>
 
           {loadingComputer ? (
             <View style={styles.statusRow}>
               <ActivityIndicator color={colors.accent} size="small" />
-              <Text style={styles.statusText}>Carregando computador…</Text>
+              <Text style={styles.statusText}>{t('restriction.loadingComputer')}</Text>
             </View>
           ) : null}
           {computerError ? <Text style={styles.errorText}>{computerError}</Text> : null}
 
           <View style={[styles.blockCard, blockBrowsers && styles.blockCardActive]}>
             <View style={styles.blockCopy}>
-              <Text style={styles.blockTitle}>Bloquear navegadores</Text>
-              <Text style={styles.blockDescription}>
-                Impede a abertura de qualquer navegador na conta da criança.
-              </Text>
+              <Text style={styles.blockTitle}>{t('restriction.blockBrowsers')}</Text>
+              <Text style={styles.blockDescription}>{t('restriction.blockBrowsersDescription')}</Text>
             </View>
             <SwitchControl
               accessibilityLabel="Bloquear navegadores"
@@ -114,7 +114,7 @@ export function BrowserRestrictionScreen() {
             />
           </View>
 
-          <Text style={styles.sectionTitle}>EXCEÇÕES PERMITIDAS</Text>
+          <Text style={styles.sectionTitle}>{t('restriction.allowedExceptions')}</Text>
 
           <View style={styles.browserList}>
             {BROWSERS.map((browser) => (
@@ -134,7 +134,7 @@ export function BrowserRestrictionScreen() {
           </View>
 
           <Text style={styles.footerText}>
-            Com o bloqueio geral ativo, apenas os navegadores marcados continuam disponíveis.
+            {t('restriction.browserFooter')}
           </Text>
         </ScrollView>
       </View>

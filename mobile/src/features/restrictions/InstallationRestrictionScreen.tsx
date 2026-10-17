@@ -3,6 +3,7 @@ import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from
 import { router, useFocusEffect } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { devices, devicesErrorMessage, type PairedComputer } from '@/features/devices/services/devices';
+import { useLanguage } from '@/features/i18n/LanguageProvider';
 import {
   installationRequestsErrorMessage,
   listInstallationRequests,
@@ -24,6 +25,7 @@ export function InstallationRestrictionScreen() {
   const [loadState, setLoadState] = useState<LoadState>('loading');
   const [errorMessage, setErrorMessage] = useState('');
   const [blockInstallation, setBlockInstallation] = useState(true);
+  const { t } = useLanguage();
 
   useFocusEffect(
     useCallback(() => {
@@ -66,7 +68,7 @@ export function InstallationRestrictionScreen() {
     }, []),
   );
 
-  const computerName = computer?.name ?? 'Instalação';
+  const computerName = computer?.name ?? t('nav.install');
 
   function removeRequest(id: string) {
     setRequests((current) => current.filter((request) => request.id !== id));
@@ -88,12 +90,12 @@ export function InstallationRestrictionScreen() {
             </Pressable>
             <View style={styles.headerCopy}>
               <Text numberOfLines={1} style={styles.computerName}>{computerName}</Text>
-              <Text style={styles.screenSubtitle}>Instalação</Text>
+              <Text style={styles.screenSubtitle}>{t('nav.install')}</Text>
             </View>
             {computer ? (
               <View style={styles.syncBadge}>
                 <View style={styles.syncDot} />
-                <Text style={styles.syncText}>Sincronizado</Text>
+                <Text style={styles.syncText}>{t('restriction.sync')}</Text>
               </View>
             ) : null}
           </View>
@@ -101,22 +103,20 @@ export function InstallationRestrictionScreen() {
           {loadState === 'loading' ? (
             <View style={styles.centerState}>
               <ActivityIndicator color={colors.accent} />
-              <Text style={styles.stateText}>Consultando pedidos de instalação…</Text>
+              <Text style={styles.stateText}>{t('restriction.loadingComputer')}</Text>
             </View>
           ) : null}
 
           {loadState === 'empty' ? (
             <View style={styles.emptyState}>
-              <Text style={styles.emptyTitle}>Nenhum computador conectado</Text>
-              <Text style={styles.stateText}>
-                Faça o pareamento de um computador para receber pedidos de instalação.
-              </Text>
+              <Text style={styles.emptyTitle}>{t('restriction.noComputer')}</Text>
+              <Text style={styles.stateText}>{t('restriction.pairToContinue')}</Text>
             </View>
           ) : null}
 
           {loadState === 'error' ? (
             <View style={styles.emptyState}>
-              <Text style={styles.emptyTitle}>Pedidos indisponíveis</Text>
+              <Text style={styles.emptyTitle}>{t('restriction.installUnavailable')}</Text>
               <Text style={styles.stateText}>{errorMessage}</Text>
             </View>
           ) : null}
@@ -125,10 +125,8 @@ export function InstallationRestrictionScreen() {
             <>
               <View style={[styles.blockCard, blockInstallation && styles.blockCardActive]}>
                 <View style={styles.blockCopy}>
-                  <Text style={styles.blockTitle}>Bloquear instalação</Text>
-                  <Text style={styles.blockDescription}>
-                    Novos aplicativos só podem ser instalados com sua aprovação.
-                  </Text>
+                  <Text style={styles.blockTitle}>{t('restriction.blockInstall')}</Text>
+                  <Text style={styles.blockDescription}>{t('restriction.blockInstallDescription')}</Text>
                 </View>
                 <SwitchControl
                   accessibilityLabel="Bloquear instalação"
@@ -137,7 +135,7 @@ export function InstallationRestrictionScreen() {
                 />
               </View>
 
-              <Text style={styles.sectionTitle}>PEDIDOS AGUARDANDO VOCÊ</Text>
+              <Text style={styles.sectionTitle}>{t('restriction.pendingRequests')}</Text>
 
               {requests.length > 0 ? (
                 <View style={styles.requestList}>
@@ -150,7 +148,7 @@ export function InstallationRestrictionScreen() {
                         <View style={styles.requestCopy}>
                           <Text style={styles.applicationName}>{request.applicationName}</Text>
                           <Text style={styles.requestDetails}>
-                            Pedido por {request.requesterName} · {request.requestedAt}
+                            {t('restriction.requestBy', { name: request.requesterName, time: request.requestedAt })}
                           </Text>
                         </View>
                         <View style={styles.ageBadge}>
@@ -165,7 +163,7 @@ export function InstallationRestrictionScreen() {
                           onPress={() => removeRequest(request.id)}
                           style={({ pressed }) => [styles.allowButton, pressed && styles.pressed]}
                         >
-                          <Text style={styles.allowText}>Permitir</Text>
+                          <Text style={styles.allowText}>{t('restriction.allow')}</Text>
                         </Pressable>
                         <Pressable
                           accessibilityLabel={`Recusar instalação de ${request.applicationName}`}
@@ -173,7 +171,7 @@ export function InstallationRestrictionScreen() {
                           onPress={() => removeRequest(request.id)}
                           style={({ pressed }) => [styles.denyButton, pressed && styles.pressed]}
                         >
-                          <Text style={styles.denyText}>Recusar</Text>
+                          <Text style={styles.denyText}>{t('restriction.deny')}</Text>
                         </Pressable>
                       </View>
                     </View>
@@ -181,8 +179,8 @@ export function InstallationRestrictionScreen() {
                 </View>
               ) : (
                 <View style={styles.emptyState}>
-                  <Text style={styles.emptyTitle}>Nenhum pedido pendente</Text>
-                  <Text style={styles.stateText}>Novos pedidos enviados pelo computador aparecerão aqui.</Text>
+                  <Text style={styles.emptyTitle}>{t('restriction.noPendingRequests')}</Text>
+                  <Text style={styles.stateText}>{t('restriction.newRequests')}</Text>
                 </View>
               )}
             </>

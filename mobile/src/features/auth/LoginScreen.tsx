@@ -16,14 +16,13 @@ import { Input } from '@/components/ui/Input';
 import { AuthBackground } from '@/components/ui/AuthBackground';
 import { PenguinLogo } from '@/components/ui/PenguinLogo';
 import { useSession } from '@/features/auth/SessionProvider';
+import { useLanguage } from '@/features/i18n/LanguageProvider';
 import { colors, spacing, typography } from '@/theme';
 
 type FieldErrors = {
   email?: string;
   password?: string;
 };
-
-const TAGLINE = 'Parental Insight Platform for Lux User Protection';
 
 export default function LoginScreen() {
   const emailInput = useRef<TextInputType>(null);
@@ -35,6 +34,7 @@ export default function LoginScreen() {
   const [notice, setNotice] = useState('');
   const [fontsLoaded] = useFonts({ Baloo2_800ExtraBold });
   const { busy, canRetryRestore, clearError, error, retryRestore, signIn } = useSession();
+  const { t } = useLanguage();
 
   function updateEmail(value: string) {
     setEmail(value);
@@ -57,11 +57,11 @@ export default function LoginScreen() {
     const normalizedEmail = email.trim();
 
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalizedEmail)) {
-      nextErrors.email = 'Informe um e-mail válido.';
+      nextErrors.email = t('auth.validEmail');
     }
 
     if (password.length === 0) {
-      nextErrors.password = 'Informe sua senha.';
+      nextErrors.password = t('auth.requiredPassword');
     }
 
     setErrors(nextErrors);
@@ -99,21 +99,19 @@ export default function LoginScreen() {
                 <View style={styles.brandText}>
                   <Text style={[styles.brandName, fontsLoaded && styles.brandNameRounded]}>piplup</Text>
                   <View style={styles.brandUnderline} />
-                  <Text style={styles.tagline}>{TAGLINE}</Text>
+                  <Text style={styles.tagline}>{t('auth.tagline')}</Text>
                 </View>
               </View>
 
-              <Text style={styles.title}>Bem-vindo de volta</Text>
-              <Text style={styles.description}>
-                Entre com sua conta de responsável para gerenciar os computadores da família.
-              </Text>
+              <Text style={styles.title}>{t('auth.welcome')}</Text>
+              <Text style={styles.description}>{t('auth.loginDescription')}</Text>
 
               <View style={styles.form}>
                 <View style={styles.field}>
-                  <Text style={styles.label}>E-mail</Text>
+                  <Text style={styles.label}>{t('common.email')}</Text>
                   <Input
                     ref={emailInput}
-                    accessibilityLabel="E-mail"
+                    accessibilityLabel={t('common.email')}
                     accessibilityHint={errors.email}
                     autoCapitalize="none"
                     autoComplete="email"
@@ -123,7 +121,7 @@ export default function LoginScreen() {
                     keyboardType="email-address"
                     onChangeText={updateEmail}
                     onSubmitEditing={() => passwordInput.current?.focus()}
-                    placeholder="responsavel@email.com"
+                    placeholder={t('auth.emailPlaceholder')}
                     placeholderTextColor={colors.textSecondary}
                     returnKeyType="next"
                     textContentType="emailAddress"
@@ -137,11 +135,11 @@ export default function LoginScreen() {
                 </View>
 
                 <View style={styles.field}>
-                  <Text style={styles.label}>Senha</Text>
+                  <Text style={styles.label}>{t('common.password')}</Text>
                   <View style={styles.passwordRow}>
                     <Input
                       ref={passwordInput}
-                      accessibilityLabel="Senha"
+                      accessibilityLabel={t('common.password')}
                       accessibilityHint={errors.password}
                       autoCapitalize="none"
                       autoComplete="current-password"
@@ -150,7 +148,7 @@ export default function LoginScreen() {
                       invalid={Boolean(errors.password)}
                       onChangeText={updatePassword}
                       onSubmitEditing={submit}
-                      placeholder="Digite sua senha"
+                      placeholder={t('auth.passwordPlaceholder')}
                       placeholderTextColor={colors.textSecondary}
                       returnKeyType="done"
                       secureTextEntry={!showPassword}
@@ -159,7 +157,7 @@ export default function LoginScreen() {
                       value={password}
                     />
                     <Pressable
-                      accessibilityLabel={showPassword ? 'Ocultar senha' : 'Mostrar senha'}
+                      accessibilityLabel={showPassword ? `${t('common.hide')} ${t('common.password').toLocaleLowerCase()}` : `${t('common.show')} ${t('common.password').toLocaleLowerCase()}`}
                       accessibilityRole="button"
                       accessibilityState={{ disabled: busy, expanded: showPassword }}
                       disabled={busy}
@@ -167,7 +165,7 @@ export default function LoginScreen() {
                       onPress={() => setShowPassword((current) => !current)}
                       style={styles.passwordToggle}
                     >
-                      <Text style={styles.passwordToggleText}>{showPassword ? 'Ocultar' : 'Mostrar'}</Text>
+                      <Text style={styles.passwordToggleText}>{showPassword ? t('common.hide') : t('common.show')}</Text>
                     </Pressable>
                   </View>
                   {errors.password ? (
@@ -191,7 +189,7 @@ export default function LoginScreen() {
               ) : null}
 
               <Button
-                label={busy ? 'Entrando…' : 'Entrar'}
+                label={busy ? t('auth.signingIn') : t('auth.signIn')}
                 variant="solid"
                 disabled={busy}
                 onPress={submit}
@@ -199,7 +197,7 @@ export default function LoginScreen() {
               />
 
               {canRetryRestore ? (
-                <Button label="Tentar conexão novamente" disabled={busy} onPress={() => void retryRestore()} />
+                <Button label={t('auth.retryConnection')} disabled={busy} onPress={() => void retryRestore()} />
               ) : null}
 
               <Pressable
@@ -209,7 +207,7 @@ export default function LoginScreen() {
                 onPress={() => router.push('/register')}
                 style={[styles.linkButton, styles.registerButton]}
               >
-                <Text style={styles.registerText}>Não tem conta? Cadastre-se</Text>
+                <Text style={styles.registerText}>{t('auth.registerPrompt')}</Text>
               </Pressable>
 
               <Pressable
@@ -217,10 +215,10 @@ export default function LoginScreen() {
                 accessibilityState={{ disabled: busy }}
                 disabled={busy}
                 hitSlop={12}
-                onPress={() => setNotice('Recuperação de senha indisponível no momento.')}
+                onPress={() => setNotice(t('auth.forgotUnavailable'))}
                 style={styles.linkButton}
               >
-                <Text style={styles.forgotText}>Esqueci minha senha</Text>
+                <Text style={styles.forgotText}>{t('auth.forgot')}</Text>
               </Pressable>
             </View>
 

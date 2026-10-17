@@ -1,5 +1,6 @@
 import { StyleSheet, Text, View, type ColorValue } from 'react-native';
 import { Tabs } from 'expo-router';
+import { useLanguage } from '@/features/i18n/LanguageProvider';
 import { colors, radius } from '@/theme';
 
 function BrowsersTabIcon({ color }: { color: ColorValue }) {
@@ -41,6 +42,8 @@ function AgeTabIcon({ color }: { color: ColorValue }) {
 }
 
 export default function RestrictionsLayout() {
+  const { t } = useLanguage();
+
   return (
     <Tabs
       screenOptions={{
@@ -59,28 +62,28 @@ export default function RestrictionsLayout() {
       <Tabs.Screen
         name="browsers"
         options={{
-          title: 'Navegadores',
+          title: t('nav.browsers'),
           tabBarIcon: ({ color }) => <BrowsersTabIcon color={color} />,
         }}
       />
       <Tabs.Screen
         name="apps"
         options={{
-          title: 'Aplicativos',
+          title: t('nav.apps'),
           tabBarIcon: ({ color }) => <AppsTabIcon color={color} />,
         }}
       />
       <Tabs.Screen
         name="install"
         options={{
-          title: 'Instalação',
+          title: t('nav.install'),
           tabBarIcon: ({ color }) => <InstallTabIcon color={color} />,
         }}
       />
       <Tabs.Screen
         name="age"
         options={{
-          title: 'Idade',
+          title: t('nav.age'),
           tabBarIcon: ({ color }) => <AgeTabIcon color={color} />,
         }}
       />

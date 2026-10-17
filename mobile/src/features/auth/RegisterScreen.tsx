@@ -14,6 +14,7 @@ import { AuthBackground } from '@/components/ui/AuthBackground';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { colors, spacing, typography } from '@/theme';
+import { useLanguage } from '@/features/i18n/LanguageProvider';
 
 type FieldErrors = {
   name?: string;
@@ -34,6 +35,7 @@ export default function RegisterScreen() {
   const [confirmPassword, setConfirmPassword] = useState('');
   const [errors, setErrors] = useState<FieldErrors>({});
   const [done, setDone] = useState(false);
+  const { t } = useLanguage();
 
   function change(field: keyof FieldErrors, setter: (value: string) => void) {
     return (value: string) => {
@@ -46,16 +48,16 @@ export default function RegisterScreen() {
     const nextErrors: FieldErrors = {};
 
     if (name.trim().length === 0) {
-      nextErrors.name = 'Informe seu nome.';
+      nextErrors.name = t('auth.namePlaceholder');
     }
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) {
-      nextErrors.email = 'Informe um e-mail válido.';
+      nextErrors.email = t('auth.validEmail');
     }
     if (password.length < MIN_PASSWORD_LENGTH) {
-      nextErrors.password = `A senha deve ter ao menos ${MIN_PASSWORD_LENGTH} caracteres.`;
+      nextErrors.password = t('auth.passwordMin', { count: MIN_PASSWORD_LENGTH });
     }
     if (confirmPassword !== password) {
-      nextErrors.confirmPassword = 'As senhas não coincidem.';
+      nextErrors.confirmPassword = t('auth.passwordMismatch');
     }
 
     setErrors(nextErrors);
@@ -71,12 +73,9 @@ export default function RegisterScreen() {
       <AuthBackground>
         <View style={styles.page}>
           <View style={styles.content}>
-            <Text style={styles.title}>Cadastro concluído</Text>
-            <Text style={styles.description}>
-              Conta simulada: nenhum dado foi salvo ou enviado, pois ainda não há backend. Volte ao login para
-              continuar.
-            </Text>
-            <Button label="Ir para o login" onPress={() => router.replace('/')} style={styles.submitButton} />
+            <Text style={styles.title}>{t('auth.completed')}</Text>
+            <Text style={styles.description}>{t('auth.completedDescription')}</Text>
+            <Button label={t('auth.goLogin')} onPress={() => router.replace('/')} style={styles.submitButton} />
           </View>
         </View>
       </AuthBackground>
@@ -96,22 +95,20 @@ export default function RegisterScreen() {
         >
           <View style={styles.page}>
             <View style={styles.content}>
-              <Text style={styles.title}>Criar conta</Text>
-              <Text style={styles.description}>
-                Cadastre-se como responsável para gerenciar os computadores da família.
-              </Text>
+              <Text style={styles.title}>{t('auth.createAccount')}</Text>
+              <Text style={styles.description}>{t('auth.registerDescription')}</Text>
 
               <View style={styles.form}>
                 <View style={styles.field}>
-                  <Text style={styles.label}>Nome</Text>
+                  <Text style={styles.label}>{t('common.name')}</Text>
                   <Input
-                    accessibilityLabel="Nome"
+                    accessibilityLabel={t('common.name')}
                     autoCapitalize="words"
                     autoComplete="name"
                     invalid={Boolean(errors.name)}
                     onChangeText={change('name', setName)}
                     onSubmitEditing={() => emailInput.current?.focus()}
-                    placeholder="Seu nome"
+                    placeholder={t('auth.namePlaceholder')}
                     placeholderTextColor={colors.textSecondary}
                     returnKeyType="next"
                     textContentType="name"
@@ -121,10 +118,10 @@ export default function RegisterScreen() {
                 </View>
 
                 <View style={styles.field}>
-                  <Text style={styles.label}>E-mail</Text>
+                  <Text style={styles.label}>{t('common.email')}</Text>
                   <Input
                     ref={emailInput}
-                    accessibilityLabel="E-mail"
+                    accessibilityLabel={t('common.email')}
                     autoCapitalize="none"
                     autoComplete="email"
                     autoCorrect={false}
@@ -132,7 +129,7 @@ export default function RegisterScreen() {
                     keyboardType="email-address"
                     onChangeText={change('email', setEmail)}
                     onSubmitEditing={() => passwordInput.current?.focus()}
-                    placeholder="responsavel@email.com"
+                    placeholder={t('auth.emailPlaceholder')}
                     placeholderTextColor={colors.textSecondary}
                     returnKeyType="next"
                     textContentType="emailAddress"
@@ -142,16 +139,16 @@ export default function RegisterScreen() {
                 </View>
 
                 <View style={styles.field}>
-                  <Text style={styles.label}>Senha</Text>
+                  <Text style={styles.label}>{t('common.password')}</Text>
                   <Input
                     ref={passwordInput}
-                    accessibilityLabel="Senha"
+                    accessibilityLabel={t('common.password')}
                     autoCapitalize="none"
                     autoCorrect={false}
                     invalid={Boolean(errors.password)}
                     onChangeText={change('password', setPassword)}
                     onSubmitEditing={() => confirmInput.current?.focus()}
-                    placeholder="Crie uma senha"
+                    placeholder={t('auth.createPassword')}
                     placeholderTextColor={colors.textSecondary}
                     returnKeyType="next"
                     secureTextEntry
@@ -162,16 +159,16 @@ export default function RegisterScreen() {
                 </View>
 
                 <View style={styles.field}>
-                  <Text style={styles.label}>Confirmar senha</Text>
+                  <Text style={styles.label}>{t('auth.confirmPassword')}</Text>
                   <Input
                     ref={confirmInput}
-                    accessibilityLabel="Confirmar senha"
+                    accessibilityLabel={t('auth.confirmPassword')}
                     autoCapitalize="none"
                     autoCorrect={false}
                     invalid={Boolean(errors.confirmPassword)}
                     onChangeText={change('confirmPassword', setConfirmPassword)}
                     onSubmitEditing={submit}
-                    placeholder="Repita a senha"
+                    placeholder={t('auth.confirmPlaceholder')}
                     placeholderTextColor={colors.textSecondary}
                     returnKeyType="done"
                     secureTextEntry
@@ -182,7 +179,7 @@ export default function RegisterScreen() {
                 </View>
               </View>
 
-              <Button label="Cadastrar" variant="solid" onPress={submit} style={styles.submitButton} />
+              <Button label={t('auth.createAccount')} variant="solid" onPress={submit} style={styles.submitButton} />
 
               <Pressable
                 accessibilityRole="button"
@@ -190,7 +187,7 @@ export default function RegisterScreen() {
                 onPress={() => router.back()}
                 style={styles.linkButton}
               >
-                <Text style={styles.linkText}>Já tenho conta</Text>
+                <Text style={styles.linkText}>{t('auth.haveAccount')}</Text>
               </Pressable>
             </View>
           </View>

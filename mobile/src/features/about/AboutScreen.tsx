@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Image, Linking, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { useLanguage, type Language } from '@/features/i18n/LanguageProvider';
 import { colors, radius, spacing, typography } from '@/theme';
 
 type TeamMember = {
@@ -140,6 +141,7 @@ function GitHubLogo({ size = 18, color = colors.textPrimary }: { size?: number; 
 
 export function AboutScreen() {
   const [failedAvatars, setFailedAvatars] = useState<Record<string, boolean>>({});
+  const { language, setLanguage, t } = useLanguage();
 
   useEffect(() => {
     prefetchTeamAvatars();
@@ -154,12 +156,28 @@ export function AboutScreen() {
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
         <View style={styles.main}>
           <View style={styles.intro}>
-            <Text style={styles.eyebrow}>GRUPO 2 · FATEC INDAIATUBA</Text>
-            <Text style={styles.title}>Projeto Integrador · 5º trimestre</Text>
-            <Text style={styles.description}>
-              Sistema mobile de controle parental para o Lux, com pareamento por QR Code e
-              comunicação via Web Service.
-            </Text>
+            <Text style={styles.eyebrow}>{t('about.eyebrow')}</Text>
+            <Text style={styles.title}>{t('about.title')}</Text>
+            <Text style={styles.description}>{t('about.description')}</Text>
+          </View>
+
+          <View style={styles.languageSection}>
+            <Text style={styles.sectionHeader}>{t('language.title')}</Text>
+            <View style={styles.languageOptions}>
+              {(['pt-BR', 'en', 'es'] as const).map((option: Language) => (
+                <Pressable
+                  key={option}
+                  accessibilityRole="radio"
+                  accessibilityState={{ selected: language === option }}
+                  onPress={() => setLanguage(option)}
+                  style={[styles.languageOption, language === option && styles.languageOptionSelected]}
+                >
+                  <Text style={[styles.languageOptionText, language === option && styles.languageOptionTextSelected]}>
+                    {option === 'pt-BR' ? t('language.portuguese') : option === 'en' ? t('language.english') : t('language.spanish')}
+                  </Text>
+                </Pressable>
+              ))}
+            </View>
           </View>
 
           <View style={styles.membersList}>
@@ -212,12 +230,12 @@ export function AboutScreen() {
             style={({ pressed }) => [styles.repoButton, pressed && styles.pressed]}
           >
             <GitHubLogo color={colors.accentText} size={18} />
-            <Text style={styles.repoButtonText}>Ver projeto no GitHub</Text>
+            <Text style={styles.repoButtonText}>{t('about.github')}</Text>
             <Text style={styles.repoButtonArrow}>↗</Text>
           </Pressable>
 
           <View style={styles.coursesSection}>
-            <Text style={styles.sectionHeader}>DISCIPLINAS INTEGRADAS</Text>
+            <Text style={styles.sectionHeader}>{t('about.courses')}</Text>
             <View style={styles.coursesWrap}>
               {INTEGRATED_COURSES.map((course) => (
                 <View key={course} style={styles.coursePill}>
@@ -228,7 +246,7 @@ export function AboutScreen() {
           </View>
 
           <Text style={styles.footerText}>
-            Fatec Indaiatuba Dr. Archimedes Lammoglia · 2026 · versão 0.9.0 (camada simulada)
+            {t('about.footer')}
           </Text>
         </View>
       </ScrollView>
@@ -254,6 +272,32 @@ const styles = StyleSheet.create({
   },
   intro: {
     gap: spacing.sm,
+  },
+  languageSection: {
+    gap: spacing.sm,
+  },
+  languageOptions: {
+    flexDirection: 'row',
+    gap: spacing.sm,
+  },
+  languageOption: {
+    borderColor: colors.border,
+    borderRadius: radius.pill,
+    borderWidth: 1,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+  },
+  languageOptionSelected: {
+    backgroundColor: colors.accentSoft,
+    borderColor: colors.accent,
+  },
+  languageOptionText: {
+    color: colors.textSecondary,
+    fontSize: typography.label,
+  },
+  languageOptionTextSelected: {
+    color: colors.accentText,
+    fontWeight: '600',
   },
   eyebrow: {
     color: colors.accentText,
