@@ -1,11 +1,13 @@
-import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
+import { createContext, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import { AppState } from 'react-native';
 import * as SecureStore from 'expo-secure-store';
+import { getLocales } from 'expo-localization';
 
 type TranslationKey = string;
 
 export type Language = 'pt-BR' | 'en' | 'es';
 
-const LANGUAGE_STORAGE_KEY = 'piplup-language';
+const LANGUAGE_STORAGE_KEY = 'piplup-language-preference-v2';
 
 const translations: Record<Language, Record<TranslationKey, string>> = {
   'pt-BR': {
@@ -164,20 +166,39 @@ type LanguageContextValue = {
 
 const LanguageContext = createContext<LanguageContextValue | null>(null);
 
+function getDeviceLanguage(): Language {
+  const languageTag = getLocales()[0]?.languageTag.toLowerCase() ?? '';
+
+  if (languageTag.startsWith('pt')) return 'pt-BR';
+  if (languageTag.startsWith('es')) return 'es';
+  return 'en';
+}
+
 export function LanguageProvider({ children }: { children: ReactNode }) {
-  const [language, setLanguageState] = useState<Language>('pt-BR');
+  const [language, setLanguageState] = useState<Language>(getDeviceLanguage);
+  const manualPreference = useRef(false);
 
   useEffect(() => {
     void SecureStore.getItemAsync(LANGUAGE_STORAGE_KEY)
       .then((storedLanguage) => {
         if (storedLanguage === 'pt-BR' || storedLanguage === 'en' || storedLanguage === 'es') {
+          manualPreference.current = true;
           setLanguageState(storedLanguage);
         }
       })
       .catch(() => undefined);
+
+    const subscription = AppState.addEventListener('change', (nextState) => {
+      if (nextState === 'active' && !manualPreference.current) {
+        setLanguageState(getDeviceLanguage());
+      }
+    });
+
+    return () => subscription.remove();
   }, []);
 
   function setLanguage(nextLanguage: Language) {
+    manualPreference.current = true;
     setLanguageState(nextLanguage);
     void SecureStore.setItemAsync(LANGUAGE_STORAGE_KEY, nextLanguage).catch(() => undefined);
   }
