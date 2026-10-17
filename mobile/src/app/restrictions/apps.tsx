@@ -1,5 +1,5 @@
-import { Screen } from '@/components/Screen';
+import { ApplicationsRestrictionScreen } from '@/features/restrictions/ApplicationsRestrictionScreen';
 
 export default function AppsScreen() {
-  return <Screen title="Aplicativos" />;
+  return <ApplicationsRestrictionScreen />;
 }

@@ -161,7 +161,7 @@ export function HomeScreen() {
               </Pressable>
 
               <Pressable
-                accessibilityLabel="Aplicativos, 4 de 8 liberados"
+                accessibilityLabel="Aplicativos, ver aplicativos instalados"
                 accessibilityRole="button"
                 onPress={() => router.push('/restrictions/apps')}
                 style={({ pressed }) => [styles.shortcutCard, pressed && styles.pressed]}
@@ -176,7 +176,7 @@ export function HomeScreen() {
                 </View>
                 <View style={styles.shortcutCopy}>
                   <Text style={styles.shortcutTitle}>Aplicativos</Text>
-                  <Text style={styles.shortcutSubtitle}>4 de 8 liberados</Text>
+                  <Text style={styles.shortcutSubtitle}>Ver instalados</Text>
                 </View>
               </Pressable>
             </View>
