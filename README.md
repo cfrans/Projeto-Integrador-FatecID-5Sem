@@ -1,6 +1,35 @@
 # piplup
 
-Projeto Integrador: aplicativo Expo para controle parental em computadores Lenovo Lux, com API NestJS, Prisma e MySQL. Login, perfil, listagem, pareamento e revogação de vínculos usam a API real. A demonstração usa computadores fictícios; ainda não há Lux Agent, interface GTK ou integração Lux/GNOME. Consulte o [estado das etapas](docs/architecture.md#etapas-de-implementação).
+Projeto Integrador: aplicativo Expo para controle parental em computadores Lenovo Lux, com API NestJS, Prisma e MySQL. Login, perfil, listagem, pareamento e revogação de vínculos usam a API real. O mobile também possui telas de controle para navegadores, aplicativos, instalação e faixa etária, além de seleção de idioma em português, inglês e espanhol. A demonstração usa computadores fictícios; ainda não há Lux Agent, interface GTK ou integração Lux/GNOME. Consulte o [estado das etapas](docs/architecture.md#etapas-de-implementação).
+
+## Estado atual
+
+### Já implementado
+
+- Aplicativo mobile em Expo 57, React Native e TypeScript, com navegação protegida por autenticação.
+- Login, consulta de perfil, expiração de sessão e armazenamento seguro do token em Android/iOS.
+- Backend NestJS com Prisma, MySQL, Docker Compose, migrations, health check e Swagger.
+- Autenticação de responsáveis com JWT e Argon2id.
+- Listagem autorizada de computadores e revogação de vínculos.
+- Pareamento por QR Code com token temporário, validação, confirmação, consumo único e revogação.
+- Home, lista de computadores, leitura de QR Code e estados de carregamento, erro e lista vazia.
+- Telas de Navegadores, Aplicativos, Instalação e Faixa etária com a identidade visual do protótipo.
+- Estados condicionais para aplicativos instalados e pedidos de instalação: sem computador pareado, não há dados fictícios exibidos.
+- Seleção de idioma em **Sobre o projeto → Idioma**, com português, inglês e espanhol. O idioma inicial é detectado pelo sistema do dispositivo e a escolha manual é persistida.
+- Testes de typecheck, lint, testes de API e verificações de integração existentes no backend/mobile.
+
+### Próximos passos
+
+1. Implementar no backend os contratos de aplicativos instalados e pedidos de instalação usados pelas telas mobile.
+2. Criar modelos Prisma e endpoints para configurações de navegadores, aplicativos, instalação e faixa etária.
+3. Persistir as ações do responsável e retornar estados confirmados, sem tratar uma alteração apenas enviada como concluída.
+4. Implementar o Lux Agent em Python como serviço systemd, com identidade provisionada, polling autenticado e recuperação de conexão.
+5. Validar no computador Lux as interfaces GNOME, D-Bus, malcontent/libmalcontent, AccountsService e polkit antes de definir operações suportadas.
+6. Implementar a interface local GTK4/libadwaita para autorização administrativa e provisionamento/pareamento do Agent.
+7. Conectar o Agent às decisões de instalação e restrições, registrando sucesso, falha e indisponibilidade no backend.
+8. Expandir a cobertura de testes para troca de idioma, múltiplos computadores, ausência de conexão, pedidos de instalação e fluxo ponta a ponta.
+
+As telas de restrições já existem como superfície de produto, mas a aplicação real no computador depende dos endpoints, do Agent e da validação GNOME descritos acima. O [roadmap da arquitetura](docs/architecture.md#etapas-de-implementação) mantém o estado técnico detalhado e as limitações conhecidas.
 
 ## 1. Pré-requisitos e clone
 
