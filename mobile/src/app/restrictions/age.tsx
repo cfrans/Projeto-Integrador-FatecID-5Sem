@@ -1,5 +1,5 @@
-import { Screen } from '@/components/Screen';
+import { AgeRestrictionScreen } from '@/features/restrictions/AgeRestrictionScreen';
 
 export default function AgeScreen() {
-  return <Screen title="Adequação etária" />;
+  return <AgeRestrictionScreen />;
 }
