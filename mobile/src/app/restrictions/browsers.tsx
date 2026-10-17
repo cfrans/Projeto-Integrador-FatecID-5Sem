@@ -1,5 +1,5 @@
-import { Screen } from '@/components/Screen';
+import { BrowserRestrictionScreen } from '@/features/restrictions/BrowserRestrictionScreen';
 
 export default function BrowsersScreen() {
-  return <Screen title="Navegadores" />;
+  return <BrowserRestrictionScreen />;
 }

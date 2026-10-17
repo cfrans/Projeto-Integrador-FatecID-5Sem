@@ -23,7 +23,7 @@ Instale dependências mobile com `npx expo install <package>` para resolver vers
 
 ## Rotas preservadas
 
-`/`, `/home`, `/computers` e `/qr-scan` formam o fluxo de login, início, computadores e pareamento pela API. Login, Home, lista e pareamento usam telas de feature. `/pairing-done`, `/access-request`, `/sync-failure`, `/about` e `/restrictions/{browsers,apps,install,age}` continuam como oito rotas placeholder, fora do fluxo implementado. Stack principal e Tabs foram preservados; a existência de uma rota não confirma viabilidade da funcionalidade.
+`/`, `/home`, `/computers` e `/qr-scan` formam o fluxo de login, início, computadores e pareamento pela API. Login, Home, lista e pareamento usam telas de feature. `/restrictions/browsers` apresenta o controle local de bloqueio e exceções de navegadores; `/pairing-done`, `/access-request`, `/sync-failure`, `/about` e `/restrictions/{apps,install,age}` continuam como rotas placeholder, fora do fluxo implementado. Stack principal e Tabs foram preservados; a existência de uma rota não confirma viabilidade da funcionalidade.
 
 ## Pendências de implementação
 
