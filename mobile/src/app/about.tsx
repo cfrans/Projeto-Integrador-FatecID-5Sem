@@ -1,5 +1,5 @@
-import { Screen } from '@/components/Screen';
+import { AboutScreen } from '@/features/about/AboutScreen';
 
-export default function AboutScreen() {
-  return <Screen title="Sobre o projeto" />;
+export default function AboutRoute() {
+  return <AboutScreen />;
 }

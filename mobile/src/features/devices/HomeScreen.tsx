@@ -73,13 +73,13 @@ export function HomeScreen() {
 
         <View style={styles.pairingCard}>
           <View style={styles.pairingCopy}>
-            <Text style={styles.pairingTitle}>Demonstração de pareamento</Text>
+            <Text style={styles.pairingTitle}>Adicionar computador</Text>
             <Text style={styles.pairingDescription}>
-              Explore o fluxo simulado. Ele não conecta um computador.
+              Leia o QR Code exibido no Lux para associar um novo computador.
             </Text>
           </View>
           <Button
-            label="Simular pareamento"
+            label="Adicionar computador"
             onPress={() => router.push('/qr-scan')}
           />
         </View>
@@ -118,7 +118,9 @@ export function HomeScreen() {
         {state.status === 'loaded' && computers.length === 0 ? (
           <View style={styles.stateContainer}>
             <Text style={styles.stateTitle}>Nenhum computador associado</Text>
-            <Text style={styles.stateText}>O pareamento seguro ainda não está disponível.</Text>
+            <Text style={styles.stateText}>
+              Leia o QR Code temporário exibido no computador para criar um vínculo.
+            </Text>
           </View>
         ) : null}
 
@@ -210,6 +212,11 @@ export function HomeScreen() {
             </View>
           </View>
         </View>
+
+        <Button
+          label="Sobre o projeto"
+          onPress={() => router.push('/about')}
+        />
       </ScrollView>
     </SafeAreaView>
   );
