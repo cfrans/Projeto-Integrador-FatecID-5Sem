@@ -1,8 +1,13 @@
-import { useEffect, useRef, useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
-import { useLocalSearchParams } from 'expo-router';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { useFocusEffect, useLocalSearchParams } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Card } from '@/components/ui/Card';
+import {
+  devices,
+  devicesErrorMessage,
+  type PairedComputer,
+} from '@/features/devices/services/devices';
 import { colors, radius, spacing, typography } from '@/theme';
 
 type AgeRatingId = 'L' | '10' | '12' | '16' | '18';
@@ -16,6 +21,11 @@ type AgeRatingOption = {
 };
 
 type SyncStatus = 'synced' | 'syncing';
+
+type ComputersLoadState =
+  | { status: 'loading' }
+  | { status: 'error'; message: string }
+  | { status: 'loaded'; computers: PairedComputer[] };
 
 const AGE_RATING_OPTIONS: readonly AgeRatingOption[] = [
   {
@@ -60,18 +70,18 @@ const AGE_RATING_OPTIONS: readonly AgeRatingOption[] = [
   },
 ];
 
-const DEFAULT_COMPUTER_NAME = 'Notebook da Ana';
+const DEFAULT_AGE_RATING: AgeRatingId = '12';
 const SYNC_FEEDBACK_DURATION_MS = 900;
 
 export function AgeRestrictionScreen() {
-  const params = useLocalSearchParams<{ computer?: string }>();
-  const computerName =
-    typeof params.computer === 'string' && params.computer.trim().length > 0
-      ? params.computer.trim()
-      : DEFAULT_COMPUTER_NAME;
-
-  const [selectedId, setSelectedId] = useState<AgeRatingId>('12');
+  const params = useLocalSearchParams<{ deviceId?: string; computer?: string }>();
+  const [devicesState, setDevicesState] = useState<ComputersLoadState>({ status: 'loading' });
+  const [selectedDeviceId, setSelectedDeviceId] = useState<string | null>(null);
+  const [ratingsByDevice, setRatingsByDevice] = useState<Record<string, AgeRatingId>>({});
+  const [fallbackRating, setFallbackRating] = useState<AgeRatingId>(DEFAULT_AGE_RATING);
   const [syncStatus, setSyncStatus] = useState<SyncStatus>('synced');
+
+  const requestIdRef = useRef(0);
   const syncTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
@@ -82,10 +92,56 @@ export function AgeRestrictionScreen() {
     };
   }, []);
 
+  useFocusEffect(
+    useCallback(() => {
+      const request = ++requestIdRef.current;
+      setDevicesState({ status: 'loading' });
+
+      devices
+        .listPairedComputers()
+        .then((computers) => {
+          if (request !== requestIdRef.current) return;
+          setDevicesState({ status: 'loaded', computers });
+        })
+        .catch((error: unknown) => {
+          if (request !== requestIdRef.current) return;
+          setDevicesState({ status: 'error', message: devicesErrorMessage(error) });
+        });
+
+      return () => {
+        requestIdRef.current += 1;
+      };
+    }, []),
+  );
+
+  const computers = devicesState.status === 'loaded' ? devicesState.computers : [];
+  const requestedDeviceId =
+    typeof params.deviceId === 'string' && params.deviceId.trim().length > 0
+      ? params.deviceId.trim()
+      : null;
+  const effectiveDeviceId = selectedDeviceId ?? requestedDeviceId;
+  const activeComputer =
+    computers.find((item) => item.id === effectiveDeviceId) ?? computers[0] ?? null;
+
+  const computerTitle =
+    activeComputer?.name ??
+    (typeof params.computer === 'string' && params.computer.trim().length > 0
+      ? params.computer.trim()
+      : 'Nenhum computador selecionado');
+
+  const selectedId = activeComputer
+    ? (ratingsByDevice[activeComputer.id] ?? DEFAULT_AGE_RATING)
+    : fallbackRating;
+
   function selectAgeRating(nextId: AgeRatingId) {
     if (nextId === selectedId) return;
 
-    setSelectedId(nextId);
+    if (activeComputer) {
+      setRatingsByDevice((current) => ({ ...current, [activeComputer.id]: nextId }));
+    } else {
+      setFallbackRating(nextId);
+    }
+
     setSyncStatus('syncing');
 
     if (syncTimerRef.current) {
@@ -108,8 +164,12 @@ export function AgeRestrictionScreen() {
           <View style={styles.main}>
             <View style={styles.headerRow}>
               <View style={styles.headerTitles}>
-                <Text style={styles.computerName}>{computerName}</Text>
-                <Text style={styles.screenSubtitle}>Adequação etária</Text>
+                <Text style={styles.computerName}>{computerTitle}</Text>
+                <Text style={styles.screenSubtitle}>
+                  {activeComputer?.managedUser
+                    ? `Adequação etária · conta ${activeComputer.managedUser}`
+                    : 'Adequação etária'}
+                </Text>
               </View>
 
               <View
@@ -122,6 +182,54 @@ export function AgeRestrictionScreen() {
                 </Text>
               </View>
             </View>
+
+            {devicesState.status === 'loading' ? (
+              <View style={styles.computerStatusRow}>
+                <ActivityIndicator color={colors.accent} size="small" />
+                <Text style={styles.computerStatusText}>Carregando computadores da conta…</Text>
+              </View>
+            ) : null}
+
+            {devicesState.status === 'error' ? (
+              <Text style={styles.computerErrorText}>{devicesState.message}</Text>
+            ) : null}
+
+            {computers.length > 1 ? (
+              <View style={styles.computerSwitcher}>
+                <Text style={styles.switcherLabel}>COMPUTADOR</Text>
+                <ScrollView
+                  contentContainerStyle={styles.switcherList}
+                  horizontal
+                  showsHorizontalScrollIndicator={false}
+                >
+                  {computers.map((computer) => {
+                    const isSelectedComputer = computer.id === activeComputer?.id;
+                    return (
+                      <Pressable
+                        key={computer.id}
+                        accessibilityRole="button"
+                        accessibilityState={{ selected: isSelectedComputer }}
+                        onPress={() => setSelectedDeviceId(computer.id)}
+                        style={({ pressed }) => [
+                          styles.computerChip,
+                          isSelectedComputer && styles.computerChipSelected,
+                          pressed && styles.optionPressed,
+                        ]}
+                      >
+                        <Text
+                          style={[
+                            styles.computerChipText,
+                            isSelectedComputer && styles.computerChipTextSelected,
+                          ]}
+                        >
+                          {computer.name}
+                        </Text>
+                      </Pressable>
+                    );
+                  })}
+                </ScrollView>
+              </View>
+            ) : null}
 
             <Text style={styles.description}>
               Aplicativos com classificação acima da faixa escolhida ficam ocultos na loja e não
@@ -217,6 +325,7 @@ const styles = StyleSheet.create({
   headerTitles: {
     flex: 1,
     gap: 2,
+    paddingRight: spacing.sm,
   },
   computerName: {
     color: colors.textPrimary,
@@ -251,6 +360,52 @@ const styles = StyleSheet.create({
   syncBadgeText: {
     color: colors.accentText,
     fontSize: 11,
+    fontWeight: '600',
+  },
+  computerStatusRow: {
+    alignItems: 'center',
+    flexDirection: 'row',
+    gap: spacing.sm,
+  },
+  computerStatusText: {
+    color: colors.textSecondary,
+    fontSize: typography.label,
+  },
+  computerErrorText: {
+    color: colors.accentText,
+    fontSize: typography.label,
+  },
+  computerSwitcher: {
+    gap: spacing.xs,
+  },
+  switcherLabel: {
+    color: colors.textMuted,
+    fontSize: 11,
+    fontWeight: '600',
+    letterSpacing: 0.8,
+  },
+  switcherList: {
+    gap: spacing.sm,
+  },
+  computerChip: {
+    backgroundColor: colors.surface,
+    borderColor: colors.border,
+    borderRadius: radius.pill,
+    borderWidth: 1,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.xs + 2,
+  },
+  computerChipSelected: {
+    backgroundColor: colors.accentSoft,
+    borderColor: colors.accent,
+  },
+  computerChipText: {
+    color: colors.textSecondary,
+    fontSize: typography.label,
+    fontWeight: '500',
+  },
+  computerChipTextSelected: {
+    color: colors.accentText,
     fontWeight: '600',
   },
   description: {
