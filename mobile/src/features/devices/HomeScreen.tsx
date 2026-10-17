@@ -1,4 +1,4 @@
-import { useCallback, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Pressable,
@@ -10,6 +10,7 @@ import {
 import { router, useFocusEffect } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Button } from '@/components/ui/Button';
+import { prefetchTeamAvatars } from '@/features/about/AboutScreen';
 import { useSession } from '@/features/auth/SessionProvider';
 import { DeviceCard } from '@/features/devices/DeviceCard';
 import { devices, devicesErrorMessage, type PairedComputer } from '@/features/devices/services/devices';
@@ -24,6 +25,10 @@ export function HomeScreen() {
   const { busy, clearError, error, guardian, signOut } = useSession();
   const [state, setState] = useState<HomeState>({ status: 'loading' });
   const requestId = useRef(0);
+
+  useEffect(() => {
+    prefetchTeamAvatars();
+  }, []);
 
   const loadComputers = useCallback(() => {
     const request = ++requestId.current;

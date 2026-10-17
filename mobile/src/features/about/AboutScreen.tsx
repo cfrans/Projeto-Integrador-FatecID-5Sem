@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Image, Linking, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { colors, radius, spacing, typography } from '@/theme';
@@ -19,37 +19,49 @@ const TEAM_MEMBERS: readonly TeamMember[] = [
     name: 'Caio Franson da Silva',
     username: 'cfrans',
     githubUrl: 'https://github.com/cfrans',
-    avatarUrl: 'https://github.com/cfrans.png?size=120',
+    avatarUrl: 'https://avatars.githubusercontent.com/u/84992079?s=120&v=4',
   },
   {
     initials: 'CB',
     name: 'Camila Barcaro Corrêa',
     username: 'camilabarcaro',
     githubUrl: 'https://github.com/camilabarcaro',
-    avatarUrl: 'https://github.com/camilabarcaro.png?size=120',
+    avatarUrl: 'https://avatars.githubusercontent.com/u/199844388?s=120&v=4',
   },
   {
     initials: 'GT',
     name: 'Gabriel Tamarossi',
     username: 'TamaGab',
     githubUrl: 'https://github.com/TamaGab',
-    avatarUrl: 'https://github.com/TamaGab.png?size=120',
+    avatarUrl: 'https://avatars.githubusercontent.com/u/167652764?s=120&v=4',
   },
   {
     initials: 'PO',
     name: 'Pedro de Oliveira Silva',
     username: 'pxdrui',
     githubUrl: 'https://github.com/pxdrui',
-    avatarUrl: 'https://github.com/pxdrui.png?size=120',
+    avatarUrl: 'https://avatars.githubusercontent.com/u/199849281?s=120&v=4',
   },
   {
     initials: 'VC',
     name: 'Vitória Caroline da Silva Farias Faturi',
     username: 'vitoriafaturi',
     githubUrl: 'https://github.com/vitoriafaturi',
-    avatarUrl: 'https://github.com/vitoriafaturi.png?size=120',
+    avatarUrl: 'https://avatars.githubusercontent.com/u/199849555?s=120&v=4',
   },
 ];
+
+let avatarsPrefetched = false;
+
+export function prefetchTeamAvatars() {
+  if (avatarsPrefetched) return;
+  avatarsPrefetched = true;
+  for (const member of TEAM_MEMBERS) {
+    void Image.prefetch(member.avatarUrl).catch(() => {
+      avatarsPrefetched = false;
+    });
+  }
+}
 
 const INTEGRATED_COURSES: readonly string[] = [
   'Engenharia de Software III',
@@ -129,6 +141,10 @@ function GitHubLogo({ size = 18, color = colors.textPrimary }: { size?: number; 
 export function AboutScreen() {
   const [failedAvatars, setFailedAvatars] = useState<Record<string, boolean>>({});
 
+  useEffect(() => {
+    prefetchTeamAvatars();
+  }, []);
+
   function openExternalUrl(url: string) {
     void Linking.openURL(url).catch(() => undefined);
   }
@@ -164,10 +180,11 @@ export function AboutScreen() {
                     {showImage ? (
                       <Image
                         accessibilityIgnoresInvertColors
+                        fadeDuration={0}
                         onError={() =>
                           setFailedAvatars((current) => ({ ...current, [member.username]: true }))
                         }
-                        source={{ uri: member.avatarUrl }}
+                        source={{ uri: member.avatarUrl, cache: 'force-cache' }}
                         style={styles.avatarImage}
                       />
                     ) : null}
