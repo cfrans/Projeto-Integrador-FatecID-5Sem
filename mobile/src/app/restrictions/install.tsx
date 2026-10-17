@@ -1,5 +1,5 @@
-import { Screen } from '@/components/Screen';
+import { InstallationRestrictionScreen } from '@/features/restrictions/InstallationRestrictionScreen';
 
 export default function InstallScreen() {
-  return <Screen title="Instalação" />;
+  return <InstallationRestrictionScreen />;
 }
