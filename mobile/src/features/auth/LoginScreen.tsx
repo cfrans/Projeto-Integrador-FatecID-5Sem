@@ -30,6 +30,7 @@ export default function LoginScreen() {
   const passwordInput = useRef<TextInputType>(null);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   const [errors, setErrors] = useState<FieldErrors>({});
   const [notice, setNotice] = useState('');
   const [fontsLoaded] = useFonts({ Baloo2_800ExtraBold });
@@ -137,24 +138,38 @@ export default function LoginScreen() {
 
                 <View style={styles.field}>
                   <Text style={styles.label}>Senha</Text>
-                  <Input
-                    ref={passwordInput}
-                    accessibilityLabel="Senha"
-                    accessibilityHint={errors.password}
-                    autoCapitalize="none"
-                    autoComplete="current-password"
-                    autoCorrect={false}
-                    editable={!busy}
-                    invalid={Boolean(errors.password)}
-                    onChangeText={updatePassword}
-                    onSubmitEditing={submit}
-                    placeholder="Digite sua senha"
-                    placeholderTextColor={colors.textSecondary}
-                    returnKeyType="done"
-                    secureTextEntry
-                    textContentType="password"
-                    value={password}
-                  />
+                  <View style={styles.passwordRow}>
+                    <Input
+                      ref={passwordInput}
+                      accessibilityLabel="Senha"
+                      accessibilityHint={errors.password}
+                      autoCapitalize="none"
+                      autoComplete="current-password"
+                      autoCorrect={false}
+                      editable={!busy}
+                      invalid={Boolean(errors.password)}
+                      onChangeText={updatePassword}
+                      onSubmitEditing={submit}
+                      placeholder="Digite sua senha"
+                      placeholderTextColor={colors.textSecondary}
+                      returnKeyType="done"
+                      secureTextEntry={!showPassword}
+                      style={styles.passwordInput}
+                      textContentType="password"
+                      value={password}
+                    />
+                    <Pressable
+                      accessibilityLabel={showPassword ? 'Ocultar senha' : 'Mostrar senha'}
+                      accessibilityRole="button"
+                      accessibilityState={{ disabled: busy, expanded: showPassword }}
+                      disabled={busy}
+                      hitSlop={8}
+                      onPress={() => setShowPassword((current) => !current)}
+                      style={styles.passwordToggle}
+                    >
+                      <Text style={styles.passwordToggleText}>{showPassword ? 'Ocultar' : 'Mostrar'}</Text>
+                    </Pressable>
+                  </View>
                   {errors.password ? (
                     <Text accessibilityLiveRegion="polite" style={styles.error}>
                       {errors.password}
@@ -266,6 +281,16 @@ const styles = StyleSheet.create({
   },
   form: { marginTop: spacing.xl, gap: spacing.md },
   field: { gap: spacing.sm },
+  passwordRow: { flexDirection: 'row', alignItems: 'center' },
+  passwordInput: { flex: 1 },
+  passwordToggle: {
+    minHeight: 44,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginLeft: spacing.sm,
+    paddingHorizontal: spacing.sm,
+  },
+  passwordToggleText: { color: colors.accentText, fontSize: typography.label },
   label: { color: colors.textSecondary, fontSize: typography.label },
   error: { color: colors.accentText, fontSize: typography.label },
   notice: {
