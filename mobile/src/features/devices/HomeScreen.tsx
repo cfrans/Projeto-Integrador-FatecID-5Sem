@@ -129,6 +129,87 @@ export function HomeScreen() {
             ))}
           </View>
         ) : null}
+
+        <View style={styles.shortcutsSection}>
+          <Text style={styles.shortcutsHeader}>ATALHOS DE RESTRIÇÃO</Text>
+
+          <View style={styles.shortcutsGrid}>
+            <View style={styles.shortcutsRow}>
+              <Pressable
+                accessibilityLabel="Navegadores, Bloqueados"
+                accessibilityRole="button"
+                onPress={() => router.push('/restrictions/browsers')}
+                style={({ pressed }) => [styles.shortcutCard, pressed && styles.pressed]}
+              >
+                <View style={styles.shortcutIconBox}>
+                  <View style={styles.globeCircle}>
+                    <View style={styles.globeLineHorizontal} />
+                    <View style={styles.globeLineVertical} />
+                  </View>
+                </View>
+                <View style={styles.shortcutCopy}>
+                  <Text style={styles.shortcutTitle}>Navegadores</Text>
+                  <Text style={styles.shortcutSubtitle}>Bloqueados</Text>
+                </View>
+              </Pressable>
+
+              <Pressable
+                accessibilityLabel="Aplicativos, 4 de 8 liberados"
+                accessibilityRole="button"
+                onPress={() => router.push('/restrictions/apps')}
+                style={({ pressed }) => [styles.shortcutCard, pressed && styles.pressed]}
+              >
+                <View style={styles.shortcutIconBox}>
+                  <View style={styles.appGridIcon}>
+                    <View style={styles.appGridDot} />
+                    <View style={styles.appGridDot} />
+                    <View style={styles.appGridDot} />
+                    <View style={styles.appGridDot} />
+                  </View>
+                </View>
+                <View style={styles.shortcutCopy}>
+                  <Text style={styles.shortcutTitle}>Aplicativos</Text>
+                  <Text style={styles.shortcutSubtitle}>4 de 8 liberados</Text>
+                </View>
+              </Pressable>
+            </View>
+
+            <View style={styles.shortcutsRow}>
+              <Pressable
+                accessibilityLabel="Instalação, Bloqueada"
+                accessibilityRole="button"
+                onPress={() => router.push('/restrictions/install')}
+                style={({ pressed }) => [styles.shortcutCard, pressed && styles.pressed]}
+              >
+                <View style={styles.shortcutIconBox}>
+                  <View style={styles.installIcon}>
+                    <Text style={styles.shortcutSymbolText}>↓</Text>
+                    <View style={styles.installTray} />
+                  </View>
+                </View>
+                <View style={styles.shortcutCopy}>
+                  <Text style={styles.shortcutTitle}>Instalação</Text>
+                  <Text style={styles.shortcutSubtitle}>Bloqueada</Text>
+                </View>
+              </Pressable>
+
+              <Pressable
+                accessibilityLabel="Faixa etária, Até 12 anos"
+                accessibilityRole="button"
+                onPress={() => router.push('/restrictions/age')}
+                style={({ pressed }) => [styles.shortcutCard, pressed && styles.pressed]}
+              >
+                <View style={styles.shortcutIconBox}>
+                  <Text style={styles.ageBadgeIconText}>12+</Text>
+                </View>
+                <View style={styles.shortcutCopy}>
+                  <Text style={styles.shortcutTitle}>Faixa etária</Text>
+                  <Text style={styles.shortcutSubtitle}>Até 12 anos</Text>
+                </View>
+              </Pressable>
+            </View>
+          </View>
+        </View>
       </ScrollView>
     </SafeAreaView>
   );
@@ -187,4 +268,110 @@ const styles = StyleSheet.create({
   },
   stateTitle: { color: colors.textPrimary, fontSize: typography.body, fontWeight: '600' },
   stateText: { color: colors.textSecondary, fontSize: typography.label, textAlign: 'center' },
+  shortcutsSection: {
+    gap: spacing.sm,
+  },
+  shortcutsHeader: {
+    color: colors.textMuted,
+    fontSize: 11,
+    fontWeight: '600',
+    letterSpacing: 0.8,
+  },
+  shortcutsGrid: {
+    gap: spacing.sm,
+  },
+  shortcutsRow: {
+    flexDirection: 'row',
+    gap: spacing.sm,
+  },
+  shortcutCard: {
+    backgroundColor: colors.surface,
+    borderColor: colors.border,
+    borderRadius: radius.md,
+    borderWidth: 1,
+    flex: 1,
+    gap: spacing.md,
+    justifyContent: 'space-between',
+    minHeight: 104,
+    padding: spacing.md,
+  },
+  shortcutIconBox: {
+    alignItems: 'center',
+    backgroundColor: colors.surfaceRaised,
+    borderColor: colors.border,
+    borderRadius: radius.sm,
+    borderWidth: 1,
+    height: 32,
+    justifyContent: 'center',
+    width: 32,
+  },
+  globeCircle: {
+    alignItems: 'center',
+    borderColor: colors.textSecondary,
+    borderRadius: radius.pill,
+    borderWidth: 1.3,
+    height: 15,
+    justifyContent: 'center',
+    width: 15,
+  },
+  globeLineHorizontal: {
+    backgroundColor: colors.textSecondary,
+    height: 1.2,
+    position: 'absolute',
+    width: 13,
+  },
+  globeLineVertical: {
+    backgroundColor: colors.textSecondary,
+    height: 13,
+    position: 'absolute',
+    width: 1.2,
+  },
+  appGridIcon: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 2.5,
+    height: 13,
+    width: 13,
+  },
+  appGridDot: {
+    borderColor: colors.textSecondary,
+    borderRadius: 1.5,
+    borderWidth: 1.2,
+    height: 5,
+    width: 5,
+  },
+  installIcon: {
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  shortcutSymbolText: {
+    color: colors.textSecondary,
+    fontSize: 12,
+    fontWeight: '700',
+    lineHeight: 13,
+  },
+  installTray: {
+    backgroundColor: colors.textSecondary,
+    borderRadius: 1,
+    height: 1.5,
+    marginTop: 1,
+    width: 11,
+  },
+  ageBadgeIconText: {
+    color: colors.textSecondary,
+    fontSize: 10,
+    fontWeight: '700',
+  },
+  shortcutCopy: {
+    gap: 2,
+  },
+  shortcutTitle: {
+    color: colors.textPrimary,
+    fontSize: typography.body,
+    fontWeight: '600',
+  },
+  shortcutSubtitle: {
+    color: colors.textSecondary,
+    fontSize: typography.label,
+  },
 });
