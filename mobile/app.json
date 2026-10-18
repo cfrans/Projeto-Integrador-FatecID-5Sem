@@ -6,7 +6,7 @@
     "orientation": "portrait",
     "scheme": "piplup",
     "icon": "./assets/icon.png",
-    "userInterfaceStyle": "dark",
+    "userInterfaceStyle": "automatic",
     "backgroundColor": "#0F1118",
     "ios": {
       "supportsTablet": true,
@@ -29,6 +29,7 @@
     "plugins": [
       "expo-router",
       "expo-secure-store",
+      "expo-system-ui",
       [
         "expo-camera",
         {
