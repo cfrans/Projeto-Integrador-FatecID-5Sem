@@ -2,7 +2,8 @@ import { useEffect, useState } from 'react';
 import { Image, Linking, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLanguage, type Language } from '@/features/i18n/LanguageProvider';
-import { colors, radius, spacing, typography } from '@/theme';
+import { radius, spacing, typography, type ColorPalette } from '@/theme';
+import { useTheme, useThemedStyles, type ThemePreference } from '@/features/theme/ThemeProvider';
 
 type TeamMember = {
   initials: string;
@@ -72,7 +73,10 @@ const INTEGRATED_COURSES: readonly string[] = [
   'Programação para Dispositivos Móveis',
 ];
 
-function GitHubLogo({ size = 18, color = colors.textPrimary }: { size?: number; color?: string }) {
+function GitHubLogo({ size = 18, color }: { size?: number; color?: string }) {
+  const { colors } = useTheme();
+  const styles = useThemedStyles(createStyles);
+  const logoColor = color ?? colors.textPrimary;
   const headSize = size * 0.56;
   const earSize = size * 0.2;
   const bodyWidth = size * 0.44;
@@ -87,7 +91,7 @@ function GitHubLogo({ size = 18, color = colors.textPrimary }: { size?: number; 
           width: size,
           height: size,
           borderRadius: size / 2,
-          backgroundColor: color,
+          backgroundColor: logoColor,
         },
       ]}
     >
@@ -142,6 +146,8 @@ function GitHubLogo({ size = 18, color = colors.textPrimary }: { size?: number; 
 export function AboutScreen() {
   const [failedAvatars, setFailedAvatars] = useState<Record<string, boolean>>({});
   const { language, setLanguage, t } = useLanguage();
+  const { colors, preference, setPreference } = useTheme();
+  const styles = useThemedStyles(createStyles);
 
   useEffect(() => {
     prefetchTeamAvatars();
@@ -174,6 +180,34 @@ export function AboutScreen() {
                 >
                   <Text style={[styles.languageOptionText, language === option && styles.languageOptionTextSelected]}>
                     {option === 'pt-BR' ? t('language.portuguese') : option === 'en' ? t('language.english') : t('language.spanish')}
+                  </Text>
+                </Pressable>
+              ))}
+            </View>
+          </View>
+
+          <View style={styles.themeSection}>
+            <Text style={styles.sectionHeader}>{t('about.theme.title')}</Text>
+            <View style={styles.themeOptions}>
+              {(['system', 'light', 'dark'] as const).map((option: ThemePreference) => (
+                <Pressable
+                  key={option}
+                  accessibilityRole="radio"
+                  accessibilityState={{ selected: preference === option }}
+                  onPress={() => setPreference(option)}
+                  style={[
+                    styles.languageOption,
+                    styles.themeOption,
+                    preference === option && styles.languageOptionSelected,
+                  ]}
+                >
+                  <Text
+                    style={[
+                      styles.languageOptionText,
+                      preference === option && styles.languageOptionTextSelected,
+                    ]}
+                  >
+                    {t(`about.theme.${option}`)}
                   </Text>
                 </Pressable>
               ))}
@@ -254,7 +288,7 @@ export function AboutScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (colors: ColorPalette) => StyleSheet.create({
   safeArea: {
     backgroundColor: colors.background,
     flex: 1,
@@ -279,6 +313,18 @@ const styles = StyleSheet.create({
   languageOptions: {
     flexDirection: 'row',
     gap: spacing.sm,
+  },
+  themeSection: {
+    gap: spacing.sm,
+  },
+  themeOptions: {
+    flexDirection: 'row',
+    gap: spacing.sm,
+  },
+  themeOption: {
+    alignItems: 'center',
+    flex: 1,
+    paddingHorizontal: spacing.xs,
   },
   languageOption: {
     borderColor: colors.border,
