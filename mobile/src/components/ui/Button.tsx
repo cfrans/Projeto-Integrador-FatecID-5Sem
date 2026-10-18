@@ -1,5 +1,6 @@
 import { Pressable, StyleSheet, Text, type PressableProps, type StyleProp, type ViewStyle } from 'react-native';
-import { colors, radius, spacing, typography } from '@/theme';
+import { radius, spacing, typography, type ColorPalette } from '@/theme';
+import { useThemedStyles } from '@/features/theme/ThemeProvider';
 
 type ButtonProps = Omit<PressableProps, 'children'> & {
   label: string;
@@ -9,6 +10,7 @@ type ButtonProps = Omit<PressableProps, 'children'> & {
 
 export function Button({ label, style, variant = 'outline', disabled = false, accessibilityState, ...props }: ButtonProps) {
   const isDisabled = disabled || Boolean(accessibilityState?.disabled);
+  const styles = useThemedStyles(createStyles);
 
   return (
     <Pressable
@@ -23,7 +25,7 @@ export function Button({ label, style, variant = 'outline', disabled = false, ac
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (colors: ColorPalette) => StyleSheet.create({
   button: {
     minHeight: 48,
     alignItems: 'center',

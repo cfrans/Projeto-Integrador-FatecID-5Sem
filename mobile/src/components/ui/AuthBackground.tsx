@@ -3,7 +3,8 @@ import { StyleSheet, useWindowDimensions, View } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Penguin } from '@/components/ui/PenguinLogo';
-import { colors } from '@/theme';
+import { type ColorPalette } from '@/theme';
+import { useTheme, useThemedStyles } from '@/features/theme/ThemeProvider';
 
 function mixColors(from: string, to: string, amount: number) {
   const t = Math.min(1, Math.max(0, amount));
@@ -17,6 +18,8 @@ function mixColors(from: string, to: string, amount: number) {
 }
 
 export function AuthBackground({ children }: { children: ReactNode }) {
+  const { colors } = useTheme();
+  const styles = useThemedStyles(createStyles);
   const { width: screenWidth, height: screenHeight } = useWindowDimensions();
   const insets = useSafeAreaInsets();
   const penguinWidth = screenWidth * 0.9;
@@ -45,7 +48,7 @@ export function AuthBackground({ children }: { children: ReactNode }) {
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (_colors: ColorPalette) => StyleSheet.create({
   gradient: { flex: 1 },
   safeArea: { flex: 1 },
   backdrop: { ...StyleSheet.absoluteFill, overflow: 'hidden' },
