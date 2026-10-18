@@ -4,7 +4,8 @@ import { router } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { devices, devicesErrorMessage, type PairedComputer } from '@/features/devices/services/devices';
 import { useLanguage } from '@/features/i18n/LanguageProvider';
-import { colors, radius, spacing, typography } from '@/theme';
+import { radius, spacing, typography, type ColorPalette } from '@/theme';
+import { useTheme, useThemedStyles } from '@/features/theme/ThemeProvider';
 
 type BrowserId = 'firefox' | 'chromium' | 'brave' | 'gnome-web';
 type BrowserOption = { id: BrowserId; name: string; icon: string };
@@ -30,6 +31,8 @@ export function BrowserRestrictionScreen() {
   });
   const [syncStatus, setSyncStatus] = useState<SyncStatus>('synced');
   const { t } = useLanguage();
+  const { colors } = useTheme();
+  const styles = useThemedStyles(createStyles);
 
   useEffect(() => {
     let active = true;
@@ -149,8 +152,19 @@ type SwitchControlProps = {
 };
 
 function SwitchControl({ accessibilityLabel, value, onPress }: SwitchControlProps) {
+  const { colors, scheme } = useTheme();
+  const styles = useThemedStyles(createStyles);
   const switchStyle = [styles.switch, value && styles.switchOn];
-  const switchThumb = <View style={[styles.switchThumb, value && styles.switchThumbOn]} />;
+  const thumbColor = scheme === 'dark' ? colors.textPrimary : colors.backgroundGlow;
+  const switchThumb = (
+    <View
+      style={[
+        styles.switchThumb,
+        value && styles.switchThumbOn,
+        value && { backgroundColor: thumbColor },
+      ]}
+    />
+  );
 
   if (!onPress) {
     return <View accessibilityLabel={accessibilityLabel} style={switchStyle}>{switchThumb}</View>;
@@ -170,7 +184,7 @@ function SwitchControl({ accessibilityLabel, value, onPress }: SwitchControlProp
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (colors: ColorPalette) => StyleSheet.create({
   safeArea: { backgroundColor: colors.background, flex: 1 },
   container: { flex: 1 },
   content: { padding: spacing.lg, paddingBottom: spacing.xxl },
@@ -265,7 +279,7 @@ const styles = StyleSheet.create({
     height: 26,
     width: 26,
   },
-  switchThumbOn: { alignSelf: 'flex-end', backgroundColor: '#FFE1DC' },
+  switchThumbOn: { alignSelf: 'flex-end' },
   footerText: { color: colors.textSecondary, fontSize: typography.label, lineHeight: 18, marginTop: spacing.md },
   pressed: { opacity: 0.78 },
 });

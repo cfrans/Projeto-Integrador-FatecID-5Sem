@@ -13,8 +13,9 @@ import { router } from 'expo-router';
 import { AuthBackground } from '@/components/ui/AuthBackground';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
-import { colors, spacing, typography } from '@/theme';
+import { spacing, typography, type ColorPalette } from '@/theme';
 import { useLanguage } from '@/features/i18n/LanguageProvider';
+import { useTheme, useThemedStyles } from '@/features/theme/ThemeProvider';
 
 type FieldErrors = {
   name?: string;
@@ -36,6 +37,8 @@ export default function RegisterScreen() {
   const [errors, setErrors] = useState<FieldErrors>({});
   const [done, setDone] = useState(false);
   const { t } = useLanguage();
+  const { colors } = useTheme();
+  const styles = useThemedStyles(createStyles);
 
   function change(field: keyof FieldErrors, setter: (value: string) => void) {
     return (value: string) => {
@@ -197,7 +200,7 @@ export default function RegisterScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (colors: ColorPalette) => StyleSheet.create({
   keyboardView: { flex: 1 },
   scrollContent: { flexGrow: 1 },
   page: {

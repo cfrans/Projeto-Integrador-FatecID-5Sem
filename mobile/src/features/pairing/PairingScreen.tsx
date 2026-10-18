@@ -7,8 +7,9 @@ import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
 import { parsePairingToken, PairingTokenError, pairingCompletionErrorMessage, pairingErrorMessage, type PairingPreview, type PairingResult } from '@/features/pairing/services/pairing';
 import { pairing } from '@/features/pairing/services/http-pairing';
-import { colors, radius, spacing, typography } from '@/theme';
+import { darkColors, radius, spacing, typography, type ColorPalette } from '@/theme';
 import { useLanguage } from '@/features/i18n/LanguageProvider';
+import { useTheme, useThemedStyles } from '@/features/theme/ThemeProvider';
 
 type PairingState =
   | { status: 'scanning' }
@@ -20,6 +21,8 @@ type PairingState =
 
 export function PairingScreen() {
   const { t } = useLanguage();
+  const { colors } = useTheme();
+  const styles = useThemedStyles(createStyles);
   const [permission, requestPermission, getPermission] = useCameraPermissions();
   const [permissionOverride, setPermissionOverride] = useState<typeof permission>();
   const [state, setState] = useState<PairingState>({ status: 'scanning' });
@@ -221,15 +224,15 @@ export function PairingScreen() {
                 </View>
                 {pending ? (
                   <View style={styles.pendingOverlay}>
-                    <ActivityIndicator color={colors.accentText} />
+                    <ActivityIndicator color={darkColors.accentText} />
                     <Text style={styles.scannerText}>{state.status === 'checking' ? t('pairing.validating') : t('pairing.creating')}</Text>
                   </View>
                 ) : state.status === 'error' && cameraGranted ? (
                   <View style={styles.permissionPrompt}>
                     <Text accessibilityRole="alert" style={styles.error}>{state.message}</Text>
-                    <Button label={t('pairing.readAnother')} onPress={() => setState({ status: 'scanning' })} style={styles.permissionButton} />
+                    <Button palette={darkColors} label={t('pairing.readAnother')} onPress={() => setState({ status: 'scanning' })} style={styles.permissionButton} />
                     {state.canCheckDevices ? (
-                      <Button label="Ver computadores" onPress={() => router.dismissTo('/computers')} style={styles.permissionButton} />
+                      <Button palette={darkColors} label="Ver computadores" onPress={() => router.dismissTo('/computers')} style={styles.permissionButton} />
                     ) : null}
                   </View>
                 ) : !cameraGranted ? (
@@ -242,12 +245,13 @@ export function PairingScreen() {
                     {currentPermission?.canAskAgain !== false ? (
                       <Button
                         label={permissionPending ? t('pairing.requestAccess') : t('pairing.enableCamera')}
+                        palette={darkColors}
                         disabled={permissionPending}
                         onPress={enableCamera}
                         style={styles.permissionButton}
                       />
                     ) : (
-                      <Button label={t('pairing.openSettings')} onPress={() => void openSettings()} style={styles.permissionButton} />
+                      <Button palette={darkColors} label={t('pairing.openSettings')} onPress={() => void openSettings()} style={styles.permissionButton} />
                     )}
                   </View>
                 ) : null}
@@ -264,7 +268,7 @@ export function PairingScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (colors: ColorPalette) => StyleSheet.create({
   safeArea: { backgroundColor: colors.background, flex: 1 },
   content: { flexGrow: 1, justifyContent: 'center', padding: spacing.lg, paddingBottom: spacing.xxl },
   main: { alignSelf: 'center', gap: spacing.lg, maxWidth: 440, width: '100%' },
@@ -276,8 +280,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     alignSelf: 'center',
     aspectRatio: 1,
-    backgroundColor: colors.surface,
-    borderColor: colors.border,
+    backgroundColor: darkColors.background,
+    borderColor: darkColors.border,
     borderRadius: radius.lg,
     borderWidth: 1,
     justifyContent: 'center',
@@ -288,17 +292,17 @@ const styles = StyleSheet.create({
   },
   viewfinder: { ...StyleSheet.absoluteFill, alignItems: 'center', justifyContent: 'center' },
   corner: { height: 32, position: 'absolute', width: 32 },
-  topLeft: { borderLeftColor: colors.accent, borderLeftWidth: 3, borderTopColor: colors.accent, borderTopWidth: 3, left: spacing.lg, top: spacing.lg },
-  topRight: { borderRightColor: colors.accent, borderRightWidth: 3, borderTopColor: colors.accent, borderTopWidth: 3, right: spacing.lg, top: spacing.lg },
-  bottomLeft: { borderBottomColor: colors.accent, borderBottomWidth: 3, borderLeftColor: colors.accent, borderLeftWidth: 3, bottom: spacing.lg, left: spacing.lg },
-  bottomRight: { borderBottomColor: colors.accent, borderBottomWidth: 3, borderRightColor: colors.accent, borderRightWidth: 3, bottom: spacing.lg, right: spacing.lg },
-  pendingOverlay: { alignItems: 'center', backgroundColor: colors.background, gap: spacing.md, padding: spacing.xl },
+  topLeft: { borderLeftColor: darkColors.accent, borderLeftWidth: 3, borderTopColor: darkColors.accent, borderTopWidth: 3, left: spacing.lg, top: spacing.lg },
+  topRight: { borderRightColor: darkColors.accent, borderRightWidth: 3, borderTopColor: darkColors.accent, borderTopWidth: 3, right: spacing.lg, top: spacing.lg },
+  bottomLeft: { borderBottomColor: darkColors.accent, borderBottomWidth: 3, borderLeftColor: darkColors.accent, borderLeftWidth: 3, bottom: spacing.lg, left: spacing.lg },
+  bottomRight: { borderBottomColor: darkColors.accent, borderBottomWidth: 3, borderRightColor: darkColors.accent, borderRightWidth: 3, bottom: spacing.lg, right: spacing.lg },
+  pendingOverlay: { alignItems: 'center', backgroundColor: darkColors.background, gap: spacing.md, padding: spacing.xl },
   permissionPrompt: { alignItems: 'center', gap: spacing.md, padding: spacing.xl },
-  scannerTitle: { color: colors.textPrimary, fontSize: typography.body, fontWeight: '600', textAlign: 'center' },
-  scannerText: { color: colors.textSecondary, fontSize: typography.label, lineHeight: 18, textAlign: 'center' },
+  scannerTitle: { color: darkColors.textPrimary, fontSize: typography.body, fontWeight: '600', textAlign: 'center' },
+  scannerText: { color: darkColors.textSecondary, fontSize: typography.label, lineHeight: 18, textAlign: 'center' },
   permissionButton: { marginTop: spacing.xs, minWidth: 190 },
   demoNote: { color: colors.textMuted, fontSize: typography.label, lineHeight: 18, textAlign: 'center' },
-  error: { color: colors.accentText, fontSize: typography.label, lineHeight: 18, textAlign: 'center' },
+  error: { color: darkColors.accentText, fontSize: typography.label, lineHeight: 18, textAlign: 'center' },
   confirmCard: { gap: spacing.md },
   sectionTitle: { color: colors.textPrimary, fontSize: typography.body, fontWeight: '600' },
   deviceName: { color: colors.textPrimary, fontSize: typography.title, fontWeight: '700' },

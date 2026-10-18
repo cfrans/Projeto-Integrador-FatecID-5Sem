@@ -1,5 +1,5 @@
 import { StyleSheet, View } from 'react-native';
-import { colors } from '@/theme';
+import { useTheme } from '@/features/theme/ThemeProvider';
 
 type PenguinProps = { width: number; height: number; facing?: 'left' | 'right'; color: string; eyeColor: string };
 
@@ -55,14 +55,17 @@ const LARGE_SCALE = 0.8;
 
 type PenguinLogoProps = { size?: number; color?: string; eyeColor?: string };
 
-export function PenguinLogo({ size = 46, color = colors.accent, eyeColor = colors.background }: PenguinLogoProps) {
+export function PenguinLogo({ size = 46, color, eyeColor }: PenguinLogoProps) {
+  const { colors } = useTheme();
+  const resolvedColor = color ?? colors.accent;
+  const resolvedEyeColor = eyeColor ?? colors.background;
   const height = size * HEIGHT_RATIO;
   const largeHeight = height * LARGE_SCALE;
 
   return (
     <View accessible={false} style={[styles.row, { height: largeHeight, gap: size * 0.28 }]}>
-      <Penguin width={size * 0.64 * LARGE_SCALE} height={largeHeight} color={color} eyeColor={eyeColor} />
-      <Penguin width={size * 0.42} height={height * 0.66} facing="left" color={color} eyeColor={eyeColor} />
+      <Penguin width={size * 0.64 * LARGE_SCALE} height={largeHeight} color={resolvedColor} eyeColor={resolvedEyeColor} />
+      <Penguin width={size * 0.42} height={height * 0.66} facing="left" color={resolvedColor} eyeColor={resolvedEyeColor} />
     </View>
   );
 }

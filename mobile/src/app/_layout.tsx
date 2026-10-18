@@ -1,27 +1,29 @@
 import '@/lib/api-runtime';
 import { ActivityIndicator, StyleSheet, View } from 'react-native';
-import { ThemeProvider } from 'expo-router/react-navigation';
 import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { SessionProvider, useSession } from '@/features/auth/SessionProvider';
 import { LanguageProvider, useLanguage } from '@/features/i18n/LanguageProvider';
-import { colors, navigationTheme } from '@/theme';
+import { AppThemeProvider, useTheme, useThemedStyles } from '@/features/theme/ThemeProvider';
+import { type ColorPalette } from '@/theme';
 
 export default function RootLayout() {
   return (
-    <ThemeProvider value={navigationTheme}>
+    <AppThemeProvider>
       <SessionProvider>
         <LanguageProvider>
           <RootNavigator />
         </LanguageProvider>
       </SessionProvider>
-    </ThemeProvider>
+    </AppThemeProvider>
   );
 }
 
 function RootNavigator() {
   const { status } = useSession();
   const { t } = useLanguage();
+  const { colors, scheme } = useTheme();
+  const styles = useThemedStyles(createStyles);
 
   return (
     <>
@@ -30,7 +32,14 @@ function RootNavigator() {
           <ActivityIndicator color={colors.accent} />
         </View>
       ) : (
-        <Stack>
+        <Stack
+          screenOptions={{
+            headerStyle: { backgroundColor: colors.background },
+            headerTintColor: colors.textPrimary,
+            headerTitleStyle: { color: colors.textPrimary },
+            contentStyle: { backgroundColor: colors.background },
+          }}
+        >
           <Stack.Protected guard={status !== 'authenticated'}>
             <Stack.Screen name="index" options={{ headerShown: false }} />
             <Stack.Screen name="register" options={{ headerShown: false }} />
@@ -48,11 +57,11 @@ function RootNavigator() {
           </Stack.Protected>
         </Stack>
       )}
-      <StatusBar style="light" />
+      <StatusBar style={scheme === 'dark' ? 'light' : 'dark'} />
     </>
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (colors: ColorPalette) => StyleSheet.create({
   loading: { alignItems: 'center', backgroundColor: colors.background, flex: 1, justifyContent: 'center' },
 });

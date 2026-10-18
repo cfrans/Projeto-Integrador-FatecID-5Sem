@@ -1,9 +1,10 @@
 import { StyleSheet, Text, View } from 'react-native';
 import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
-import { colors, radius, spacing, typography } from '@/theme';
+import { radius, spacing, typography, type ColorPalette } from '@/theme';
 import type { PairedComputer } from '@/features/devices/services/devices';
 import { useLanguage } from '@/features/i18n/LanguageProvider';
+import { useThemedStyles } from '@/features/theme/ThemeProvider';
 
 type DeviceCardProps = {
   computer: PairedComputer;
@@ -13,6 +14,7 @@ type DeviceCardProps = {
 
 export function DeviceCard({ computer, onRemove, removing = false }: DeviceCardProps) {
   const { language } = useLanguage();
+  const styles = useThemedStyles(createStyles);
   const labels = language === 'en'
     ? { managed: 'Managed account', unknown: 'not provided', demo: 'Demo', unverified: 'Connection not verified', active: 'Active link', inactive: 'No active link', seen: 'Seen at', removing: 'Removing link…', remove: 'Remove link' }
     : language === 'es'
@@ -67,7 +69,7 @@ export function DeviceCard({ computer, onRemove, removing = false }: DeviceCardP
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (colors: ColorPalette) => StyleSheet.create({
   card: {
     gap: spacing.md,
     padding: spacing.md,

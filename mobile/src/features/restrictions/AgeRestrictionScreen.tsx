@@ -8,8 +8,9 @@ import {
   devicesErrorMessage,
   type PairedComputer,
 } from '@/features/devices/services/devices';
-import { colors, radius, spacing, typography } from '@/theme';
 import { useLanguage } from '@/features/i18n/LanguageProvider';
+import { radius, spacing, typography, type ColorPalette } from '@/theme';
+import { useTheme, useThemedStyles } from '@/features/theme/ThemeProvider';
 
 type AgeRatingId = 'L' | '10' | '12' | '16' | '18';
 
@@ -76,6 +77,8 @@ const SYNC_FEEDBACK_DURATION_MS = 900;
 
 export function AgeRestrictionScreen() {
   const { t } = useLanguage();
+  const { colors } = useTheme();
+  const styles = useThemedStyles(createStyles);
   const params = useLocalSearchParams<{ deviceId?: string; computer?: string }>();
   const [devicesState, setDevicesState] = useState<ComputersLoadState>({ status: 'loading' });
   const [selectedDeviceId, setSelectedDeviceId] = useState<string | null>(null);
@@ -311,7 +314,7 @@ export function AgeRestrictionScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (colors: ColorPalette) => StyleSheet.create({
   safeArea: {
     backgroundColor: colors.background,
     flex: 1,

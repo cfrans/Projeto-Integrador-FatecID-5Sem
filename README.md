@@ -1,6 +1,6 @@
 # piplup
 
-Projeto Integrador: aplicativo Expo para controle parental em computadores Lenovo Lux, com API NestJS, Prisma e MySQL. Login, perfil, listagem, pareamento e revogação de vínculos usam a API real. O mobile também possui telas de controle para navegadores, aplicativos, instalação e faixa etária, além de seleção de idioma em português, inglês e espanhol. A demonstração usa computadores fictícios; ainda não há Lux Agent, interface GTK ou integração Lux/GNOME. Consulte o [estado das etapas](docs/architecture.md#etapas-de-implementação).
+Projeto Integrador: aplicativo Expo para controle parental em computadores Lenovo Lux, com API NestJS, Prisma e MySQL. Login, perfil, listagem, pareamento e revogação de vínculos usam a API real. O mobile também possui telas de controle para navegadores, aplicativos, instalação e faixa etária, seleção de idioma em português, inglês e espanhol, e temas claro/escuro com acento vermelho. A demonstração usa computadores fictícios; ainda não há Lux Agent, interface GTK ou integração Lux/GNOME. Consulte o [estado das etapas](docs/architecture.md#etapas-de-implementação).
 
 ## Estado atual
 
@@ -16,6 +16,7 @@ Projeto Integrador: aplicativo Expo para controle parental em computadores Lenov
 - Telas de Navegadores, Aplicativos, Instalação e Faixa etária com a identidade visual do protótipo.
 - Estados condicionais para aplicativos instalados e pedidos de instalação: sem computador pareado, não há dados fictícios exibidos.
 - Seleção de idioma em **Sobre o projeto → Idioma**, com português, inglês e espanhol. O idioma inicial é detectado pelo sistema do dispositivo e a escolha manual é persistida.
+- Temas **Sistema**, **Claro** e **Escuro** em **Sobre o projeto → Tema**. Sistema acompanha a aparência do dispositivo; a escolha manual é persistida. O visor da câmera no pareamento permanece escuro.
 - Testes de typecheck, lint, testes de API e verificações de integração existentes no backend/mobile.
 
 ### Próximos passos
@@ -27,7 +28,7 @@ Projeto Integrador: aplicativo Expo para controle parental em computadores Lenov
 5. Validar no computador Lux as interfaces GNOME, D-Bus, malcontent/libmalcontent, AccountsService e polkit antes de definir operações suportadas.
 6. Implementar a interface local GTK4/libadwaita para autorização administrativa e provisionamento/pareamento do Agent.
 7. Conectar o Agent às decisões de instalação e restrições, registrando sucesso, falha e indisponibilidade no backend.
-8. Expandir a cobertura de testes para troca de idioma, múltiplos computadores, ausência de conexão, pedidos de instalação e fluxo ponta a ponta.
+8. Expandir a cobertura de testes para troca de idioma e tema, múltiplos computadores, ausência de conexão, pedidos de instalação e fluxo ponta a ponta.
 
 As telas de restrições já existem como superfície de produto, mas a aplicação real no computador depende dos endpoints, do Agent e da validação GNOME descritos acima. O [roadmap da arquitetura](docs/architecture.md#etapas-de-implementação) mantém o estado técnico detalhado e as limitações conhecidas.
 
@@ -133,6 +134,8 @@ npx expo start
 ```
 
 Leia o QR no Expo Go (Android) ou com a câmera (iPhone). Faça login com a conta criada pelo seed. O QR abre o app; não faz pareamento com o Lux.
+
+No app, alterne entre **Sistema**, **Claro** e **Escuro** em **Sobre o projeto → Tema**. Em Sistema, a aparência acompanha a configuração do celular.
 
 O computador pode usar cabo e o celular Wi-Fi, desde que a rede permita comunicação. Descubra o IPv4 do adaptador ativo: `ipconfig` no Windows, `ip -4 addr` no Linux ou `ipconfig getifaddr en0` no macOS. Teste **no navegador do celular** `http://<IP-do-PC>:3000/health`; deve retornar `{ "status": "ok", "database": "ok" }`. `localhost` no celular aponta para o próprio aparelho.
 

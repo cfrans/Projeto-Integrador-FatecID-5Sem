@@ -17,7 +17,8 @@ import { AuthBackground } from '@/components/ui/AuthBackground';
 import { PenguinLogo } from '@/components/ui/PenguinLogo';
 import { useSession } from '@/features/auth/SessionProvider';
 import { useLanguage } from '@/features/i18n/LanguageProvider';
-import { colors, spacing, typography } from '@/theme';
+import { spacing, typography, type ColorPalette } from '@/theme';
+import { useTheme, useThemedStyles } from '@/features/theme/ThemeProvider';
 
 type FieldErrors = {
   email?: string;
@@ -35,6 +36,8 @@ export default function LoginScreen() {
   const [fontsLoaded] = useFonts({ Baloo2_800ExtraBold });
   const { busy, canRetryRestore, clearError, error, retryRestore, signIn } = useSession();
   const { t } = useLanguage();
+  const { colors } = useTheme();
+  const styles = useThemedStyles(createStyles);
 
   function updateEmail(value: string) {
     setEmail(value);
@@ -229,7 +232,7 @@ export default function LoginScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (colors: ColorPalette) => StyleSheet.create({
   keyboardView: { flex: 1 },
   scrollContent: { flexGrow: 1 },
   page: {

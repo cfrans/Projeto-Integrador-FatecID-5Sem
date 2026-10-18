@@ -13,7 +13,7 @@ Referências autorizadas: [Controle Parental Lux.pdf](../prototypes/Controle%20P
 | 5–6 | Tema escuro com acento vermelho |
 | 7–11 | Fluxo e quadro de telas com acento roxo; estados e versão Android |
 
-O app existente já usa tema escuro e acento vermelho. Manter essa convenção como referência inicial, alinhada às páginas 5–6, enquanto o grupo define o tema final. Não misturar variantes em componentes isolados nem implementar seletor de temas nesta etapa.
+O app implementa temas **Sistema**, **Claro** e **Escuro**, com acento vermelho nas duas paletas. Sistema acompanha a aparência do dispositivo. As telas compartilham tokens por paleta; a imagem da câmera e seus overlays permanecem escuros nos dois temas. As variantes roxas do protótipo são referências, não tokens implementados.
 
 ## Padrões observados
 
@@ -29,9 +29,9 @@ O app existente já usa tema escuro e acento vermelho. Manter essa convenção c
 
 ## Tokens existentes e diferenças
 
-A fonte executável permanece em `mobile/src/theme/colors.ts` e `spacing.ts`. Valores abaixo são do código existente, não medidas inferidas do PDF:
+A fonte executável permanece em `mobile/src/theme/colors.ts` e `spacing.ts`. A tabela registra os valores da paleta escura; `lightColors` contém os valores da variante clara. Valores abaixo são do código existente, não medidas inferidas do PDF:
 
-| Semântica | Token atual | Valor |
+| Semântica | Token escuro | Valor |
 | --- | --- | --- |
 | Fundo | `colors.background` | `#0F1118` |
 | Superfície | `colors.surface` | `#1A1C25` |
@@ -65,7 +65,7 @@ Esses valores adaptam a hierarquia do protótipo para React Native; não são co
 
 ## Login piplup
 
-O login usa a hierarquia observada no HTML: marca no topo, “Bem-vindo de volta”, texto de apoio, campos de e-mail e senha, ação principal e ação secundária. A ação principal “Entrar” usa a variante `solid` do Button: fundo vermelho preenchido (`colors.accent`), texto `colors.textPrimary`, centralizada e com largura mínima de 220, em vez de ocupar toda a linha. É uma exceção intencional à convenção de botões contornados, restrita ao login; os demais botões seguem a variante `outline`. A marca passa a ser `piplup`; o fundo escuro e o acento vermelho mantêm os tokens existentes. A tipografia permanece nativa. O feedback de validação local substitui as mensagens de autenticação do protótipo, que não representam um contrato real.
+O login usa a hierarquia observada no HTML: marca no topo, “Bem-vindo de volta”, texto de apoio, campos de e-mail e senha, ação principal e ação secundária. A ação principal “Entrar” usa a variante `solid` do Button: fundo vermelho preenchido (`colors.accent`), texto `colors.textPrimary`, centralizada e com largura mínima de 220, em vez de ocupar toda a linha. É uma exceção intencional à convenção de botões contornados, restrita ao login; os demais botões seguem a variante `outline`. A marca passa a ser `piplup`; fundo e textos usam a paleta ativa, mantendo o acento vermelho. A tipografia permanece nativa. O feedback de validação local substitui as mensagens de autenticação do protótipo, que não representam um contrato real.
 
 ## Home, computadores e pareamento
 
@@ -87,4 +87,4 @@ O PDF mostra erro, sucesso, sincronização em andamento, falha de comunicação
 
 Mensagens do PDF sobre chaves guardadas apenas no celular, fila offline, prazos e fechamento automático não são decisões de segurança ou garantias técnicas. Revisar o texto após definir contratos e validar a integração. Ações normais e destrutivas compartilham a cor vermelha no código atual; quando existirem, diferenciá-las por texto/contexto e confirmação apropriada.
 
-TODO: confirmar o tema final com o grupo e validar contraste e acessibilidade. Não inferir especificações de produção apenas das medidas de impressão.
+TODO: validar contraste, fonte ampliada e leitores de tela em dispositivo. Não inferir especificações de produção apenas das medidas de impressão.

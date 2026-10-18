@@ -6,7 +6,8 @@ import { Button } from '@/components/ui/Button';
 import { DeviceCard } from '@/features/devices/DeviceCard';
 import { useLanguage } from '@/features/i18n/LanguageProvider';
 import { devices, devicesErrorMessage, type PairedComputer } from '@/features/devices/services/devices';
-import { colors, radius, spacing, typography } from '@/theme';
+import { radius, spacing, typography, type ColorPalette } from '@/theme';
+import { useTheme, useThemedStyles } from '@/features/theme/ThemeProvider';
 
 type ComputersState =
   | { status: 'loading' }
@@ -15,6 +16,8 @@ type ComputersState =
 
 export function ComputersScreen() {
   const { t } = useLanguage();
+  const { colors } = useTheme();
+  const styles = useThemedStyles(createStyles);
   const [state, setState] = useState<ComputersState>({ status: 'loading' });
   const [removingId, setRemovingId] = useState<string | null>(null);
   const [removalError, setRemovalError] = useState<string | null>(null);
@@ -139,10 +142,11 @@ export function ComputersScreen() {
 }
 
 function ItemSeparator() {
+  const styles = useThemedStyles(createStyles);
   return <View style={styles.separator} />;
 }
 
-const styles = StyleSheet.create({
+const createStyles = (colors: ColorPalette) => StyleSheet.create({
   safeArea: { backgroundColor: colors.background, flex: 1 },
   content: { flexGrow: 1, padding: spacing.lg, paddingBottom: spacing.xxl },
   listHeader: { gap: spacing.md, marginBottom: spacing.lg },
