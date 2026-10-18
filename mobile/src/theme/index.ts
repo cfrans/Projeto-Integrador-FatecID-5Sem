@@ -26,4 +26,3 @@ export function createNavigationTheme(scheme: ThemeScheme, palette: ColorPalette
 
 export const darkNavigationTheme = createNavigationTheme('dark', darkColors);
 export const lightNavigationTheme = createNavigationTheme('light', lightColors);
-export const navigationTheme: Theme = darkNavigationTheme;

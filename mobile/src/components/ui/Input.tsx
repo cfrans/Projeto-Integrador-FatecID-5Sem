@@ -7,7 +7,7 @@ import {
   type TextStyle,
 } from 'react-native';
 import { radius, spacing, typography, type ColorPalette } from '@/theme';
-import { useThemedStyles } from '@/features/theme/ThemeProvider';
+import { useTheme, useThemedStyles } from '@/features/theme/ThemeProvider';
 
 type InputProps = TextInputProps & {
   invalid?: boolean;
@@ -15,14 +15,16 @@ type InputProps = TextInputProps & {
 };
 
 export const Input = forwardRef<TextInput, InputProps>(function Input(
-  { invalid = false, style, ...props },
+  { invalid = false, selectionColor, style, ...props },
   ref,
 ) {
+  const { colors } = useTheme();
   const styles = useThemedStyles(createStyles);
 
   return (
     <TextInput
       ref={ref}
+      selectionColor={selectionColor ?? colors.accent}
       underlineColorAndroid="transparent"
       style={[styles.input, invalid && styles.invalid, style]}
       {...props}

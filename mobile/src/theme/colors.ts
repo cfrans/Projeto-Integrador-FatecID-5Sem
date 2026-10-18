@@ -49,6 +49,4 @@ export const lightColors: ColorPalette = {
   danger: '#E5483D',
 };
 
-export const colors = darkColors;
-
 export type ColorName = keyof ColorPalette;
