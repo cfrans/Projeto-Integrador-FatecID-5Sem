@@ -15,7 +15,8 @@ import { useSession } from '@/features/auth/SessionProvider';
 import { useLanguage } from '@/features/i18n/LanguageProvider';
 import { DeviceCard } from '@/features/devices/DeviceCard';
 import { devices, devicesErrorMessage, type PairedComputer } from '@/features/devices/services/devices';
-import { colors, radius, spacing, typography } from '@/theme';
+import { radius, spacing, typography, type ColorPalette } from '@/theme';
+import { useTheme, useThemedStyles } from '@/features/theme/ThemeProvider';
 
 type HomeState =
   | { status: 'loading' }
@@ -25,6 +26,8 @@ type HomeState =
 export function HomeScreen() {
   const { busy, clearError, error, guardian, signOut } = useSession();
   const { t } = useLanguage();
+  const { colors } = useTheme();
+  const styles = useThemedStyles(createStyles);
   const [state, setState] = useState<HomeState>({ status: 'loading' });
   const requestId = useRef(0);
 
@@ -225,7 +228,7 @@ export function HomeScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (colors: ColorPalette) => StyleSheet.create({
   safeArea: { backgroundColor: colors.background, flex: 1 },
   content: { gap: spacing.xl, padding: spacing.lg, paddingBottom: spacing.xxl },
   greeting: { gap: spacing.sm, paddingTop: spacing.sm },
