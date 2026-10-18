@@ -1,7 +1,8 @@
 import { StyleSheet, Text, View, type ColorValue } from 'react-native';
 import { Tabs } from 'expo-router';
 import { useLanguage } from '@/features/i18n/LanguageProvider';
-import { colors, radius } from '@/theme';
+import { radius } from '@/theme';
+import { useTheme } from '@/features/theme/ThemeProvider';
 
 function BrowsersTabIcon({ color }: { color: ColorValue }) {
   return (
@@ -43,6 +44,7 @@ function AgeTabIcon({ color }: { color: ColorValue }) {
 
 export default function RestrictionsLayout() {
   const { t } = useLanguage();
+  const { colors } = useTheme();
 
   return (
     <Tabs
