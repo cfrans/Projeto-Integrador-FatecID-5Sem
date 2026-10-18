@@ -9,7 +9,8 @@ import {
   listInstalledApplications,
   type InstalledApplication,
 } from '@/features/restrictions/services/applications';
-import { colors, radius, spacing, typography } from '@/theme';
+import { radius, spacing, typography, type ColorPalette } from '@/theme';
+import { useTheme, useThemedStyles } from '@/features/theme/ThemeProvider';
 
 type LoadState = 'loading' | 'ready' | 'empty' | 'error';
 
@@ -25,6 +26,8 @@ export function ApplicationsRestrictionScreen() {
   const [errorMessage, setErrorMessage] = useState('');
   const [query, setQuery] = useState('');
   const { t } = useLanguage();
+  const { colors } = useTheme();
+  const styles = useThemedStyles(createStyles);
 
   useFocusEffect(
     useCallback(() => {
@@ -186,8 +189,19 @@ export function ApplicationsRestrictionScreen() {
 }
 
 function SwitchControl({ value, onPress }: SwitchProps) {
+  const { colors, scheme } = useTheme();
+  const styles = useThemedStyles(createStyles);
   const style = [styles.switch, value && styles.switchOn];
-  const thumb = <View style={[styles.switchThumb, value && styles.switchThumbOn]} />;
+  const thumbColor = scheme === 'dark' ? colors.textPrimary : colors.backgroundGlow;
+  const thumb = (
+    <View
+      style={[
+        styles.switchThumb,
+        value && styles.switchThumbOn,
+        value && { backgroundColor: thumbColor },
+      ]}
+    />
+  );
 
   return onPress ? (
     <Pressable accessibilityRole="switch" accessibilityState={{ checked: value }} onPress={onPress} style={style}>
@@ -200,7 +214,7 @@ function SwitchControl({ value, onPress }: SwitchProps) {
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (colors: ColorPalette) => StyleSheet.create({
   safeArea: { backgroundColor: colors.background, flex: 1 },
   container: { flex: 1 },
   content: { padding: spacing.lg, paddingBottom: spacing.xxl },
@@ -233,6 +247,6 @@ const styles = StyleSheet.create({
   switch: { backgroundColor: colors.surfaceRaised, borderColor: colors.textMuted, borderRadius: radius.pill, borderWidth: 2, height: 36, justifyContent: 'center', paddingHorizontal: 4, width: 64 },
   switchOn: { backgroundColor: colors.accent, borderColor: colors.accent },
   switchThumb: { alignSelf: 'flex-start', backgroundColor: colors.textMuted, borderRadius: radius.pill, height: 26, width: 26 },
-  switchThumbOn: { alignSelf: 'flex-end', backgroundColor: '#FFE1DC' },
+  switchThumbOn: { alignSelf: 'flex-end' },
   pressed: { opacity: 0.78 },
 });
