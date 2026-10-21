@@ -3,6 +3,9 @@ import { afterEach, test } from 'node:test';
 import { ApiError, api, apiErrorMessage } from '../src/lib/api.ts';
 import './devices.test.mjs';
 import './pairing.test.mjs';
+import './device-selection.test.mjs';
+import './preferences.test.mjs';
+import './restrictions.test.mjs';
 
 const originalFetch = globalThis.fetch;
 

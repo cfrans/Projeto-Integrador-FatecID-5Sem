@@ -1,5 +1,7 @@
+import { useRestrictionComputer } from '@/features/restrictions/RestrictionDeviceProvider';
 import { AgeRestrictionScreen } from '@/features/restrictions/AgeRestrictionScreen';
 
 export default function AgeScreen() {
-  return <AgeRestrictionScreen />;
+  const computer = useRestrictionComputer();
+  return computer ? <AgeRestrictionScreen key={computer.id} computer={computer} /> : null;
 }

@@ -1,8 +1,8 @@
 import { useCallback, useState } from 'react';
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
-import { router, useFocusEffect } from 'expo-router';
+import { useFocusEffect } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { devices, devicesErrorMessage, type PairedComputer } from '@/features/devices/services/devices';
+import type { PairedComputer } from '@/features/devices/services/devices';
 import { useLanguage } from '@/features/i18n/LanguageProvider';
 import {
   applicationsErrorMessage,
@@ -12,20 +12,19 @@ import {
 import { radius, spacing, typography, type ColorPalette } from '@/theme';
 import { useTheme, useThemedStyles } from '@/features/theme/ThemeProvider';
 
-type LoadState = 'loading' | 'ready' | 'empty' | 'error';
+type LoadState = 'loading' | 'ready' | 'error';
 
 type SwitchProps = {
   value: boolean;
   onPress?: () => void;
 };
 
-export function ApplicationsRestrictionScreen() {
-  const [computer, setComputer] = useState<PairedComputer | null>(null);
+export function ApplicationsRestrictionScreen({ computer }: { computer: PairedComputer }) {
   const [applications, setApplications] = useState<InstalledApplication[]>([]);
   const [loadState, setLoadState] = useState<LoadState>('loading');
   const [errorMessage, setErrorMessage] = useState('');
   const [query, setQuery] = useState('');
-  const { t } = useLanguage();
+  const { t, localize } = useLanguage();
   const { colors } = useTheme();
   const styles = useThemedStyles(createStyles);
 
@@ -35,46 +34,29 @@ export function ApplicationsRestrictionScreen() {
       setLoadState('loading');
       setErrorMessage('');
 
-      devices
-        .listPairedComputers()
-        .then(async (computers) => {
-          const pairedComputer = computers.find((item) => item.isPaired) ?? null;
-          if (!pairedComputer) {
-            if (active) {
-              setComputer(null);
-              setApplications([]);
-              setLoadState('empty');
-            }
-            return;
-          }
-
-          const installedApplications = await listInstalledApplications(pairedComputer.id);
+      listInstalledApplications(computer.id)
+        .then((installedApplications) => {
           if (!active) return;
-          setComputer(pairedComputer);
           setApplications(installedApplications);
           setLoadState('ready');
         })
         .catch((error: unknown) => {
           if (!active) return;
-          setErrorMessage(
-            error instanceof Error && error.message.includes('devices')
-              ? devicesErrorMessage(error)
-              : applicationsErrorMessage(error),
-          );
+          setErrorMessage(applicationsErrorMessage(error));
           setLoadState('error');
         });
 
       return () => {
         active = false;
       };
-    }, []),
+    }, [computer.id]),
   );
 
   const visibleApplications = applications.filter((application) =>
     `${application.name} ${application.category}`.toLocaleLowerCase().includes(query.trim().toLocaleLowerCase()),
   );
   const allowedCount = applications.filter((application) => application.allowed).length;
-  const computerName = computer?.name ?? t('nav.apps');
+  const computerName = computer.name;
 
   function toggleApplication(id: string) {
     setApplications((current) => current.map((application) => (
@@ -87,19 +69,10 @@ export function ApplicationsRestrictionScreen() {
   }
 
   return (
-    <SafeAreaView edges={['top', 'left', 'right']} style={styles.safeArea}>
+    <SafeAreaView edges={['left', 'right']} style={styles.safeArea}>
       <View style={styles.container}>
         <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
           <View style={styles.header}>
-            <Pressable
-              accessibilityLabel="Voltar"
-              accessibilityRole="button"
-              hitSlop={8}
-              onPress={() => router.back()}
-              style={({ pressed }) => [styles.backButton, pressed && styles.pressed]}
-            >
-              <Text style={styles.backIcon}>‹</Text>
-            </Pressable>
             <View style={styles.headerCopy}>
               <Text numberOfLines={1} style={styles.computerName}>{computerName}</Text>
               <Text style={styles.screenSubtitle}>{t('nav.apps')}</Text>
@@ -119,17 +92,10 @@ export function ApplicationsRestrictionScreen() {
             </View>
           ) : null}
 
-          {loadState === 'empty' ? (
-            <View style={styles.emptyState}>
-              <Text style={styles.emptyTitle}>{t('restriction.noComputer')}</Text>
-              <Text style={styles.stateText}>{t('restriction.pairToContinue')}</Text>
-            </View>
-          ) : null}
-
           {loadState === 'error' ? (
             <View style={styles.emptyState}>
               <Text style={styles.emptyTitle}>{t('restriction.appsUnavailable')}</Text>
-              <Text style={styles.stateText}>{errorMessage}</Text>
+              <Text style={styles.stateText}>{localize(errorMessage)}</Text>
             </View>
           ) : null}
 
@@ -138,7 +104,7 @@ export function ApplicationsRestrictionScreen() {
               <View style={styles.searchBox}>
                 <Text style={styles.searchIcon}>⌕</Text>
                 <TextInput
-                  accessibilityLabel="Buscar aplicativo"
+                  accessibilityLabel={t('restriction.searchApp')}
                   autoCapitalize="none"
                   onChangeText={setQuery}
                   placeholder={t('restriction.searchApp')}
@@ -160,7 +126,7 @@ export function ApplicationsRestrictionScreen() {
                   {visibleApplications.map((application) => (
                     <Pressable
                       key={application.id}
-                      accessibilityLabel={`${application.name}, ${application.allowed ? 'liberado' : 'restrito'}`}
+                      accessibilityLabel={`${application.name}, ${t(application.allowed ? 'restriction.allowed' : 'restriction.restricted')}`}
                       accessibilityRole="switch"
                       accessibilityState={{ checked: application.allowed }}
                       onPress={() => toggleApplication(application.id)}
@@ -178,7 +144,7 @@ export function ApplicationsRestrictionScreen() {
                   ))}
                 </View>
               ) : (
-                <Text style={styles.stateText}>{t('restriction.noAppMatch')}</Text>
+                <Text style={styles.stateText}>{t(applications.length === 0 ? 'restriction.noApplications' : 'restriction.noAppMatch')}</Text>
               )}
             </>
           ) : null}

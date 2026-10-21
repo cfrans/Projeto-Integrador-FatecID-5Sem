@@ -1,8 +1,8 @@
 import { useCallback, useState } from 'react';
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
-import { router, useFocusEffect } from 'expo-router';
+import { useFocusEffect } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { devices, devicesErrorMessage, type PairedComputer } from '@/features/devices/services/devices';
+import type { PairedComputer } from '@/features/devices/services/devices';
 import { useLanguage } from '@/features/i18n/LanguageProvider';
 import {
   installationRequestsErrorMessage,
@@ -12,7 +12,7 @@ import {
 import { radius, spacing, typography, type ColorPalette } from '@/theme';
 import { useTheme, useThemedStyles } from '@/features/theme/ThemeProvider';
 
-type LoadState = 'loading' | 'ready' | 'empty' | 'error';
+type LoadState = 'loading' | 'ready' | 'error';
 
 type SwitchControlProps = {
   accessibilityLabel?: string;
@@ -20,13 +20,12 @@ type SwitchControlProps = {
   onPress?: () => void;
 };
 
-export function InstallationRestrictionScreen() {
-  const [computer, setComputer] = useState<PairedComputer | null>(null);
+export function InstallationRestrictionScreen({ computer }: { computer: PairedComputer }) {
   const [requests, setRequests] = useState<InstallationRequest[]>([]);
   const [loadState, setLoadState] = useState<LoadState>('loading');
   const [errorMessage, setErrorMessage] = useState('');
   const [blockInstallation, setBlockInstallation] = useState(true);
-  const { t } = useLanguage();
+  const { language, t, localize } = useLanguage();
   const { colors } = useTheme();
   const styles = useThemedStyles(createStyles);
 
@@ -36,61 +35,35 @@ export function InstallationRestrictionScreen() {
       setLoadState('loading');
       setErrorMessage('');
 
-      devices
-        .listPairedComputers()
-        .then(async (computers) => {
-          const pairedComputer = computers.find((item) => item.isPaired) ?? null;
-          if (!pairedComputer) {
-            if (active) {
-              setComputer(null);
-              setRequests([]);
-              setLoadState('empty');
-            }
-            return;
-          }
-
-          const installationRequests = await listInstallationRequests(pairedComputer.id);
+      listInstallationRequests(computer.id)
+        .then((installationRequests) => {
           if (!active) return;
-          setComputer(pairedComputer);
           setRequests(installationRequests);
           setLoadState('ready');
         })
         .catch((error: unknown) => {
           if (!active) return;
-          setErrorMessage(
-            error instanceof Error && error.message.includes('devices')
-              ? devicesErrorMessage(error)
-              : installationRequestsErrorMessage(error),
-          );
+          setErrorMessage(installationRequestsErrorMessage(error));
           setLoadState('error');
         });
 
       return () => {
         active = false;
       };
-    }, []),
+    }, [computer.id]),
   );
 
-  const computerName = computer?.name ?? t('nav.install');
+  const computerName = computer.name;
 
   function removeRequest(id: string) {
     setRequests((current) => current.filter((request) => request.id !== id));
   }
 
   return (
-    <SafeAreaView edges={['top', 'left', 'right']} style={styles.safeArea}>
+    <SafeAreaView edges={['left', 'right']} style={styles.safeArea}>
       <View style={styles.container}>
         <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
           <View style={styles.header}>
-            <Pressable
-              accessibilityLabel="Voltar"
-              accessibilityRole="button"
-              hitSlop={8}
-              onPress={() => router.back()}
-              style={({ pressed }) => [styles.backButton, pressed && styles.pressed]}
-            >
-              <Text style={styles.backIcon}>‹</Text>
-            </Pressable>
             <View style={styles.headerCopy}>
               <Text numberOfLines={1} style={styles.computerName}>{computerName}</Text>
               <Text style={styles.screenSubtitle}>{t('nav.install')}</Text>
@@ -110,17 +83,10 @@ export function InstallationRestrictionScreen() {
             </View>
           ) : null}
 
-          {loadState === 'empty' ? (
-            <View style={styles.emptyState}>
-              <Text style={styles.emptyTitle}>{t('restriction.noComputer')}</Text>
-              <Text style={styles.stateText}>{t('restriction.pairToContinue')}</Text>
-            </View>
-          ) : null}
-
           {loadState === 'error' ? (
             <View style={styles.emptyState}>
               <Text style={styles.emptyTitle}>{t('restriction.installUnavailable')}</Text>
-              <Text style={styles.stateText}>{errorMessage}</Text>
+              <Text style={styles.stateText}>{localize(errorMessage)}</Text>
             </View>
           ) : null}
 
@@ -132,7 +98,7 @@ export function InstallationRestrictionScreen() {
                   <Text style={styles.blockDescription}>{t('restriction.blockInstallDescription')}</Text>
                 </View>
                 <SwitchControl
-                  accessibilityLabel="Bloquear instalação"
+                  accessibilityLabel={t('restriction.blockInstall')}
                   value={blockInstallation}
                   onPress={() => setBlockInstallation((current) => !current)}
                 />
@@ -151,7 +117,7 @@ export function InstallationRestrictionScreen() {
                         <View style={styles.requestCopy}>
                           <Text style={styles.applicationName}>{request.applicationName}</Text>
                           <Text style={styles.requestDetails}>
-                            {t('restriction.requestBy', { name: request.requesterName, time: request.requestedAt })}
+                            {t('restriction.requestBy', { name: request.requesterName, time: new Intl.DateTimeFormat(language, { dateStyle: 'short', timeStyle: 'short' }).format(new Date(request.requestedAt)) })}
                           </Text>
                         </View>
                         <View style={styles.ageBadge}>
@@ -161,7 +127,7 @@ export function InstallationRestrictionScreen() {
 
                       <View style={styles.actions}>
                         <Pressable
-                          accessibilityLabel={`Permitir instalação de ${request.applicationName}`}
+                          accessibilityLabel={t('restriction.allowInstall', { name: request.applicationName })}
                           accessibilityRole="button"
                           onPress={() => removeRequest(request.id)}
                           style={({ pressed }) => [styles.allowButton, pressed && styles.pressed]}
@@ -169,7 +135,7 @@ export function InstallationRestrictionScreen() {
                           <Text style={styles.allowText}>{t('restriction.allow')}</Text>
                         </Pressable>
                         <Pressable
-                          accessibilityLabel={`Recusar instalação de ${request.applicationName}`}
+                          accessibilityLabel={t('restriction.denyInstall', { name: request.applicationName })}
                           accessibilityRole="button"
                           onPress={() => removeRequest(request.id)}
                           style={({ pressed }) => [styles.denyButton, pressed && styles.pressed]}

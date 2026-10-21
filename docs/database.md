@@ -56,6 +56,12 @@ Migrations Prisma são versionadas junto ao código e aplicadas de forma control
 
 `backend/prisma/schema.prisma` define `Guardian` com UUID, email único, nome e hash Argon2id da senha, e `Device` com UUID, nome, usuário gerenciado opcional, `guardianId` e `isDemo`. As migrations versionadas criam esses modelos. A relação usa comportamento restritivo para exclusão e índice simples por `guardianId`; nomes não são identidade única. `prisma:generate` gera código ignorado pelo Git, sem alterar o banco. Comandos e execução estão em [Backend](backend.md).
 
+### Inventário e pedidos persistidos
+
+`InstalledApplication` guarda UUID, computador, nome, categoria e o valor reportado de `allowed`. `InstallationRequest` guarda UUID, computador, aplicativo solicitado, solicitante, data UTC, faixa etária e estado `PENDING`, `APPROVED` ou `DENIED`. Ambos pertencem a `Device` e são removidos em cascata com o computador; revogar vínculo não apaga esses registros.
+
+Os marcadores opcionais `Device.applicationsReportedAt` e `Device.installationRequestsReportedAt` distinguem relatório ausente de relatório vazio. Registros e marcador devem ser atualizados atomicamente pela futura ingestão autenticada do Agent, ainda não implementada. Não representam presença online ou aplicação confirmada de restrições. Os contratos de leitura estão em [Backend](backend.md#consultas-de-aplicativos-e-pedidos-de-instalação).
+
 Para **aplicar migrations existentes**, use `npm run prisma:migrate:deploy` em `backend/` ou a inicialização automática do Compose. Esse comando não cria migrations nem exige shadow database.
 
 Para **criar uma nova migration**, altere o schema intencionalmente e use um banco exclusivo de desenvolvimento. O Prisma precisa criar/remover bancos temporários de comparação (shadow databases). A conta padrão do Compose só tem permissões no banco da aplicação. A preparação abaixo é opcional, feita por um administrador apenas para quem desenvolve migrations; não é necessária para executar a API.

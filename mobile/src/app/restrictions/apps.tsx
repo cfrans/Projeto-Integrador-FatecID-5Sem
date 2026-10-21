@@ -1,5 +1,7 @@
+import { useRestrictionComputer } from '@/features/restrictions/RestrictionDeviceProvider';
 import { ApplicationsRestrictionScreen } from '@/features/restrictions/ApplicationsRestrictionScreen';
 
 export default function AppsScreen() {
-  return <ApplicationsRestrictionScreen />;
+  const computer = useRestrictionComputer();
+  return computer ? <ApplicationsRestrictionScreen key={computer.id} computer={computer} /> : null;
 }

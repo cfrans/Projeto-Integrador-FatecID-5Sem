@@ -1,8 +1,7 @@
-import { useEffect, useState } from 'react';
-import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
-import { router } from 'expo-router';
+import { useState } from 'react';
+import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { devices, devicesErrorMessage, type PairedComputer } from '@/features/devices/services/devices';
+import type { PairedComputer } from '@/features/devices/services/devices';
 import { useLanguage } from '@/features/i18n/LanguageProvider';
 import { radius, spacing, typography, type ColorPalette } from '@/theme';
 import { useTheme, useThemedStyles } from '@/features/theme/ThemeProvider';
@@ -15,13 +14,10 @@ const BROWSERS: readonly BrowserOption[] = [
   { id: 'firefox', name: 'Firefox', icon: '◈' },
   { id: 'chromium', name: 'Chromium', icon: '◎' },
   { id: 'brave', name: 'Brave', icon: '▽' },
-  { id: 'gnome-web', name: 'GNOME Web (escola)', icon: '⌂' },
+  { id: 'gnome-web', name: 'GNOME Web', icon: '⌂' },
 ];
 
-export function BrowserRestrictionScreen() {
-  const [computer, setComputer] = useState<PairedComputer | null>(null);
-  const [loadingComputer, setLoadingComputer] = useState(true);
-  const [computerError, setComputerError] = useState('');
+export function BrowserRestrictionScreen({ computer }: { computer: PairedComputer }) {
   const [blockBrowsers, setBlockBrowsers] = useState(true);
   const [allowedBrowsers, setAllowedBrowsers] = useState<Record<BrowserId, boolean>>({
     firefox: true,
@@ -31,30 +27,7 @@ export function BrowserRestrictionScreen() {
   });
   const [syncStatus, setSyncStatus] = useState<SyncStatus>('synced');
   const { t } = useLanguage();
-  const { colors } = useTheme();
   const styles = useThemedStyles(createStyles);
-
-  useEffect(() => {
-    let active = true;
-
-    devices
-      .listPairedComputers()
-      .then((computers) => {
-        if (!active) return;
-        setComputer(computers[0] ?? null);
-      })
-      .catch((error: unknown) => {
-        if (!active) return;
-        setComputerError(devicesErrorMessage(error));
-      })
-      .finally(() => {
-        if (active) setLoadingComputer(false);
-      });
-
-    return () => {
-      active = false;
-    };
-  }, []);
 
   function updateSetting(update: () => void) {
     update();
@@ -72,19 +45,10 @@ export function BrowserRestrictionScreen() {
   const managedUser = computer?.managedUser ? t('restriction.account', { name: computer.managedUser }) : t('nav.browsers');
 
   return (
-    <SafeAreaView edges={['top', 'left', 'right']} style={styles.safeArea}>
+    <SafeAreaView edges={['left', 'right']} style={styles.safeArea}>
       <View style={styles.container}>
         <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
           <View style={styles.header}>
-            <Pressable
-              accessibilityLabel="Voltar"
-              accessibilityRole="button"
-              hitSlop={8}
-              onPress={() => router.back()}
-              style={({ pressed }) => [styles.backButton, pressed && styles.pressed]}
-            >
-              <Text style={styles.backIcon}>‹</Text>
-            </Pressable>
 
             <View style={styles.headerCopy}>
               <Text numberOfLines={1} style={styles.computerName}>{computerName}</Text>
@@ -97,21 +61,13 @@ export function BrowserRestrictionScreen() {
             </View>
           </View>
 
-          {loadingComputer ? (
-            <View style={styles.statusRow}>
-              <ActivityIndicator color={colors.accent} size="small" />
-              <Text style={styles.statusText}>{t('restriction.loadingComputer')}</Text>
-            </View>
-          ) : null}
-          {computerError ? <Text style={styles.errorText}>{computerError}</Text> : null}
-
           <View style={[styles.blockCard, blockBrowsers && styles.blockCardActive]}>
             <View style={styles.blockCopy}>
               <Text style={styles.blockTitle}>{t('restriction.blockBrowsers')}</Text>
               <Text style={styles.blockDescription}>{t('restriction.blockBrowsersDescription')}</Text>
             </View>
             <SwitchControl
-              accessibilityLabel="Bloquear navegadores"
+              accessibilityLabel={t('restriction.blockBrowsers')}
               value={blockBrowsers}
               onPress={() => updateSetting(() => setBlockBrowsers((current) => !current))}
             />
@@ -123,14 +79,14 @@ export function BrowserRestrictionScreen() {
             {BROWSERS.map((browser) => (
               <Pressable
                 key={browser.id}
-                accessibilityLabel={`${browser.name}, ${allowedBrowsers[browser.id] ? 'permitido' : 'bloqueado'}`}
+                accessibilityLabel={`${browser.id === 'gnome-web' ? t('restriction.schoolBrowser') : browser.name}, ${t(allowedBrowsers[browser.id] ? 'restriction.allowed' : 'restriction.blocked')}`}
                 accessibilityRole="switch"
                 accessibilityState={{ checked: allowedBrowsers[browser.id] }}
                 onPress={() => toggleBrowser(browser.id)}
                 style={({ pressed }) => [styles.browserRow, pressed && styles.pressed]}
               >
                 <Text style={styles.browserIcon}>{browser.icon}</Text>
-                <Text style={styles.browserName}>{browser.name}</Text>
+                <Text style={styles.browserName}>{browser.id === 'gnome-web' ? t('restriction.schoolBrowser') : browser.name}</Text>
                 <SwitchControl value={allowedBrowsers[browser.id]} />
               </Pressable>
             ))}
@@ -194,16 +150,6 @@ const createStyles = (colors: ColorPalette) => StyleSheet.create({
     gap: spacing.md,
     marginBottom: spacing.lg,
   },
-  backButton: {
-    alignItems: 'center',
-    borderColor: colors.border,
-    borderRadius: radius.md,
-    borderWidth: 1,
-    height: 44,
-    justifyContent: 'center',
-    width: 44,
-  },
-  backIcon: { color: colors.textPrimary, fontSize: 30, fontWeight: '300', lineHeight: 34 },
   headerCopy: { flex: 1, gap: 2 },
   computerName: { color: colors.textPrimary, fontSize: 17, fontWeight: '700' },
   screenSubtitle: { color: colors.textSecondary, fontSize: typography.label },
@@ -218,9 +164,6 @@ const createStyles = (colors: ColorPalette) => StyleSheet.create({
   },
   syncDot: { backgroundColor: colors.accent, borderRadius: radius.pill, height: 6, width: 6 },
   syncText: { color: colors.accentText, fontSize: 11, fontWeight: '600' },
-  statusRow: { alignItems: 'center', flexDirection: 'row', gap: spacing.sm, marginBottom: spacing.md },
-  statusText: { color: colors.textSecondary, fontSize: typography.label },
-  errorText: { color: colors.accentText, fontSize: typography.label, marginBottom: spacing.md },
   blockCard: {
     alignItems: 'center',
     backgroundColor: colors.surface,

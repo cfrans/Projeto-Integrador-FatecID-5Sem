@@ -15,7 +15,7 @@ type ComputersState =
   | { status: 'loaded'; computers: PairedComputer[] };
 
 export function ComputersScreen() {
-  const { t } = useLanguage();
+  const { t, localize } = useLanguage();
   const { colors } = useTheme();
   const styles = useThemedStyles(createStyles);
   const [state, setState] = useState<ComputersState>({ status: 'loading' });
@@ -60,12 +60,12 @@ export function ComputersScreen() {
     removalPromptOpen.current = true;
 
     Alert.alert(
-      'Remover vínculo?',
-      `“${computer.name}” deixará de aparecer entre os computadores associados à sua conta.`,
+      t('device.removeTitle'),
+      t('device.removeDescription', { name: computer.name }),
       [
-        { text: 'Cancelar', style: 'cancel', onPress: () => { removalPromptOpen.current = false; } },
+        { text: t('common.cancel'), style: 'cancel', onPress: () => { removalPromptOpen.current = false; } },
         {
-          text: 'Remover vínculo',
+          text: t('device.remove'),
           style: 'destructive',
           onPress: async () => {
             removalPromptOpen.current = false;
@@ -85,7 +85,7 @@ export function ComputersScreen() {
       ],
       { cancelable: false },
     );
-  }, [loadComputers, removingId]);
+  }, [loadComputers, removingId, t]);
 
   return (
     <SafeAreaView edges={['bottom', 'left', 'right']} style={styles.safeArea}>
@@ -105,7 +105,7 @@ export function ComputersScreen() {
             {state.status === 'error' ? (
               <>
                 <Text style={styles.stateTitle}>{t('common.loadError')}</Text>
-                <Text style={styles.stateText}>{state.message}</Text>
+                <Text style={styles.stateText}>{localize(state.message)}</Text>
                 <Button label={t('common.retry')} onPress={retry} />
               </>
             ) : null}
@@ -126,7 +126,7 @@ export function ComputersScreen() {
               label={t('common.addComputer')}
               onPress={() => router.push('/qr-scan')}
             />
-            {removalError ? <Text accessibilityRole="alert" style={styles.error}>{removalError}</Text> : null}
+            {removalError ? <Text accessibilityRole="alert" style={styles.error}>{localize(removalError)}</Text> : null}
           </View>
         }
         renderItem={({ item }) => (

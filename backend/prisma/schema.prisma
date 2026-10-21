@@ -18,15 +18,19 @@ model Guardian {
 }
 
 model Device {
-  id              String              @id @default(uuid()) @db.Char(36)
-  name            String              @db.VarChar(100)
-  managedUser     String?             @db.VarChar(100)
-  guardianId      String?             @db.Char(36)
-  isDemo          Boolean             @default(true)
-  guardian        Guardian?           @relation(fields: [guardianId], references: [id], onDelete: Restrict)
-  agentIdentity   AgentIdentity?
-  pairingSessions PairingSession[]
-  associations    DeviceAssociation[] @relation("AssociationDevice")
+  id                             String                 @id @default(uuid()) @db.Char(36)
+  name                           String                 @db.VarChar(100)
+  managedUser                    String?                @db.VarChar(100)
+  guardianId                     String?                @db.Char(36)
+  isDemo                         Boolean                @default(true)
+  guardian                       Guardian?              @relation(fields: [guardianId], references: [id], onDelete: Restrict)
+  applicationsReportedAt         DateTime?              @db.DateTime(3)
+  installationRequestsReportedAt DateTime?              @db.DateTime(3)
+  applications                   InstalledApplication[]
+  installationRequests           InstallationRequest[]
+  agentIdentity                  AgentIdentity?
+  pairingSessions                PairingSession[]
+  associations                   DeviceAssociation[]    @relation("AssociationDevice")
 
   @@index([guardianId])
 }
@@ -67,4 +71,34 @@ model DeviceAssociation {
 
   @@index([deviceId, createdAt])
   @@index([guardianId, revokedAt])
+}
+
+model InstalledApplication {
+  id       String  @id @default(uuid()) @db.Char(36)
+  deviceId String  @db.Char(36)
+  name     String  @db.VarChar(200)
+  category String  @db.VarChar(100)
+  allowed  Boolean
+  device   Device  @relation(fields: [deviceId], references: [id], onDelete: Cascade)
+
+  @@index([deviceId, name])
+}
+
+enum InstallationRequestStatus {
+  PENDING
+  APPROVED
+  DENIED
+}
+
+model InstallationRequest {
+  id              String                    @id @default(uuid()) @db.Char(36)
+  deviceId        String                    @db.Char(36)
+  applicationName String                    @db.VarChar(200)
+  requesterName   String                    @db.VarChar(100)
+  requestedAt     DateTime                  @db.DateTime(3)
+  ageRating       String                    @db.VarChar(20)
+  status          InstallationRequestStatus @default(PENDING)
+  device          Device                    @relation(fields: [deviceId], references: [id], onDelete: Cascade)
+
+  @@index([deviceId, status, requestedAt])
 }

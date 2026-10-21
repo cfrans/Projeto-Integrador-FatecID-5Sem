@@ -182,6 +182,17 @@ Para uma fixture de desenvolvimento, acrescente `--demo` ao provisionamento, com
 
 O [roteiro mobile](mobile.md) documenta o teste manual completo com Docker/WSL: provisionamento da fixture, solicitação autenticada de sessão, geração local do QR e validação no celular.
 
+## Consultas de aplicativos e pedidos de instalação
+
+- `GET /devices/:deviceId/applications`: lista `{ id, name, category, allowed }`, ordenada por nome e UUID.
+- `GET /devices/:deviceId/installation-requests`: lista somente pedidos `PENDING`, com `{ id, applicationName, requesterName, requestedAt, ageRating }`, ordenados por data e UUID. `requestedAt` é uma data ISO 8601 UTC.
+
+Ambos exigem JWT do responsável, UUID válido e associação ativa com aquele computador. Dispositivo inexistente, pertencente a outro responsável ou sem vínculo ativo retorna o mesmo HTTP 404. UUID inválido retorna 400; falha operacional retorna 503, sem detalhes internos.
+
+Os dados vêm de `InstalledApplication` e `InstallationRequest`. `Device.applicationsReportedAt` e `Device.installationRequestsReportedAt` indicam se cada relatório já foi recebido. Sem o marcador correspondente, a consulta retorna 503 com mensagem de dados ainda não recebidos; com relatório e nenhum registro, retorna `[]`. O retorno é a última informação persistida, sem garantia de presença ou atualização do computador.
+
+A coleta pelo Agent e endpoints de ingestão ainda não existem. Seeds atuais não inventam inventário nem pedidos. Não há endpoints de alteração, aprovação ou recusa; `allowed` representa o valor registrado, sem executar uma política Linux. Os estados `APPROVED` e `DENIED` apenas permitem excluir pedidos já decididos da consulta; o fluxo de decisão permanece futuro.
+
 ## Próximas responsabilidades e decisões pendentes
 
 As próximas etapas implementarão o Agent Python/systemd e a interface independente Python/GTK4/libadwaita, validando no Lux proteção da identidade, autorização local e QR. Coordenação de comandos parentais continua planejada: faltam modelos e endpoints para registrar comandos, disponibilizar trabalho por polling e receber/persistir resultados. O backend deverá distinguir pendência, falha/indisponibilidade e aplicação confirmada; aceite HTTP não comprova alteração no GNOME. Estados, repetição segura e sincronização serão definidos antes da implementação. Autenticação e listagem já estão integradas ao mobile; comportamento offline ainda não foi acordado. O backend não aplica restrições Linux nem envia comandos arbitrários para execução.

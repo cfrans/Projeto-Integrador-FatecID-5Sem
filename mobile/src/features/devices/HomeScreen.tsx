@@ -25,7 +25,7 @@ type HomeState =
 
 export function HomeScreen() {
   const { busy, clearError, error, guardian, signOut } = useSession();
-  const { t } = useLanguage();
+  const { t, localize } = useLanguage();
   const { colors } = useTheme();
   const styles = useThemedStyles(createStyles);
   const [state, setState] = useState<HomeState>({ status: 'loading' });
@@ -69,7 +69,7 @@ export function HomeScreen() {
           <Text style={styles.title}>{t('home.greeting', { name: guardian?.name ?? '' })}</Text>
           <Text style={styles.subtitle}>{t('home.subtitle')}</Text>
           {error ? (
-            <Text accessibilityLiveRegion="polite" style={styles.logoutError}>{error}</Text>
+            <Text accessibilityLiveRegion="polite" style={styles.logoutError}>{localize(error)}</Text>
           ) : null}
           <Button
             label={busy ? t('common.signingOut') : t('common.signOut')}
@@ -118,7 +118,7 @@ export function HomeScreen() {
         {state.status === 'error' ? (
           <View style={styles.stateContainer}>
             <Text style={styles.stateTitle}>{t('common.loadError')}</Text>
-            <Text style={styles.stateText}>{state.message}</Text>
+            <Text style={styles.stateText}>{localize(state.message)}</Text>
             <Button label={t('common.retry')} onPress={retry} />
           </View>
         ) : null}
@@ -144,7 +144,7 @@ export function HomeScreen() {
           <View style={styles.shortcutsGrid}>
             <View style={styles.shortcutsRow}>
               <Pressable
-                accessibilityLabel="Navegadores, Bloqueados"
+                accessibilityLabel={`${t('home.browsers')}, ${t('home.blocked')}`}
                 accessibilityRole="button"
                 onPress={() => router.push('/restrictions/browsers')}
                 style={({ pressed }) => [styles.shortcutCard, pressed && styles.pressed]}
@@ -162,7 +162,7 @@ export function HomeScreen() {
               </Pressable>
 
               <Pressable
-                accessibilityLabel="Aplicativos, ver aplicativos instalados"
+                accessibilityLabel={`${t('home.apps')}, ${t('home.installed')}`}
                 accessibilityRole="button"
                 onPress={() => router.push('/restrictions/apps')}
                 style={({ pressed }) => [styles.shortcutCard, pressed && styles.pressed]}
@@ -184,7 +184,7 @@ export function HomeScreen() {
 
             <View style={styles.shortcutsRow}>
               <Pressable
-                accessibilityLabel="Instalação, Bloqueada"
+                accessibilityLabel={`${t('home.installation')}, ${t('home.blocked')}`}
                 accessibilityRole="button"
                 onPress={() => router.push('/restrictions/install')}
                 style={({ pressed }) => [styles.shortcutCard, pressed && styles.pressed]}
@@ -202,7 +202,7 @@ export function HomeScreen() {
               </Pressable>
 
               <Pressable
-                accessibilityLabel="Faixa etária, Até 12 anos"
+                accessibilityLabel={`${t('home.age')}, ${t('home.upTo12')}`}
                 accessibilityRole="button"
                 onPress={() => router.push('/restrictions/age')}
                 style={({ pressed }) => [styles.shortcutCard, pressed && styles.pressed]}

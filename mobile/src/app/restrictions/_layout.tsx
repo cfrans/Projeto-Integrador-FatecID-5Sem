@@ -1,5 +1,6 @@
 import { StyleSheet, Text, View, type ColorValue } from 'react-native';
 import { Tabs } from 'expo-router';
+import { RestrictionDeviceProvider } from '@/features/restrictions/RestrictionDeviceProvider';
 import { useLanguage } from '@/features/i18n/LanguageProvider';
 import { radius } from '@/theme';
 import { useTheme } from '@/features/theme/ThemeProvider';
@@ -47,6 +48,7 @@ export default function RestrictionsLayout() {
   const { colors } = useTheme();
 
   return (
+    <RestrictionDeviceProvider>
     <Tabs
       screenOptions={{
         headerShown: false,
@@ -90,6 +92,7 @@ export default function RestrictionsLayout() {
         }}
       />
     </Tabs>
+    </RestrictionDeviceProvider>
   );
 }
 

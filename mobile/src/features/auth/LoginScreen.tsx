@@ -35,7 +35,7 @@ export default function LoginScreen() {
   const [notice, setNotice] = useState('');
   const [fontsLoaded] = useFonts({ Baloo2_800ExtraBold });
   const { busy, canRetryRestore, clearError, error, retryRestore, signIn } = useSession();
-  const { t } = useLanguage();
+  const { t, localize } = useLanguage();
   const { colors } = useTheme();
   const styles = useThemedStyles(createStyles);
 
@@ -115,7 +115,7 @@ export default function LoginScreen() {
                   <Input
                     ref={emailInput}
                     accessibilityLabel={t('common.email')}
-                    accessibilityHint={errors.email}
+                    accessibilityHint={errors.email ? localize(errors.email) : undefined}
                     autoCapitalize="none"
                     autoComplete="email"
                     autoCorrect={false}
@@ -132,7 +132,7 @@ export default function LoginScreen() {
                   />
                   {errors.email ? (
                     <Text accessibilityLiveRegion="polite" style={styles.error}>
-                      {errors.email}
+                      {localize(errors.email)}
                     </Text>
                   ) : null}
                 </View>
@@ -143,7 +143,7 @@ export default function LoginScreen() {
                     <Input
                       ref={passwordInput}
                       accessibilityLabel={t('common.password')}
-                      accessibilityHint={errors.password}
+                      accessibilityHint={errors.password ? localize(errors.password) : undefined}
                       autoCapitalize="none"
                       autoComplete="current-password"
                       autoCorrect={false}
@@ -173,7 +173,7 @@ export default function LoginScreen() {
                   </View>
                   {errors.password ? (
                     <Text accessibilityLiveRegion="polite" style={styles.error}>
-                      {errors.password}
+                      {localize(errors.password)}
                     </Text>
                   ) : null}
                 </View>
@@ -187,7 +187,7 @@ export default function LoginScreen() {
 
               {error ? (
                 <Text accessibilityLiveRegion="polite" style={styles.notice}>
-                  {error}
+                  {localize(error)}
                 </Text>
               ) : null}
 

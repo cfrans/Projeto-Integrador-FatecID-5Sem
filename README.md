@@ -13,7 +13,8 @@ Projeto Integrador: aplicativo Expo para controle parental em computadores Lenov
 - Listagem autorizada de computadores e revogação de vínculos.
 - Pareamento por QR Code com token temporário, validação, confirmação, consumo único e revogação.
 - Home, lista de computadores, leitura de QR Code e estados de carregamento, erro e lista vazia.
-- Telas de Navegadores, Aplicativos, Instalação e Faixa etária com a identidade visual do protótipo.
+- Telas de Navegadores, Aplicativos, Instalação e Faixa etária com seleção compartilhada de computador e identidade visual do protótipo.
+- Consultas autenticadas de inventário de aplicativos e pedidos de instalação persistidos; coleta pelo Agent ainda pendente.
 - Estados condicionais para aplicativos instalados e pedidos de instalação: sem computador pareado, não há dados fictícios exibidos.
 - Seleção de idioma em **Sobre o projeto → Idioma**, com português, inglês e espanhol. O idioma inicial é detectado pelo sistema do dispositivo e a escolha manual é persistida.
 - Temas **Sistema**, **Claro** e **Escuro** em **Sobre o projeto → Tema**. Sistema acompanha a aparência do dispositivo; a escolha manual é persistida. O visor da câmera no pareamento permanece escuro.
@@ -21,7 +22,7 @@ Projeto Integrador: aplicativo Expo para controle parental em computadores Lenov
 
 ### Próximos passos
 
-1. Implementar no backend os contratos de aplicativos instalados e pedidos de instalação usados pelas telas mobile.
+1. Implementar a ingestão autenticada de inventário e pedidos pelo futuro Agent, atualizando registros e marcadores de relatório atomicamente.
 2. Criar modelos Prisma e endpoints para configurações de navegadores, aplicativos, instalação e faixa etária.
 3. Persistir as ações do responsável e retornar estados confirmados, sem tratar uma alteração apenas enviada como concluída.
 4. Implementar o Lux Agent em Python como serviço systemd, com identidade provisionada, polling autenticado e recuperação de conexão.
@@ -44,6 +45,17 @@ Confira `git --version`, `node --version` e `npm --version`. Para Docker, també
 git clone https://github.com/cfrans/Projeto-Integrador-FatecID-5Sem.git
 cd Projeto-Integrador-FatecID-5Sem
 ```
+
+### Node por projeto
+
+Com [nvm](https://github.com/nvm-sh/nvm#installing-and-updating) instalado, execute na raiz:
+
+```bash
+nvm install
+nvm use
+```
+
+O arquivo `.nvmrc` fixa Node **24.22.0** para backend e mobile. `nvm use` altera somente o terminal atual; repita ao abrir outro terminal no projeto. `nvm use system` retorna ao Node do sistema. Instale as dependências com `npm ci` em `backend/` e `mobile/` depois de ativar essa versão.
 
 ## 2. Configuração inicial
 
