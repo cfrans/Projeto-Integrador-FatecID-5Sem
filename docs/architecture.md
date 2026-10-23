@@ -6,14 +6,14 @@
 flowchart TD
     M[Mobile Expo] -->|REST: autenticação, dispositivos e pareamento| B[Backend NestJS]
     A[Lux Agent Python 3] -->|polling autenticado REST/HTTPS futuro| B[Backend NestJS]
-    A -->|interfaces locais a validar| G[GNOME / controles parentais]
+    A -->|leitura via libmalcontent comprovada; escrita futura| G[GNOME / controles parentais]
     B -->|Prisma| D[(MySQL 8.4)]
     U[Interface local Python / GTK4 / libadwaita futura] -->|pareamento sob demanda e autorização local a validar| A
 ```
 
 O mobile é um cliente remoto e conversa somente com a API; não acessa MySQL nem o computador Lux diretamente. O backend é um monólito modular em TypeScript/Node.js LTS com NestJS, REST e Prisma. Ele disponibiliza a API, persiste dados e intermedeia operações com agentes. O agente Python 3 será instalado como serviço systemd, iniciará comunicação com o backend por polling e integrará operações locais permitidas pelo sistema, reportando resultados. O GNOME/Lux aplica as restrições. A interface gráfica local de pareamento será um aplicativo Python/GTK4/libadwaita distinto do serviço, aberto sob demanda por um administrador. Fechá-la não interrompe o Agent. Ambos serão instalados no Lux; estarem neste repositório não implica execução no servidor ou celular.
 
-O backend persiste responsáveis, dispositivos e contratos de pareamento em MySQL; autentica responsáveis com Argon2id e JWT de 30 minutos, e computadores com credenciais individuais provisionadas administrativamente. O mobile usa login, consulta de perfil e listagem reais, armazena a sessão em SecureStore no Android/iOS e protege a navegação. A listagem filtra pelo responsável autenticado e distingue vínculo ativo de fixtures legadas; nenhum registro comprova integração Linux. As fixtures são identificadas como demonstração e a conexão permanece não validada. A comunicação agente-backend e a integração do agente com o GNOME são futuras. O agente iniciará a comunicação por REST/HTTPS (polling); conectividade de entrada no computador não é requisito assumido. Os contratos de identidade e pareamento estão definidos nesta etapa; confirmação de aplicação parental ainda depende de investigação e validação no Lux real.
+O backend persiste responsáveis, dispositivos e contratos de pareamento em MySQL; autentica responsáveis com Argon2id e JWT de 30 minutos, e computadores com credenciais individuais provisionadas administrativamente. O mobile usa login, consulta de perfil e listagem reais, armazena a sessão em SecureStore no Android/iOS e protege a navegação. A listagem filtra pelo responsável autenticado e distingue vínculo ativo de fixtures legadas; nenhum registro comprova integração Linux. As fixtures são identificadas como demonstração e a conexão permanece não validada. Existe uma PoC local de leitura libmalcontent em `lux-agent/`; a comunicação agente-backend e a aplicação de políticas pelo agente são futuras. O agente iniciará a comunicação por REST/HTTPS (polling); conectividade de entrada no computador não é requisito assumido. Os contratos de identidade e pareamento estão definidos nesta etapa; confirmação de aplicação parental ainda depende de investigação e validação no Lux real.
 
 ## Etapas de implementação
 
@@ -24,13 +24,13 @@ Estado baseado na implementação existente. “Implementada” descreve o códi
 | 1. Fundação NestJS, Prisma, MySQL e Docker | Implementada | Scaffold modular, conexão/saúde, três migrations e Compose com watch. Execução no host prevista pelos mesmos scripts/configuração; limites da validação em [README](../README.md#limites-de-validação-dos-fluxos). |
 | 2. Autenticação, dispositivos e integração mobile | Parcial | Login/perfil JWT, listagem autorizada e revogação integrados. Contas vêm de seed; computadores de seed ou provisionamento administrativo. Não há cadastro público, edição geral de dispositivos nem presença real. |
 | 3. Infraestrutura de pareamento seguro | Implementada na API/mobile | Identidade individual, token de cinco minutos/uso único, consumo transacional, leitura/confirmação de QR e revogação. Autorização local e pareamento com Agent físico pendentes. |
-| 4. Prova de conceito Python/malcontent no Lux | Bloqueada pela disponibilidade do ambiente | Nenhum código ou prova local documentada; a validação depende de acesso à instalação Lux, cuja ISO não está disponível. Validar interfaces, permissões e uma operação mínima no computador real. |
+| 4. Prova de conceito Python/malcontent no Lux | Leitura implementada e validada na conta de teste | VM Lux 3/Canopus, GNOME 50.4, malcontent 0.13.1-5. PoC consulta filtros e limites sem sudo/interação, com testes no WSL2 e Lux. Resultado sem restrições coincide com cliente oficial. Políticas restritivas e permissões entre contas continuam pendentes; ver [registro](lux-integration.md#registro-de-provas-técnicas). |
 | 5. Lux Agent mínimo | Planejada | Implementar identidade instalada, HTTPS de saída, polling, pareamento inicialmente com QR no terminal, recuperação de conexão e instalação systemd. Contratos de pareamento da API já existem. |
 | 6. Interface GTK4/libadwaita | Planejada | Aplicativo Python independente para autorização e QR temporário; definir comunicação local com Agent e validar permissões. |
 | 7. Controle parental nativo real | Planejada | Implementar somente operações demonstradas na prova técnica, incluindo consulta posterior do resultado; backend deverá registrar comandos/resultados. |
 | 8. Validação ponta a ponta e expansão | Planejada | Validar mobile → API → Agent → GNOME, falhas, revogação e aplicação confirmada; expandir capacidades gradualmente. |
 
-A investigação GNOME pode avançar em paralelo assim que houver ambiente. O foco acadêmico principal permanece no mobile; mocks identificados e contratos explícitos permitem seu desenvolvimento sem bloquear pela integração Linux. Etapas do roadmap não equivalem a entregas executadas.
+A investigação GNOME pode avançar na VM disponível. O foco acadêmico principal permanece no mobile; mocks identificados e contratos explícitos permitem seu desenvolvimento sem bloquear pela integração Linux. Etapas do roadmap não equivalem a entregas executadas.
 
 ## Fluxo esperado de operações parentais
 
@@ -71,4 +71,4 @@ Fixtures e identidades de desenvolvimento devem permanecer identificadas como de
 
 ## Limites técnicos do Lux
 
-O ambiente de referência previsto é GNOME 50.5. Uma ISO do Lenovo Lux não está disponível para reproduzir o ambiente. D-Bus, malcontent/libmalcontent, AccountsService e autorização via polkit são hipóteses de investigação, não interfaces validadas nem uma promessa de API estável. Ver [integração Lux](lux-integration.md) para critérios e registro de evidências.
+O ambiente disponível é uma VM VirtualBox com Lux 3/Canopus (Debian Trixie), GNOME 50.4, malcontent 0.13.1-5 e AccountsService ativo. A leitura via Python/PyGObject/libmalcontent está comprovada para a própria conta de teste. O usuário relatou configuração nativa de horários, bloqueio de login via PAM/GDM e restrições observadas no GNOME; isso não implementa escrita pelo Agent nem comprova encerramento automático ou bloqueio de execução direta. `libpam-malcontent` precisou de instalação manual. Privilégios entre contas, autorização do futuro serviço e interpretação de UTC ainda exigem validação. Ver [integração Lux](lux-integration.md) para evidências e limites.

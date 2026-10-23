@@ -137,7 +137,7 @@ O schema e migrations aditivas de responsável e dispositivos estão versionados
 
 ## Responsabilidades do backend
 
-O backend implementa autenticação de responsáveis e leitura de registros de dispositivos limitada ao responsável autenticado. O módulo Pairing implementa sessões e vínculos revogáveis; a ferramenta administrativa provisiona e invalida identidades individuais. O Agent Linux não está implementado. A aplicação das restrições pertence ao GNOME; sucesso de transporte não deve ser confundido com aplicação confirmada no computador.
+O backend implementa autenticação de responsáveis e leitura de registros de dispositivos limitada ao responsável autenticado. O módulo Pairing implementa sessões e vínculos revogáveis; a ferramenta administrativa provisiona e invalida identidades individuais. Existe uma [PoC Linux somente de leitura](../lux-agent/README.md), sem comunicação com a API; o serviço Agent não está implementado. A aplicação das restrições pertence ao GNOME; sucesso de transporte não deve ser confundido com aplicação confirmada no computador.
 
 ## Integração do mobile
 
