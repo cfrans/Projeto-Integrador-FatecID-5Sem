@@ -16,10 +16,10 @@ Este diretório descreve o estado presente e decisões planejadas. Leia [Produto
 
 ## Estado e próximas etapas
 
-O [roadmap em Arquitetura](architecture.md#etapas-de-implementação) é a referência única para estado, evidência e pendências de cada etapa. Fundação e infraestrutura de pareamento existem; a etapa conjunta de autenticação/gerenciamento de dispositivos é parcial, com login implementado e gerenciamento limitado. Existe uma PoC Python de leitura nativa validada na VM Lux para a própria conta de teste. Serviço Agent/systemd, interface GTK e aplicação de operações parentais pelo projeto ainda não existem.
+O [roadmap em Arquitetura](architecture.md#etapas-de-implementação) é a referência única para estado, evidência e pendências de cada etapa. Fundação e infraestrutura de pareamento existem; a etapa conjunta de autenticação/gerenciamento de dispositivos é parcial, com login implementado e gerenciamento limitado. Existe uma PoC Python de leitura nativa validada na VM Lux em contas com e sem restrições; consultar outra conta exigiu autenticação administrativa. Serviço Agent/systemd, interface GTK e aplicação de operações parentais pelo projeto ainda não existem.
 
 Prioridades: ampliar a validação de políticas/permissões na VM em paralelo ao mobile, desenvolver o Agent mínimo, adicionar a interface GTK e integrar operações nativas comprovadas antes da validação ponta a ponta. Os detalhes e limites dos fluxos com/sem Docker estão no [README](../README.md#limites-de-validação-dos-fluxos).
 
-Controles parentais além do fluxo de autenticação/dispositivos/pareamento dependem do que for demonstrado como disponível no GNOME instalado no Lux. A VM disponível usa Lux 3/Canopus, GNOME 50.4 e malcontent 0.13.1-5; leitura via libmalcontent/AccountsService está comprovada para a própria conta de teste. Provas manuais, limitações de aplicação e permissões pendentes estão em [Integração Lux](lux-integration.md).
+Controles parentais além do fluxo de autenticação/dispositivos/pareamento dependem do que for demonstrado como disponível no GNOME instalado no Lux. A VM disponível usa Lux 3/Canopus, GNOME 50.4 e malcontent 0.13.1-5; leitura via libmalcontent/AccountsService está comprovada com e sem restrições. Provas manuais, limitações de aplicação e permissões pendentes estão em [Integração Lux](lux-integration.md).
 
 O ambiente MySQL local é usado pelo backend; o app mobile não acessa o banco. Consulte [Banco de dados](database.md) para inicialização, limites do volume e decisões de schema/migrations.

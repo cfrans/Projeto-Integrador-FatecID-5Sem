@@ -25,7 +25,7 @@ Projeto Integrador: aplicativo Expo para controle parental em computadores Lenov
 2. Criar modelos Prisma e endpoints para configurações de navegadores, aplicativos, instalação e faixa etária.
 3. Persistir as ações do responsável e retornar estados confirmados, sem tratar uma alteração apenas enviada como concluída.
 4. Implementar o Lux Agent em Python como serviço systemd, com identidade provisionada, polling autenticado e recuperação de conexão.
-5. Ampliar a PoC de leitura já validada na VM Lux para políticas restritivas e permissões entre contas antes de definir operações de escrita suportadas.
+5. Definir privilégios mínimos do futuro Agent e validar operações de escrita; a PoC de leitura na VM Lux já foi validada com e sem restrições, exigindo autenticação administrativa para outra conta.
 6. Implementar a interface local GTK4/libadwaita para autorização administrativa e provisionamento/pareamento do Agent.
 7. Conectar o Agent às decisões de instalação e restrições, registrando sucesso, falha e indisponibilidade no backend.
 8. Expandir a cobertura de testes para troca de idioma e tema, múltiplos computadores, ausência de conexão, pedidos de instalação e fluxo ponta a ponta.
