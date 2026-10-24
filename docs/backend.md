@@ -137,7 +137,7 @@ O schema e migrations aditivas de responsável e dispositivos estão versionados
 
 ## Responsabilidades do backend
 
-O backend implementa autenticação de responsáveis e leitura de registros de dispositivos limitada ao responsável autenticado. O módulo Pairing implementa sessões e vínculos revogáveis; a ferramenta administrativa provisiona e invalida identidades individuais. Existe uma [PoC Linux de leitura e diagnóstico autenticado do Agent](../lux-agent/README.md), reutilizando `GET /agent/associations`; polling e serviço Agent não estão implementados. A aplicação das restrições pertence ao GNOME; sucesso de transporte não deve ser confundido com aplicação confirmada no computador.
+O backend implementa autenticação de responsáveis e leitura de registros de dispositivos limitada ao responsável autenticado. O módulo Pairing implementa sessões e vínculos revogáveis; a ferramenta administrativa provisiona e invalida identidades individuais. Existe uma [PoC Linux de leitura e diagnóstico autenticado do Agent](../lux-agent/README.md), reutilizando `GET /agent/associations`; o Agent também possui polling somente de leitura desses vínculos; transporte de comandos e serviço Agent não estão implementados. A aplicação das restrições pertence ao GNOME; sucesso de transporte não deve ser confundido com aplicação confirmada no computador.
 
 ## Integração do mobile
 
@@ -183,6 +183,8 @@ Para uma fixture de desenvolvimento, acrescente `--demo` ao provisionamento, com
 O [roteiro mobile](mobile.md) documenta o teste manual completo com Docker/WSL: provisionamento da fixture, solicitação autenticada de sessão, geração local do QR e validação no celular.
 
 ## Próximas responsabilidades e decisões pendentes
+
+A [proposta de protocolo do Agent](agent-protocol.md) reúne os endpoints e o modelo de comandos sugeridos, ainda sujeitos a revisão. Nenhum deles foi implementado; não há migration de comandos. A proposta reutiliza autenticação, vínculo e transações por dispositivo existentes, com diagnóstico inicial sem execução parental.
 
 As próximas etapas implementarão o Agent Python/systemd e a interface independente Python/GTK4/libadwaita, validando no Lux proteção da identidade, autorização local e QR. Coordenação de comandos parentais continua planejada: faltam modelos e endpoints para registrar comandos, disponibilizar trabalho por polling e receber/persistir resultados. O backend deverá distinguir pendência, falha/indisponibilidade e aplicação confirmada; aceite HTTP não comprova alteração no GNOME. Estados, repetição segura e sincronização serão definidos antes da implementação. Autenticação e listagem já estão integradas ao mobile; comportamento offline ainda não foi acordado. O backend não aplica restrições Linux nem envia comandos arbitrários para execução.
 

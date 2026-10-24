@@ -1,6 +1,8 @@
 # Lux Agent
 
-Fundação Python 3 do Agent com dois comandos independentes: `read_policies.py` lê políticas nativas; `check_backend.py` valida uma vez a identidade provisionada contra o NestJS. Não há polling, pareamento local, operações remotas, serviço systemd ou GTK.
+Fundação Python 3 do Agent com três comandos: `read_policies.py` lê políticas nativas; `check_backend.py` valida uma vez a identidade provisionada; `poll_associations.py` consulta periodicamente os vínculos no NestJS, somente por GET. Não há infraestrutura de comandos remotos, pareamento local, serviço systemd ou GTK.
+
+A [proposta de protocolo](../docs/agent-protocol.md) separa a observação periódica de vínculos, agora implementada, do futuro transporte de comandos, com reserva, resultados e recuperação. Os endpoints e modelos de comandos continuam em revisão, sem implementação.
 
 A PoC de leitura usa PyGObject/libmalcontent e AccountsService, sem alterar políticas ou solicitar elevação. A VM de referência é Lux 3/Canopus, GNOME 50.4 e malcontent 0.13.1-5. Leituras com e sem restrições foram validadas; consultar outra conta exigiu autenticação administrativa. Privilégios mínimos do futuro serviço permanecem pendentes. O mock do Agent no backend ainda não existe.
 
@@ -47,9 +49,49 @@ O Agent inicia a requisição no Lux; o backend não acessa a VM. O túnel exist
 - Backend no container Node 24.21.0: lint, typecheck, seis testes unitários e cinco testes HTTP passaram. Para os HTTP, foi necessário copiar `backend/test` para `/app/test`, pois o Compose não monta esse diretório. Nenhum contrato/backend foi alterado; a suíte MySQL dedicada não foi executada.
 - A identidade demonstrativa de validação foi revogada, preservando seu histórico; os arquivos temporários da credencial foram removidos do WSL2, container e Lux. Os containers de desenvolvimento ficaram iniciados. Não houve alteração de PAM, políticas, permissões Linux, serviços ou comandos privilegiados na VM.
 
-Pendências: HTTPS real e falhas TLS, usuário/instalação do serviço, polling e recuperação de conexão, autorização administrativa local e pareamento. Sucesso deste diagnóstico não comprova aplicação de política nem identidade física do equipamento.
+Pendências daquele diagnóstico inicial: HTTPS real e falhas TLS, usuário/instalação do serviço, polling e recuperação de conexão, autorização administrativa local e pareamento. O incremento de polling abaixo cobre repetição de consultas e recuperação transitória. Sucesso deste diagnóstico não comprova aplicação de política nem identidade física do equipamento.
 
 Referências de implementação: [urllib.request no Python 3.12](https://docs.python.org/3.12/library/urllib.request.html) e [os no Python 3.14](https://docs.python.org/3.14/library/os.html#os.open).
+
+## Polling somente de leitura
+
+`poll_associations.py` reutiliza a validação de URL e arquivo privado e a função `fetch_associations()` em `check_backend.py`. O diagnóstico antigo mantém seus argumentos, códigos de saída e retorno por contagem; o cliente compartilhado preserva registros apenas em memória e acrescenta categoria de erro, possibilidade de repetição, status HTTP e `Retry-After`.
+
+```bash
+python3 -B lux-agent/poll_associations.py --backend-url https://api.exemplo --credential-file /caminho/privado/agent-credential --max-queries 3
+```
+
+| Opção | Comportamento |
+| --- | --- |
+| `--interval` | Base entre consultas, contada após o término da anterior; padrão 15 s |
+| `--max-backoff` | Teto do atraso com jitter; padrão 300 s; deve ser pelo menos o intervalo |
+| `--jitter` | Variação proporcional; padrão 0.2 (±20%); aceita 0 para diagnóstico reproduzível |
+| `--timeout` | Prazo total por consulta, padrão 10 s, máximo 120 s |
+| `--max-queries` | Limite de tentativas, incluindo falhas; não espera após a última; omitido mantém o ciclo |
+
+Intervalo e backoff devem ser positivos e no máximo 86400 s; jitter deve estar entre 0 e menos de 1. A primeira consulta é imediata. Só há uma requisição por vez e nenhum processamento de comandos. Falhas transitórias dobram a base de espera até o teto; sucesso restaura a base ao intervalo. O jitter é aplicado antes do teto. Em HTTP 429/503, um `Retry-After` válido em segundos ou data HTTP é um piso da espera, inclusive acima do teto; um cabeçalho inválido usa o backoff normal. Datas HTTP dependem do relógio local correto. O limite de tentativas não é um limite de duração: `Retry-After` pode impor uma espera longa, interrompível por sinal.
+
+Categorias de erro: `configuration`, `authentication`, `tls`, `connection`, `http` e `response`. Falhas de conexão/timeout e HTTP 429/5xx permitem repetição, exceto 501/505 por incompatibilidade. HTTP 401 encerra com código 3; TLS encerra com 4; demais erros HTTP permanentes e contrato inválido encerram com o código do diagnóstico. Não há fallback para HTTP, desativação de certificado ou redirecionamento. A exceção HTTP continua restrita ao loopback com `--allow-local-http` explícito.
+
+Ctrl+C/SIGTERM encerram com código 0 e mensagem de interrupção, sem traceback. O limite de consultas retorna o código da última tentativa: 0 se bem-sucedida, 4/5 se terminou sem recuperar uma falha transitória. Interromper manualmente não comprova sucesso da comunicação. A saída contém só número da consulta, contagem do histórico e erros controlados; não imprime nomes, identificadores dos vínculos, credencial, corpo HTTP ou exceções brutas. Nenhuma associação é criada/revogada e `status`/`lastSeen` do mobile não mudam.
+
+O ciclo é uma CLI Linux executada na thread principal. Usa SIGALRM/`setitimer` para limitar o tempo da consulta inteira (além do timeout de socket) e restaura os handlers ao terminar. SIGINT/SIGTERM também interrompem esperas e I/O Python em andamento. Não usa threads de consulta nem deixa chamadas sobrepostas; funções nativas que não retornem ao interpretador podem atrasar a entrega de sinais. A proteção e o limite de resposta de 1 MiB do cliente existente são preservados.
+
+No Lux, com a credencial já instalada separadamente, use o mesmo túnel temporário:
+
+```bash
+ssh -o BatchMode=yes -o ExitOnForwardFailure=yes -R 127.0.0.1:13000:127.0.0.1:3000 lux 'python3 -B ~/lux-agent-poc/poll_associations.py --backend-url http://127.0.0.1:13000 --credential-file ~/.local/state/lux-agent/credential --allow-local-http --interval 1 --jitter 0 --max-queries 3'
+```
+
+### Validação do polling — 2026-10-24
+
+- Três consultas consecutivas retornaram HTTP 200/histórico vazio no WSL2 e no Lux contra NestJS/MySQL reais, com intervalo de 1 s, jitter 0 e limite 3. A VM usou loopback por túnel SSH; HTTPS real continua pendente.
+- Revogação durante um ciclo no WSL2: primeira consulta HTTP 200; após invalidação administrativa da identidade demonstrativa, a segunda recebeu HTTP 401 e o processo encerrou com código 3, sem terceira tentativa. No Lux, a mesma identidade já revogada foi recusada na primeira consulta, também com código 3.
+- A suíte final tem 42 testes, executados em Python 3.12.3 no WSL2 e 3.14.6 no Lux. Cadência, recuperação, backoff, jitter e esperas longas usam tempo simulado. HTTP 429/503 e `Retry-After` usam servidor local; falhas de certificado são simuladas. Subprocessos limitados verificam SIGINT/SIGTERM durante espera e SIGTERM durante HTTP em andamento. O prazo total também foi exercitado, sem esperar o atraso completo.
+- A PoC leu novamente a própria conta no Lux sem sudo, com filtros/limites desativados. Não houve nova leitura privilegiada. Não se desligou o backend/MySQL para provocar indisponibilidade e não se executou a suíte MySQL dedicada.
+- A identidade demonstrativa foi revogada; os arquivos temporários de credencial foram removidos ao concluir. A sincronização de fontes incluiu somente os seis arquivos Python, excluindo configurações/credenciais; a transferência do segredo foi separada, por SSH. Nenhuma configuração parental, serviço ou código do backend foi alterado.
+
+Referências: [sinais Python 3.14](https://docs.python.org/3.14/library/signal.html), [erros urllib no Python 3.12](https://docs.python.org/3.12/library/urllib.error.html) e [Retry-After na RFC 9110](https://www.rfc-editor.org/rfc/rfc9110.html#section-10.2.3).
 
 ## Desenvolver e testar no WSL2
 
@@ -77,13 +119,13 @@ Se faltar dependência ou houver divergência, investigue antes de prosseguir. I
 Revise a simulação e depois execute o mesmo rsync sem `-n`:
 
 ```bash
-rsync -rltivn -e 'ssh -o BatchMode=yes -o ConnectTimeout=10' --include='/check_backend.py' --include='/test_check_backend.py' --include='/read_policies.py' --include='/test_read_policies.py' --include='/README.md' --exclude='*' lux-agent/ lux:lux-agent-poc/
-rsync -rltiv -e 'ssh -o BatchMode=yes -o ConnectTimeout=10' --include='/check_backend.py' --include='/test_check_backend.py' --include='/read_policies.py' --include='/test_read_policies.py' --include='/README.md' --exclude='*' lux-agent/ lux:lux-agent-poc/
+rsync -rltivn -e 'ssh -o BatchMode=yes -o ConnectTimeout=10' --include='/poll_associations.py' --include='/test_poll_associations.py' --include='/check_backend.py' --include='/test_check_backend.py' --include='/read_policies.py' --include='/test_read_policies.py' --include='/README.md' --exclude='*' lux-agent/ lux:lux-agent-poc/
+rsync -rltiv -e 'ssh -o BatchMode=yes -o ConnectTimeout=10' --include='/poll_associations.py' --include='/test_poll_associations.py' --include='/check_backend.py' --include='/test_check_backend.py' --include='/read_policies.py' --include='/test_read_policies.py' --include='/README.md' --exclude='*' lux-agent/ lux:lux-agent-poc/
 ssh lux 'python3 -B -m unittest discover -s ~/lux-agent-poc -v'
 ssh lux 'python3 -B ~/lux-agent-poc/read_policies.py --user USUARIO_ALVO'
 ```
 
-O destino é uma cópia executável em `~/lux-agent-poc/`, sem Git e sem edição de fonte na VM. A lista de inclusão transfere somente os cinco arquivos indicados; `.env`, chaves, credenciais, caches e qualquer outro arquivo ficam excluídos. Não use `--delete` nem sincronize a raiz do repositório. Substitua `USUARIO_ALVO` pelo login da conta que deseja consultar; não há usuário implícito nem seleção automática de conta infantil.
+O destino é uma cópia executável em `~/lux-agent-poc/`, sem Git e sem edição de fonte na VM. A lista de inclusão transfere somente os sete arquivos indicados (seis Python e este README); `.env`, chaves, credenciais, caches e qualquer outro arquivo ficam excluídos. Não use `--delete` nem sincronize a raiz do repositório. Substitua `USUARIO_ALVO` pelo login da conta que deseja consultar; não há usuário implícito nem seleção automática de conta infantil.
 
 Use o Python do sistema Lux com seus bindings GI e comece sem `sudo`: a PoC usa `ManagerGetValueFlags.NONE`, sem autorização interativa ou elevação automática. Permissão negada, serviço indisponível ou dados inválidos retornam erro em stderr e código 1, sem JSON parcial. Argumentos inválidos retornam 2; uma consulta completa retorna 0 e JSON em stdout.
 
