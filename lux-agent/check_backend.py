@@ -7,15 +7,31 @@ import re
 import ssl
 import stat
 import sys
+import time
+from email.utils import parsedate_to_datetime
+from typing import Any
 from urllib.error import HTTPError, URLError
 from urllib.parse import urlsplit
 from urllib.request import HTTPRedirectHandler, ProxyHandler, Request, build_opener
 
 
 class DiagnosticError(Exception):
-    def __init__(self, message: str, code: int):
+    def __init__(
+        self,
+        message: str,
+        code: int,
+        *,
+        category: str = "configuration",
+        retryable: bool = False,
+        retry_after: float | None = None,
+        http_status: int | None = None,
+    ):
         super().__init__(message)
         self.code = code
+        self.category = category
+        self.retryable = retryable
+        self.retry_after = retry_after
+        self.http_status = http_status
 
 
 class NoRedirect(HTTPRedirectHandler):
@@ -69,24 +85,81 @@ def load_credential(path: str) -> str:
     return raw.decode("ascii").rstrip("\n")
 
 
-def check_backend(endpoint: str, credential: str, timeout: float) -> int:
+def parse_retry_after(value: str | None) -> float | None:
+    if value is None:
+        return None
+    value = value.strip()
+    if re.fullmatch(r"[0-9]+", value):
+        delay = float(value)
+        if not math.isfinite(delay):
+            raise DiagnosticError(
+                "Retry-After fora do intervalo suportado.", 6, category="response"
+            )
+        return delay
+    try:
+        date = parsedate_to_datetime(value)
+        if date.tzinfo is None:
+            return None
+        return max(0.0, date.timestamp() - time.time())
+    except (ValueError, TypeError, OverflowError):
+        return None
+
+
+def fetch_associations(
+    endpoint: str, credential: str, timeout: float
+) -> list[dict[str, Any]]:
     request = Request(endpoint, headers={"Authorization": f"Bearer {credential}", "Accept": "application/json"})
     opener = build_opener(ProxyHandler({}), NoRedirect())
     try:
         with opener.open(request, timeout=timeout) as response:
             if response.status != 200:
-                raise DiagnosticError("Resposta HTTP inesperada do backend.", 6)
+                raise DiagnosticError(
+                    "Resposta HTTP inesperada do backend.", 6, category="http",
+                    http_status=response.status,
+                )
             raw = response.read(1024 * 1024 + 1)
     except HTTPError as error:
-        status = error.code
-        error.close()
+        try:
+            status = error.code
+            retry_after = (
+                parse_retry_after(error.headers.get("Retry-After"))
+                if status in (429, 503) else None
+            )
+        finally:
+            error.close()
         if status == 401:
-            raise DiagnosticError("Autenticação recusada: identidade inválida ou revogada; procure o administrador.", 3) from None
+            raise DiagnosticError(
+                "Autenticação recusada: identidade inválida ou revogada; procure o administrador.",
+                3, category="authentication", http_status=status,
+            ) from None
         if status == 429 or 500 <= status <= 599:
-            raise DiagnosticError("Backend indisponível; tente novamente mais tarde.", 5) from None
-        raise DiagnosticError("Resposta HTTP inesperada; redirecionamentos não são permitidos.", 6) from None
-    except (URLError, OSError, ssl.SSLError, http.client.HTTPException):
-        raise DiagnosticError("Falha de conexão, TLS ou timeout; comunicação não confirmada.", 4) from None
+            raise DiagnosticError(
+                "Backend incompatível com esta consulta."
+                if status in (501, 505) else "Backend indisponível; tente novamente mais tarde.",
+                5, category="http", retryable=status not in (501, 505), retry_after=retry_after,
+                http_status=status,
+            ) from None
+        raise DiagnosticError(
+            "Resposta HTTP inesperada; redirecionamentos não são permitidos.", 6,
+            category="http", http_status=status,
+        ) from None
+    except (URLError, OSError, http.client.HTTPException) as error:
+        reason = error.reason if isinstance(error, URLError) else error
+        if isinstance(reason, ssl.SSLError):
+            raise DiagnosticError(
+                "Falha TLS; verifique o certificado e a configuração do backend.",
+                4, category="tls",
+            ) from None
+        if isinstance(reason, http.client.BadStatusLine) and not isinstance(
+            reason, http.client.RemoteDisconnected
+        ):
+            raise DiagnosticError(
+                "Resposta HTTP incompatível.", 6, category="response"
+            ) from None
+        raise DiagnosticError(
+            "Falha de conexão ou timeout; comunicação não confirmada.", 4,
+            category="connection", retryable=True,
+        ) from None
     try:
         if len(raw) > 1024 * 1024:
             raise ValueError
@@ -106,8 +179,15 @@ def check_backend(endpoint: str, credential: str, timeout: float) -> int:
             ):
                 raise ValueError
     except (ValueError, UnicodeError, RecursionError):
-        raise DiagnosticError("Resposta incompatível com o contrato de associações.", 6) from None
-    return len(associations)
+        raise DiagnosticError(
+            "Resposta incompatível com o contrato de associações.",
+            6, category="response",
+        ) from None
+    return associations
+
+
+def check_backend(endpoint: str, credential: str, timeout: float) -> int:
+    return len(fetch_associations(endpoint, credential, timeout))
 
 
 def main(argv: list[str] | None = None) -> int:
