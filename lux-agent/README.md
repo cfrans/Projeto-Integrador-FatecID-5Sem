@@ -1,16 +1,55 @@
 # Lux Agent
 
-Este diretório contém a primeira integração com o Lux: um programa que lê as configurações de controle parental de uma conta, testes que podem rodar no WSL2 e instruções para executar na VM. A consulta já funcionou no Lux; alterações de políticas e conexão com o backend ficam para etapas futuras.
+Fundação Python 3 do Agent com dois comandos independentes: `read_policies.py` lê políticas nativas; `check_backend.py` valida uma vez a identidade provisionada contra o NestJS. Não há polling, pareamento local, operações remotas, serviço systemd ou GTK.
 
-Prova de conceito somente de leitura em Python 3/PyGObject/libmalcontent. Consulta os filtros de aplicativos e limites de sessão de um nome de login explícito usando o D-Bus de sistema e AccountsService. Não altera políticas, contas, PAM ou serviços; não possui comunicação com backend, pareamento, unidade systemd ou interface GTK.
+A PoC de leitura usa PyGObject/libmalcontent e AccountsService, sem alterar políticas ou solicitar elevação. A VM de referência é Lux 3/Canopus, GNOME 50.4 e malcontent 0.13.1-5. Leituras com e sem restrições foram validadas; consultar outra conta exigiu autenticação administrativa. Privilégios mínimos do futuro serviço permanecem pendentes. O mock do Agent no backend ainda não existe.
 
-O serviço planejado será Python 3/systemd, instalado no próprio Lenovo Lux. Iniciará comunicação de saída REST/HTTPS com o NestJS por polling, com identidade individual e privilégios mínimos. A VM de referência é Lux 3/Canopus (Debian Trixie), GNOME 50.4 e malcontent 0.13.1-5. Leituras com e sem restrições foram validadas; a consulta de outra conta exigiu autenticação administrativa. Privilégios mínimos e autorização local do futuro serviço ainda precisam ser definidos e validados.
+## Diagnóstico autenticado
 
-A interface de pareamento será um aplicativo separado em Python/GTK4/libadwaita, aberto sob demanda por administrador local. Fechá-la não encerrará o serviço. QR no terminal pertence a uma etapa futura, fora desta PoC.
+`check_backend.py` usa somente a biblioteca padrão Python e o contrato existente `GET /agent/associations`. A credencial Bearer identifica o computador no backend por SHA-256; não é necessário enviar `deviceId`, hostname ou JWT de responsável. A consulta aceita histórico vazio e não cria vínculo, presença ou sessão de pareamento. Nenhum endpoint novo foi necessário.
 
-A identidade e os endpoints de pareamento já existem no backend; proteção local da credencial, autorização administrativa, instalação do serviço, comunicação e escrita de políticas GNOME pelo Agent ainda não existem. Consulte [Integração Lux](../docs/lux-integration.md) e o [roadmap](../docs/architecture.md#etapas-de-implementação).
+Provisione pela [ferramenta administrativa existente](../docs/backend.md#provisionamento-e-invalidação-administrativa), usando `--demo` para fixtures com `NODE_ENV=development`. O arquivo contém somente a credencial aleatória, nunca seu hash. Transfira-o separadamente por SSH/SFTP, sem incluí-lo no rsync dos fontes. Mantenha-o fora do repositório e em diretório privado `0700`, pertencente à conta executora; o arquivo deve pertencer à mesma conta e ter modo `0400` ou `0600`. Não use symlink ou hardlink. O comando verifica essas propriedades do arquivo antes de enviá-lo; não corrige permissões nem instala credenciais automaticamente. Administradores/root continuam capazes de acessar o segredo; o usuário definitivo do serviço será definido posteriormente.
 
-O futuro mock do Agent no backend também não foi implementado. Os mocks preservados no mobile não participam dos fluxos REST atuais nem comprovam integração Linux; consulte [Mocks e contratos](../docs/architecture.md#mocks-e-contratos).
+```bash
+python3 -B lux-agent/check_backend.py --backend-url https://api.exemplo --credential-file /caminho/privado/agent-credential
+python3 -B lux-agent/check_backend.py --backend-url http://127.0.0.1:3000 --credential-file /caminho/privado/agent-credential --allow-local-http
+```
+
+A URL deve ser apenas a origem (sem usuário, senha, caminho, query ou fragmento). HTTPS valida certificados pelo Python/sistema; não existe opção para ignorar TLS. HTTP exige `--allow-local-http` e host loopback (`127.0.0.1`, `::1` ou `localhost`). Proxies de ambiente são ignorados e redirecionamentos recusados para evitar encaminhamento da credencial. Configure somente um backend confiável. `--timeout` controla operações de rede (padrão 10 segundos; máximo 120), não um prazo total da execução. Não há repetição automática.
+
+Saída de sucesso: HTTP 200 e quantidade de associações no histórico, sem nomes de responsáveis, tokens ou conteúdo bruto. Falhas vão para stderr, sem corpo HTTP ou detalhes de exceções. Códigos de saída:
+
+| Código | Diagnóstico |
+| --- | --- |
+| 0 | Comunicação autenticada confirmada e resposta compatível |
+| 2 | Argumentos, URL ou arquivo de credencial inválidos |
+| 3 | HTTP 401: identidade inválida/revogada; intervenção administrativa |
+| 4 | Falha de conexão, TLS ou timeout |
+| 5 | HTTP 429 ou 5xx: indisponibilidade; repetir manualmente depois |
+| 6 | HTTP inesperado/redirecionamento ou resposta incompatível |
+
+### Desenvolvimento com a VM
+
+Para alcançar o backend do WSL2 sem expô-lo na rede da VM, use um encaminhamento SSH temporário (somente loopback). A credencial já deve estar instalada separadamente no caminho privado indicado:
+
+```bash
+ssh -o BatchMode=yes -o ExitOnForwardFailure=yes -R 127.0.0.1:13000:127.0.0.1:3000 lux 'python3 -B ~/lux-agent-poc/check_backend.py --backend-url http://127.0.0.1:13000 --credential-file ~/.local/state/lux-agent/credential --allow-local-http'
+```
+
+O Agent inicia a requisição no Lux; o backend não acessa a VM. O túnel existe somente durante o comando. Essa prova usa HTTP em loopback dentro de SSH, não valida uma implantação HTTPS real.
+
+### Evidência desta iteração — 2026-10-24
+
+- Identidade demonstrativa criada pela ferramenta existente; consulta real Agent → NestJS → MySQL retornou HTTP 200/histórico vazio no WSL2 e no Lux via túnel SSH.
+- No Lux: credencial aleatória no formato correto recusada com HTTP 401/código 3; a credencial válida também foi recusada após revogação pela ferramenta administrativa. Conexão recusada em loopback retornou código 4.
+- 14 testes Python passaram no WSL2 (3.12.3) e Lux (3.14.6), incluindo os sete testes originais da PoC. HTTP 503, timeout e respostas inválidas foram simulados; não se interrompeu o MySQL/backend para provocar indisponibilidade real.
+- A PoC leu novamente a própria conta no Lux sem sudo, com filtros/limites desativados. A leitura restritiva anterior está preservada no [registro de integração](../docs/lux-integration.md#registro-de-provas-técnicas); não foi repetida com privilégios nesta iteração.
+- Backend no container Node 24.21.0: lint, typecheck, seis testes unitários e cinco testes HTTP passaram. Para os HTTP, foi necessário copiar `backend/test` para `/app/test`, pois o Compose não monta esse diretório. Nenhum contrato/backend foi alterado; a suíte MySQL dedicada não foi executada.
+- A identidade demonstrativa de validação foi revogada, preservando seu histórico; os arquivos temporários da credencial foram removidos do WSL2, container e Lux. Os containers de desenvolvimento ficaram iniciados. Não houve alteração de PAM, políticas, permissões Linux, serviços ou comandos privilegiados na VM.
+
+Pendências: HTTPS real e falhas TLS, usuário/instalação do serviço, polling e recuperação de conexão, autorização administrativa local e pareamento. Sucesso deste diagnóstico não comprova aplicação de política nem identidade física do equipamento.
+
+Referências de implementação: [urllib.request no Python 3.12](https://docs.python.org/3.12/library/urllib.request.html) e [os no Python 3.14](https://docs.python.org/3.14/library/os.html#os.open).
 
 ## Desenvolver e testar no WSL2
 
@@ -22,7 +61,7 @@ python3 -m compileall -q lux-agent
 python3 lux-agent/read_policies.py --help
 ```
 
-O diretório ainda não tem ferramentas Python de lint/typecheck configuradas. Compilação verifica sintaxe; os testes verificam usuário obrigatório/inexistente, dependência ausente, flags sem interação, valores nativos, políticas desativadas e falha sem saída parcial. Esses testes isolados não comprovam permissões nem aplicação de restrições no Lux.
+O diretório ainda não tem ferramentas Python de lint/typecheck configuradas. Compilação verifica sintaxe; os testes de comunicação usam um servidor HTTP local temporário e verificam Bearer, respostas, redirecionamento, falhas e proteção da credencial. Os testes da PoC verificam usuário obrigatório/inexistente, dependência ausente, flags sem interação, valores nativos, políticas desativadas e falha sem saída parcial. Esses testes isolados não comprovam permissões nem aplicação de restrições no Lux.
 
 ## Sincronizar e executar no Lux
 
@@ -38,13 +77,13 @@ Se faltar dependência ou houver divergência, investigue antes de prosseguir. I
 Revise a simulação e depois execute o mesmo rsync sem `-n`:
 
 ```bash
-rsync -rltivn -e 'ssh -o BatchMode=yes -o ConnectTimeout=10' --include='/read_policies.py' --include='/test_read_policies.py' --include='/README.md' --exclude='*' lux-agent/ lux:lux-agent-poc/
-rsync -rltiv -e 'ssh -o BatchMode=yes -o ConnectTimeout=10' --include='/read_policies.py' --include='/test_read_policies.py' --include='/README.md' --exclude='*' lux-agent/ lux:lux-agent-poc/
+rsync -rltivn -e 'ssh -o BatchMode=yes -o ConnectTimeout=10' --include='/check_backend.py' --include='/test_check_backend.py' --include='/read_policies.py' --include='/test_read_policies.py' --include='/README.md' --exclude='*' lux-agent/ lux:lux-agent-poc/
+rsync -rltiv -e 'ssh -o BatchMode=yes -o ConnectTimeout=10' --include='/check_backend.py' --include='/test_check_backend.py' --include='/read_policies.py' --include='/test_read_policies.py' --include='/README.md' --exclude='*' lux-agent/ lux:lux-agent-poc/
 ssh lux 'python3 -B -m unittest discover -s ~/lux-agent-poc -v'
 ssh lux 'python3 -B ~/lux-agent-poc/read_policies.py --user USUARIO_ALVO'
 ```
 
-O destino é uma cópia executável em `~/lux-agent-poc/`, sem Git e sem edição de fonte na VM. A lista de inclusão transfere somente os três arquivos indicados; `.env`, chaves, credenciais, caches e qualquer outro arquivo ficam excluídos. Não use `--delete` nem sincronize a raiz do repositório. Substitua `USUARIO_ALVO` pelo login da conta que deseja consultar; não há usuário implícito nem seleção automática de conta infantil.
+O destino é uma cópia executável em `~/lux-agent-poc/`, sem Git e sem edição de fonte na VM. A lista de inclusão transfere somente os cinco arquivos indicados; `.env`, chaves, credenciais, caches e qualquer outro arquivo ficam excluídos. Não use `--delete` nem sincronize a raiz do repositório. Substitua `USUARIO_ALVO` pelo login da conta que deseja consultar; não há usuário implícito nem seleção automática de conta infantil.
 
 Use o Python do sistema Lux com seus bindings GI e comece sem `sudo`: a PoC usa `ManagerGetValueFlags.NONE`, sem autorização interativa ou elevação automática. Permissão negada, serviço indisponível ou dados inválidos retornam erro em stderr e código 1, sem JSON parcial. Argumentos inválidos retornam 2; uma consulta completa retorna 0 e JSON em stdout.
 

@@ -1,6 +1,6 @@
 # piplup
 
-Projeto Integrador: aplicativo Expo para controle parental em computadores Lenovo Lux, com API NestJS, Prisma e MySQL. Login, perfil, listagem, pareamento e revogação de vínculos usam a API real. O mobile também possui telas de controle para navegadores, aplicativos, instalação e faixa etária, seleção de idioma em português, inglês e espanhol, e temas claro/escuro com acento vermelho. A demonstração usa computadores fictícios. Existe uma [PoC Python de leitura nativa no Lux](lux-agent/README.md); serviço Agent, interface GTK e integração ponta a ponta ainda não existem. Consulte o [estado das etapas](docs/architecture.md#etapas-de-implementação).
+Projeto Integrador: aplicativo Expo para controle parental em computadores Lenovo Lux, com API NestJS, Prisma e MySQL. Login, perfil, listagem, pareamento e revogação de vínculos usam a API real. O mobile também possui telas de controle para navegadores, aplicativos, instalação e faixa etária, seleção de idioma em português, inglês e espanhol, e temas claro/escuro com acento vermelho. A demonstração usa computadores fictícios. Existe uma [PoC Python de leitura nativa e diagnóstico autenticado do Agent no Lux](lux-agent/README.md); polling, serviço Agent, interface GTK e integração ponta a ponta ainda não existem. Consulte o [estado das etapas](docs/architecture.md#etapas-de-implementação).
 
 ## Estado atual
 
