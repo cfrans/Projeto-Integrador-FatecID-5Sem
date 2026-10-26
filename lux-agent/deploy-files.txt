@@ -17,6 +17,7 @@ lux_agent/parental.py
 lux_agent/polling.py
 tests/__init__.py
 tests/test_check_backend.py
+tests/test_cli.py
 tests/test_commands.py
 tests/test_https_transport.py
 tests/test_poll_associations.py
