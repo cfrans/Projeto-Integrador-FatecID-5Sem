@@ -6,13 +6,16 @@ import { SessionProvider, useSession } from '@/features/auth/SessionProvider';
 import { LanguageProvider, useLanguage } from '@/features/i18n/LanguageProvider';
 import { AppThemeProvider, useTheme, useThemedStyles } from '@/features/theme/ThemeProvider';
 import { type ColorPalette } from '@/theme';
+import { ComputerAppearanceProvider } from '@/features/devices/ComputerAppearanceProvider';
 
 export default function RootLayout() {
   return (
     <AppThemeProvider>
       <SessionProvider>
         <LanguageProvider>
-          <RootNavigator />
+          <ComputerAppearanceProvider>
+            <RootNavigator />
+          </ComputerAppearanceProvider>
         </LanguageProvider>
       </SessionProvider>
     </AppThemeProvider>

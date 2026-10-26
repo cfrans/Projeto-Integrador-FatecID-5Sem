@@ -87,3 +87,9 @@ O Prisma reinicializa somente os bancos shadow temporários nesse fluxo. Se dete
 Recursos SQL não expressos no schema deverão ser mantidos em SQL versionado nas migrations reais; evite alterações manuais sem histórico. Transações e tratamento de erros devem acompanhar os casos de uso que precisarem de atomicidade e distinguir falhas de validação, conflito e indisponibilidade.
 
 O seed de dispositivos de desenvolvimento requer `DEV_GUARDIAN_EMAIL` de uma conta existente e cria registros fictícios com `isDemo=true`. Com `NODE_ENV=development` na `.env` da raiz, execute `npm run prisma:seed:devices` após as migrations e antes do servidor em watch, ou `docker compose run --rm backend npm run prisma:seed:devices`. Ele não cria responsáveis nem atualiza registros existentes. Esses registros legados não recebem identidade de Agent ou associação real automaticamente. Contas gerenciadas e configurações parentais ainda dependem da validação Linux.
+
+## Estado demonstrativo
+
+A migration `20261025120000_simulation_state` adiciona somente `SimulationState`, ligada a `DeviceAssociation`, com configurações JSON, revisão desejada e confirmação simulada. Novo vínculo começa sem o estado do anterior. Inventário e pedidos reutilizam as tabelas existentes. Aplique com `prisma:migrate:deploy` e regenere o client; ver [contrato da simulação](simulated-client.md#contrato-da-simulação).
+
+A migration aditiva `20261025160000_simulation_presence` inclui `SimulationState.lastSeenAt` opcional. Heartbeat/relatório autenticado do próprio client renova o horário no vínculo ativo; consultas do responsável não o alteram. Vínculos novos não herdam presença ou configurações anteriores.

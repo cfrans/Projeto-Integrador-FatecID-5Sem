@@ -184,9 +184,10 @@ describe('AppController (e2e)', () => {
         name: true,
         managedUser: true,
         isDemo: true,
+        agentIdentity: { select: { revokedAt: true } },
         associations: {
           where: { guardianId: guardian.id, activeDeviceId: { not: null }, revokedAt: null },
-          select: { id: true },
+          select: { id: true, simulation: { select: { lastSeenAt: true } } },
           take: 1,
         },
       },

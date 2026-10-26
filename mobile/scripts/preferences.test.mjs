@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import { readFileSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { test } from 'node:test';
 import { deviceLanguage, translate, translations, localizeMessage } from '../src/features/i18n/translations.ts';
 import { resolveTheme } from '../src/features/theme/preferences.ts';
@@ -40,7 +41,7 @@ test('static translation references in screens have a translation in every langu
       }
     }
   }
-  check(new URL('../src', import.meta.url).pathname);
+  check(fileURLToPath(new URL('../src', import.meta.url)));
 });
 
 test('changing the language translates labels, accessible actions and connection errors', () => {

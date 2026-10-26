@@ -5,6 +5,7 @@ import {
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { PairingService } from '../pairing/pairing.service.js';
+import { simulationPresence } from '../simulation/simulation-presence.js';
 
 @Injectable()
 export class DevicesService {
@@ -23,13 +24,14 @@ export class DevicesService {
           name: true,
           managedUser: true,
           isDemo: true,
+          agentIdentity: { select: { revokedAt: true } },
           associations: {
             where: {
               guardianId,
               activeDeviceId: { not: null },
               revokedAt: null,
             },
-            select: { id: true },
+            select: { id: true, simulation: { select: { lastSeenAt: true } } },
             take: 1,
           },
         },
@@ -41,10 +43,13 @@ export class DevicesService {
       );
     }
 
-    return devices.map(({ associations, ...device }) => ({
+    return devices.map(({ associations, agentIdentity, ...device }) => ({
       ...device,
-      status: 'unverified' as const,
-      lastSeen: null,
+      ...simulationPresence(
+        device.isDemo && agentIdentity?.revokedAt === null
+          ? (associations[0]?.simulation?.lastSeenAt ?? null)
+          : null,
+      ),
       paired: associations.length > 0,
       ...(associations[0] ? { associationId: associations[0].id } : {}),
     }));

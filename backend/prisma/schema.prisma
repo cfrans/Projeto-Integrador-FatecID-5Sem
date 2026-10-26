@@ -60,17 +60,28 @@ model PairingSession {
 }
 
 model DeviceAssociation {
-  id             String    @id @default(uuid()) @db.Char(36)
-  deviceId       String    @db.Char(36)
-  guardianId     String    @db.Char(36)
-  activeDeviceId String?   @unique @db.Char(36)
-  createdAt      DateTime  @default(now()) @db.DateTime(3)
-  revokedAt      DateTime? @db.DateTime(3)
-  device         Device    @relation("AssociationDevice", fields: [deviceId], references: [id], onDelete: Restrict, onUpdate: Restrict)
-  guardian       Guardian  @relation(fields: [guardianId], references: [id], onDelete: Restrict)
+  id             String           @id @default(uuid()) @db.Char(36)
+  deviceId       String           @db.Char(36)
+  guardianId     String           @db.Char(36)
+  activeDeviceId String?          @unique @db.Char(36)
+  createdAt      DateTime         @default(now()) @db.DateTime(3)
+  revokedAt      DateTime?        @db.DateTime(3)
+  device         Device           @relation("AssociationDevice", fields: [deviceId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  guardian       Guardian         @relation(fields: [guardianId], references: [id], onDelete: Restrict)
+  simulation     SimulationState?
 
   @@index([deviceId, createdAt])
   @@index([guardianId, revokedAt])
+}
+
+model SimulationState {
+  associationId   String            @id @db.Char(36)
+  settings        Json
+  revision        Int               @default(1)
+  appliedRevision Int?
+  appliedAt       DateTime?         @db.DateTime(3)
+  lastSeenAt      DateTime?         @db.DateTime(3)
+  association     DeviceAssociation @relation(fields: [associationId], references: [id], onDelete: Cascade)
 }
 
 model InstalledApplication {

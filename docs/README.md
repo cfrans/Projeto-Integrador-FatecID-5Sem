@@ -12,6 +12,7 @@ Para instalar e abrir o aplicativo no celular, comece pelo [tutorial da raiz](..
 | [Lux](lux-integration.md) | Agent Python/systemd, interface GTK, hipóteses GNOME, segurança e provas técnicas |
 | [Proposta de protocolo do Agent](agent-protocol.md) | Comandos, idempotência e recuperação para revisão; separado do polling de vínculos implementado |
 | [Design](design.md) | PDF, padrões visuais e componentes |
+| [Client simulado](simulated-client.md) | Cadastro demonstrativo, QR e sincronização com o app sem depender do GNOME |
 
 Este diretório descreve o estado presente e decisões planejadas. Leia [Produto](product.md) e [Arquitetura](architecture.md) para distinguir claramente os mocks atuais dos recursos ainda não implementados.
 
@@ -19,7 +20,7 @@ Este diretório descreve o estado presente e decisões planejadas. Leia [Produto
 
 O [roadmap em Arquitetura](architecture.md#etapas-de-implementação) é a referência única para estado, evidência e pendências de cada etapa. Fundação e infraestrutura de pareamento existem; a etapa conjunta de autenticação/gerenciamento de dispositivos é parcial, com login implementado e gerenciamento limitado. Existe uma PoC Python de leitura nativa validada na VM Lux em contas com e sem restrições; consultar outra conta exigiu autenticação administrativa. O Agent possui diagnóstico autenticado e polling somente de leitura de vínculos validados no Lux; infraestrutura de comandos, serviço systemd, interface GTK e aplicação de operações parentais pelo projeto ainda não existem.
 
-Prioridades: ampliar a validação de políticas/permissões na VM em paralelo ao mobile, continuar o Agent mínimo com protocolo de comandos e pareamento local, adicionar a interface GTK e integrar operações nativas comprovadas antes da validação ponta a ponta. Os detalhes e limites dos fluxos com/sem Docker estão no [README](../README.md#limites-de-validação-dos-fluxos).
+Para a entrega acadêmica, o [client simulado](simulated-client.md) permite cadastrar/parear PCs demonstrativos e refletir configurações do app pela API. A integração nativa continua independente: protocolo de comandos, pareamento local do Agent, GTK e escrita no GNOME permanecem futuros. Os detalhes e limites dos fluxos com/sem Docker estão no [README](../README.md#limites-de-validação-dos-fluxos).
 
 Controles parentais além do fluxo de autenticação/dispositivos/pareamento dependem do que for demonstrado como disponível no GNOME instalado no Lux. A VM disponível usa Lux 3/Canopus, GNOME 50.4 e malcontent 0.13.1-5; leitura via libmalcontent/AccountsService está comprovada com e sem restrições. Provas manuais, limitações de aplicação e permissões pendentes estão em [Integração Lux](lux-integration.md).
 

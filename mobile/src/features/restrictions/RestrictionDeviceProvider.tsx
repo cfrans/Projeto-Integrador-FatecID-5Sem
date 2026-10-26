@@ -1,13 +1,14 @@
 import { createContext, useCallback, useContext, useRef, useState, type ReactNode } from 'react';
-import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
 import { router, useFocusEffect, useGlobalSearchParams } from 'expo-router';
-import { SafeAreaView } from 'react-native-safe-area-context';
 import { Button } from '@/components/ui/Button';
 import { devices, devicesErrorMessage, type PairedComputer } from '@/features/devices/services/devices';
 import { useLanguage } from '@/features/i18n/LanguageProvider';
 import { useTheme, useThemedStyles } from '@/features/theme/ThemeProvider';
-import { radius, spacing, type ColorPalette } from '@/theme';
+import { spacing, type ColorPalette } from '@/theme';
 import { selectRestrictionComputer } from './services/device-selection';
+import { SimulationProvider } from './SimulationProvider';
+import { RestrictionComputerSelector } from './RestrictionComputerSelector';
 
 type DeviceState =
   | { status: 'loading' }
@@ -54,40 +55,23 @@ export function RestrictionDeviceProvider({ children }: { children: ReactNode })
 
   return (
     <DeviceContext.Provider value={computer}>
-      <SafeAreaView edges={['top']} style={styles.container}>
-        <View style={styles.selector}>
-          <View style={styles.heading}>
-            <Button label={t('common.back')} onPress={() => router.back()} />
-            <Text style={styles.label}>{t('restriction.computer')}</Text>
+      <View style={styles.container}>
+        {state.status === 'loading' ? <ActivityIndicator style={styles.loading} color={colors.accent} /> : null}
+        {state.status === 'error' ? (
+          <View style={styles.messageBlock}>
+            <Text accessibilityRole="alert" style={styles.message}>{localize(state.message)}</Text>
+            <Button label={t('common.retry')} onPress={loadComputers} />
           </View>
-          {state.status === 'loading' ? <ActivityIndicator color={colors.accent} /> : null}
-          {state.status === 'error' ? (
-            <>
-              <Text accessibilityRole="alert" style={styles.message}>{localize(state.message)}</Text>
-              <Button label={t('common.retry')} onPress={loadComputers} />
-            </>
-          ) : null}
-          {state.status === 'loaded' ? (
-            <>
-              {!computer ? <Text style={styles.message}>{t(computers.length ? 'restriction.chooseComputer' : 'restriction.pairToContinue')}</Text> : null}
-              <ScrollView horizontal contentContainerStyle={styles.list}>
-                {computers.map((item) => (
-                  <Pressable
-                    key={item.id}
-                    accessibilityRole="button"
-                    accessibilityState={{ selected: item.id === computer?.id }}
-                    onPress={() => setSelection({ routeId: routeId ?? selection.routeId, id: item.id })}
-                    style={[styles.chip, item.id === computer?.id && styles.selected]}
-                  >
-                    <Text style={styles.name}>{item.name}</Text>
-                  </Pressable>
-                ))}
-              </ScrollView>
-            </>
-          ) : null}
-        </View>
-        <View style={styles.screens}>{children}</View>
-      </SafeAreaView>
+        ) : null}
+        {state.status === 'loaded' ? (
+          <>
+            {computers.length ? (
+              <RestrictionComputerSelector computers={computers} computer={computer} onSelect={(id) => setSelection({ routeId: routeId ?? selection.routeId, id })} />
+            ) : <View style={styles.messageBlock}><Text style={styles.message}>{t('restriction.pairToContinue')}</Text><Button label={t('common.addComputer')} onPress={() => router.push('/qr-scan')} /></View>}
+          </>
+        ) : null}
+        <View style={styles.screens}><SimulationProvider computer={computer}>{children}</SimulationProvider></View>
+      </View>
     </DeviceContext.Provider>
   );
 }
@@ -101,12 +85,7 @@ export function useRestrictionComputer() {
 const createStyles = (colors: ColorPalette) => StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.background },
   screens: { flex: 1 },
-  selector: { padding: spacing.md, gap: spacing.sm, borderBottomWidth: 1, borderColor: colors.border },
-  heading: { flexDirection: 'row', alignItems: 'center', gap: spacing.md },
-  label: { color: colors.textSecondary, fontSize: 12 },
+  loading: { padding: spacing.lg },
+  messageBlock: { padding: spacing.lg, gap: spacing.sm },
   message: { color: colors.textSecondary, fontSize: 14 },
-  list: { gap: spacing.sm },
-  chip: { padding: spacing.md, minHeight: 44, borderRadius: radius.md, borderWidth: 1, borderColor: colors.border },
-  selected: { borderColor: colors.accent, backgroundColor: colors.accentSoft },
-  name: { color: colors.textPrimary, fontSize: 14 },
 });

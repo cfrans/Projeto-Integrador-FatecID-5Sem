@@ -11,6 +11,8 @@ import {
 } from '@/features/restrictions/services/installation-requests';
 import { radius, spacing, typography, type ColorPalette } from '@/theme';
 import { useTheme, useThemedStyles } from '@/features/theme/ThemeProvider';
+import { useSimulation } from './SimulationProvider';
+import { ApplicationIcon } from './ApplicationIcon';
 
 type LoadState = 'loading' | 'ready' | 'error';
 
@@ -24,13 +26,18 @@ export function InstallationRestrictionScreen({ computer }: { computer: PairedCo
   const [requests, setRequests] = useState<InstallationRequest[]>([]);
   const [loadState, setLoadState] = useState<LoadState>('loading');
   const [errorMessage, setErrorMessage] = useState('');
-  const [blockInstallation, setBlockInstallation] = useState(true);
+  const { snapshot, save } = useSimulation();
+  const { blockInstallation } = snapshot.settings;
   const { language, t, localize } = useLanguage();
   const { colors } = useTheme();
   const styles = useThemedStyles(createStyles);
 
   useFocusEffect(
     useCallback(() => {
+      if (!snapshot.appliedAt) {
+        setLoadState('loading');
+        return;
+      }
       let active = true;
       setLoadState('loading');
       setErrorMessage('');
@@ -50,31 +57,19 @@ export function InstallationRestrictionScreen({ computer }: { computer: PairedCo
       return () => {
         active = false;
       };
-    }, [computer.id]),
+    }, [computer.id, snapshot.appliedAt]),
   );
 
-  const computerName = computer.name;
 
-  function removeRequest(id: string) {
-    setRequests((current) => current.filter((request) => request.id !== id));
+  function decideRequest(id: string, decision: 'APPROVED' | 'DENIED') {
+    void save({ installationDecisions: { [id]: decision } });
   }
 
   return (
     <SafeAreaView edges={['left', 'right']} style={styles.safeArea}>
       <View style={styles.container}>
         <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
-          <View style={styles.header}>
-            <View style={styles.headerCopy}>
-              <Text numberOfLines={1} style={styles.computerName}>{computerName}</Text>
-              <Text style={styles.screenSubtitle}>{t('nav.install')}</Text>
-            </View>
-            {computer ? (
-              <View style={styles.syncBadge}>
-                <View style={styles.syncDot} />
-                <Text style={styles.syncText}>{t('restriction.sync')}</Text>
-              </View>
-            ) : null}
-          </View>
+          <Text accessibilityRole="header" style={styles.screenTitle}>{t('nav.install')}</Text>
 
           {loadState === 'loading' ? (
             <View style={styles.centerState}>
@@ -100,7 +95,7 @@ export function InstallationRestrictionScreen({ computer }: { computer: PairedCo
                 <SwitchControl
                   accessibilityLabel={t('restriction.blockInstall')}
                   value={blockInstallation}
-                  onPress={() => setBlockInstallation((current) => !current)}
+                  onPress={() => void save({ blockInstallation: !blockInstallation })}
                 />
               </View>
 
@@ -111,9 +106,7 @@ export function InstallationRestrictionScreen({ computer }: { computer: PairedCo
                   {requests.map((request) => (
                     <View key={request.id} style={styles.requestCard}>
                       <View style={styles.requestHeader}>
-                        <View style={styles.applicationIcon}>
-                          <Text style={styles.applicationIconText}>{request.applicationName.slice(0, 1).toUpperCase()}</Text>
-                        </View>
+                        <ApplicationIcon name={request.applicationName} />
                         <View style={styles.requestCopy}>
                           <Text style={styles.applicationName}>{request.applicationName}</Text>
                           <Text style={styles.requestDetails}>
@@ -129,7 +122,7 @@ export function InstallationRestrictionScreen({ computer }: { computer: PairedCo
                         <Pressable
                           accessibilityLabel={t('restriction.allowInstall', { name: request.applicationName })}
                           accessibilityRole="button"
-                          onPress={() => removeRequest(request.id)}
+                          onPress={() => decideRequest(request.id, 'APPROVED')}
                           style={({ pressed }) => [styles.allowButton, pressed && styles.pressed]}
                         >
                           <Text style={styles.allowText}>{t('restriction.allow')}</Text>
@@ -137,7 +130,7 @@ export function InstallationRestrictionScreen({ computer }: { computer: PairedCo
                         <Pressable
                           accessibilityLabel={t('restriction.denyInstall', { name: request.applicationName })}
                           accessibilityRole="button"
-                          onPress={() => removeRequest(request.id)}
+                          onPress={() => decideRequest(request.id, 'DENIED')}
                           style={({ pressed }) => [styles.denyButton, pressed && styles.pressed]}
                         >
                           <Text style={styles.denyText}>{t('restriction.deny')}</Text>
@@ -194,15 +187,7 @@ const createStyles = (colors: ColorPalette) => StyleSheet.create({
   safeArea: { backgroundColor: colors.background, flex: 1 },
   container: { flex: 1 },
   content: { padding: spacing.lg, paddingBottom: spacing.xxl },
-  header: { alignItems: 'center', flexDirection: 'row', gap: spacing.md, marginBottom: spacing.lg },
-  backButton: { alignItems: 'center', borderColor: colors.border, borderRadius: radius.md, borderWidth: 1, height: 44, justifyContent: 'center', width: 44 },
-  backIcon: { color: colors.textPrimary, fontSize: 30, fontWeight: '300', lineHeight: 34 },
-  headerCopy: { flex: 1, gap: 2 },
-  computerName: { color: colors.textPrimary, fontSize: 17, fontWeight: '700' },
-  screenSubtitle: { color: colors.textSecondary, fontSize: typography.label },
-  syncBadge: { alignItems: 'center', backgroundColor: colors.accentSoft, borderRadius: radius.pill, flexDirection: 'row', gap: 6, paddingHorizontal: spacing.sm + 2, paddingVertical: spacing.xs + 1 },
-  syncDot: { backgroundColor: colors.accent, borderRadius: radius.pill, height: 6, width: 6 },
-  syncText: { color: colors.accentText, fontSize: 11, fontWeight: '600' },
+  screenTitle: { color: colors.textPrimary, fontSize: 22, fontWeight: '700', marginBottom: spacing.lg },
   centerState: { alignItems: 'center', gap: spacing.sm, paddingVertical: spacing.xxl },
   emptyState: { backgroundColor: colors.surface, borderColor: colors.border, borderRadius: radius.md, borderWidth: 1, gap: spacing.sm, padding: spacing.lg },
   emptyTitle: { color: colors.textPrimary, fontSize: typography.body, fontWeight: '600' },
@@ -216,8 +201,6 @@ const createStyles = (colors: ColorPalette) => StyleSheet.create({
   requestList: { gap: spacing.md },
   requestCard: { backgroundColor: colors.surface, borderColor: colors.border, borderRadius: radius.md, borderWidth: 1, padding: spacing.md },
   requestHeader: { alignItems: 'center', flexDirection: 'row', gap: spacing.md },
-  applicationIcon: { alignItems: 'center', backgroundColor: colors.surfaceRaised, borderRadius: radius.sm, height: 42, justifyContent: 'center', width: 42 },
-  applicationIconText: { color: colors.textSecondary, fontSize: typography.body, fontWeight: '600' },
   requestCopy: { flex: 1, gap: 2 },
   applicationName: { color: colors.textPrimary, fontSize: typography.body, fontWeight: '600' },
   requestDetails: { color: colors.textSecondary, fontSize: typography.label, lineHeight: 18 },

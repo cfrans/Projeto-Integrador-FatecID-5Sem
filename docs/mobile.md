@@ -8,7 +8,7 @@ Expo + React Native + TypeScript estrito + Expo Router; Button, Input e Card sã
 - `src/components/Screen.tsx`: estrutura compartilhada dos placeholders ainda não implementados.
 - `src/theme`: paletas clara/escura, tokens de layout e factories dos temas de navegação; `src/features/theme/ThemeProvider.tsx` resolve e persiste a preferência.
 - `src/features/auth`: login REST, serviço de autenticação, sessão compartilhada e armazenamento do token.
-- `src/features/devices`: Home e lista carregam registros da API; o cartão distingue conexão não validada e fixtures de demonstração.
+- `src/features/devices`: Home e lista carregam registros da API; o cartão distingue conexão não validada e fixtures de demonstração. `ComputerAppearanceProvider` compartilha os ícones personalizados, persistidos por conta em SecureStore no Android/iOS e localStorage no navegador (somente preferência visual, sem token).
 - `src/features/pairing`: leitura de QR, validação e confirmação de vínculo pela API; estados e token temporário ficam na feature.
 - `src/mocks/devices.ts`: listagem de três computadores fictícios e serviço de pareamento simulado.
 - `src/components/ui`: componentes de interface compartilhados usados pelas features.
@@ -23,13 +23,13 @@ Instale dependências mobile com `npx expo install <package>` para resolver vers
 
 ## Rotas e seleção de computador
 
-`/`, `/home`, `/computers` e `/qr-scan` formam o fluxo de login, início, computadores e pareamento pela API. Os cartões com vínculo ativo abrem `/restrictions/browsers?deviceId=<UUID>`. As quatro abas compartilham a seleção em `RestrictionDeviceProvider`; somente computadores com vínculo ativo podem ser selecionados. Um único vínculo é selecionado automaticamente; vários vínculos exigem escolha. Um identificador ausente da lista ou revogado não é substituído por outro computador. A seleção fica somente em memória no fluxo de restrições e não é salva entre sessões.
+`/`, `/home`, `/computers` e `/qr-scan` formam o fluxo de login, início, computadores e pareamento pela API. Os cartões com vínculo ativo abrem `/restrictions/browsers?deviceId=<UUID>`. As quatro abas compartilham a seleção em `RestrictionDeviceProvider`; somente computadores com vínculo ativo podem ser selecionados. Um único vínculo é selecionado automaticamente; vários vínculos exigem escolha. Um identificador ausente da lista ou revogado não é substituído por outro computador. A seleção fica somente em memória no fluxo de restrições e não é salva entre sessões. O seletor modal mostra nome e conta; trocar o PC preserva a aba. O navegador das abas permanece montado durante carregamento e troca de seleção; somente o conteúdo de cada rota aguarda computador/configurações, evitando retornar à primeira aba.
 
-`/restrictions/apps` consulta o inventário persistido do computador selecionado, e `/restrictions/install` consulta seus pedidos pendentes. Os contratos e a diferença entre relatório ausente e lista vazia estão em [Backend](backend.md#consultas-de-aplicativos-e-pedidos-de-instalação). As telas descartam respostas após perda de foco ou troca do computador. `/restrictions/browsers` e `/restrictions/age` mantêm controles locais demonstrativos. `/pairing-done`, `/access-request` e `/sync-failure` continuam placeholders, fora do fluxo implementado.
+`/restrictions/apps` consulta o inventário persistido do computador selecionado, e `/restrictions/install` consulta seus pedidos pendentes. Os contratos e a diferença entre relatório ausente e lista vazia estão em [Backend](backend.md#consultas-de-aplicativos-e-pedidos-de-instalação). As telas descartam respostas após perda de foco ou troca do computador. As quatro abas persistem configurações demonstrativas em `SimulationProvider`, com consulta periódica, revisão e confirmação pelo [client simulado](simulated-client.md). `/pairing-done`, `/access-request` e `/sync-failure` continuam placeholders, fora do fluxo implementado.
 
 ## Pendências de implementação
 
-Alterações de configurações, aprovação/recusa de instalação e aplicação parental ainda não são persistidas. Os controles locais e seus indicadores de sincronização continuam demonstrativos; não comprovam aplicação no Lux. O comportamento futuro deve seguir o [fluxo de operações](architecture.md#fluxo-esperado-de-operações-parentais). O mobile se comunica apenas com NestJS, sem MySQL ou APIs GNOME locais.
+Configurações e aprovação/recusa de instalação são persistidas para PCs demonstrativos. O app distingue salvamento, espera pelo client e aplicação simulada confirmada; temporizadores locais não representam sucesso. PCs reais exibem indisponibilidade dessa integração, sem controles que aparentem executar ações nativas. O comportamento futuro deve seguir o [fluxo de operações](architecture.md#fluxo-esperado-de-operações-parentais). O mobile se comunica apenas com NestJS, sem MySQL ou APIs GNOME locais.
 
 ## Autenticação e API
 
@@ -114,7 +114,7 @@ Para o Metro, `npx expo start` usa LAN e normalmente a porta `8081`; essa porta 
 
 ## Dados e mock
 
-`devices.listPairedComputers()` consulta `GET /devices` com o bearer token da sessão e valida toda a resposta antes de exibi-la. O contrato atual traz `{ id, name, managedUser, status, lastSeen, isDemo, paired, associationId? }`: `id` é UUID, `managedUser` é `string` ou `null`, `status` é `unverified`, `lastSeen` é `null` e `isDemo` é booleano. A API ainda não valida a conexão do computador; por isso a interface mostra “Conexão não validada” e distingue “Vínculo ativo” de “Sem vínculo ativo”, sem afirmar que ele está online ou offline. Uma resposta inválida ou falha da API aparece como erro e não ativa fallback para mock. Erros `401` invalidam a sessão; indisponibilidade do serviço (`503`) mantém a mensagem da API. Home e lista recarregam ao recuperar foco e mostram carregamento, erro com nova tentativa ou lista vazia.
+`devices.listPairedComputers()` consulta `GET /devices` com o bearer token e valida a resposta. O contrato traz `{ id, name, managedUser, status, lastSeen, isDemo, paired, associationId? }`. PCs reais/fixtures sem contato usam `unverified` e `lastSeen: null`. Somente PCs demonstrativos pareados com identidade válida têm presença `online`/`offline` e horário ISO, derivados do heartbeat do client (expira após 15 segundos). Isso não comprova conexão Linux. Home e lista atualizam no foco e a cada cinco segundos sem desmontar os cartões em consultas bem-sucedidas. Falhas da API aparecem como erro, nunca como offline ou fallback para mock; `401` invalida a sessão e `503` preserva a mensagem do serviço.
 
 `src/mocks/devices.ts` preserva três registros fictícios com `isDemo: true` e estados demonstrativos online/offline; a listagem atual não os consome. O mock `pairingDemo.simulatePairing()` é preservado em memória para desenvolvimento, mas não autoriza dispositivos e não participa do fluxo real de leitura. Não é fallback para erro da API.
 
@@ -126,7 +126,7 @@ O QR aceito é `piplup://pair?token=<token-base64url>`, com token de 32 bytes al
 
 O responsável autenticado envia `{ token }` para `POST /pairing/validate`, confere o computador retornado e confirma `POST /pairing/complete`. A validação não reserva o computador; expiração, consumo concorrente ou revogação entre as duas solicitações podem impedir a conclusão. O backend é a fonte de autorização, e a tela deve distinguir falha de rede de confirmação de vínculo. Depois de uma resposta perdida, consultar a lista é a forma de verificar se a operação chegou a concluir.
 
-Uma associação persistida não comprova presença online. O campo `paired` distingue vínculo ativo de fixtures antigas; `status: unverified` e `lastSeen: null` continuam indicando conexão não validada. Dispositivos `isDemo: true` permanecem identificados como demonstração, inclusive na confirmação. Nenhuma resposta simulada comprova integração real com o Lux.
+Uma associação persistida não comprova presença online. O campo `paired` distingue vínculo ativo de fixtures antigas. Presença demonstrativa depende de contato autenticado recente; PCs reais continuam com conexão não validada. Dispositivos `isDemo: true` permanecem identificados como demonstração, inclusive na confirmação. Nenhuma resposta simulada comprova integração real com o Lux.
 
 A lista oferece remoção somente para vínculo ativo, com confirmação antes de `DELETE /devices/:id/association`. Depois da revogação, o dispositivo desaparece da lista daquele responsável. Não há exclusão do computador nem execução de controles Linux; outro responsável só poderá associar após uma nova sessão criada pelo Agent autorizado. O MVP permite um responsável ativo por Lux.
 
@@ -276,3 +276,5 @@ npx eas-cli@latest build --platform android --profile preview
 ```
 
 Para os demais perfis, substitua `preview` por `development` ou `production`. Consulte [configuração EAS](https://docs.expo.dev/build/eas-json/) e [builds APK](https://docs.expo.dev/build-reference/apk/).
+
+Home usa atalhos sem alegar bloqueios ou uma idade fixa. A tela de idade mostra a preferência escolhida e informa que o inventário não possui classificação etária; não calcula contagens fictícias de bloqueios. Nas restrições, presença/último contato e confirmação/horário de aplicação simulada são exibidos separadamente.

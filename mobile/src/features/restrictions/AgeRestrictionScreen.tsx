@@ -1,54 +1,25 @@
-import { useEffect, useRef, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Card } from '@/components/ui/Card';
-import type { PairedComputer } from '@/features/devices/services/devices';
 import { useLanguage } from '@/features/i18n/LanguageProvider';
 import { radius, spacing, typography, type ColorPalette } from '@/theme';
 import { useThemedStyles } from '@/features/theme/ThemeProvider';
+import { useSimulation } from './SimulationProvider';
 
 type AgeRatingId = 'L' | '10' | '12' | '16' | '18';
 
-type SyncStatus = 'synced' | 'syncing';
-
 const AGE_RATING_OPTIONS: readonly AgeRatingId[] = ['L', '10', '12', '16', '18'];
 
-const DEFAULT_AGE_RATING: AgeRatingId = '12';
-const SYNC_FEEDBACK_DURATION_MS = 900;
-
-export function AgeRestrictionScreen({ computer: activeComputer }: { computer: PairedComputer }) {
+export function AgeRestrictionScreen() {
   const { t } = useLanguage();
   const styles = useThemedStyles(createStyles);
-  const [selectedId, setSelectedId] = useState<AgeRatingId>(DEFAULT_AGE_RATING);
-  const [syncStatus, setSyncStatus] = useState<SyncStatus>('synced');
-
-  const syncTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-
-  useEffect(() => {
-    return () => {
-      if (syncTimerRef.current) {
-        clearTimeout(syncTimerRef.current);
-      }
-    };
-  }, []);
-
-  const computerTitle = activeComputer.name;
+  const { snapshot, save } = useSimulation();
+  const selectedId = snapshot.settings.ageRating;
 
   function selectAgeRating(nextId: AgeRatingId) {
     if (nextId === selectedId) return;
 
-    setSelectedId(nextId);
-
-    setSyncStatus('syncing');
-
-    if (syncTimerRef.current) {
-      clearTimeout(syncTimerRef.current);
-    }
-
-    syncTimerRef.current = setTimeout(() => {
-      setSyncStatus('synced');
-      syncTimerRef.current = null;
-    }, SYNC_FEEDBACK_DURATION_MS);
+    void save({ ageRating: nextId });
   }
 
   function localizedTitle(id: AgeRatingId) {
@@ -71,26 +42,7 @@ export function AgeRestrictionScreen({ computer: activeComputer }: { computer: P
       <View style={styles.container}>
         <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
           <View style={styles.main}>
-            <View style={styles.headerRow}>
-              <View style={styles.headerTitles}>
-                <Text style={styles.computerName}>{computerTitle}</Text>
-                <Text style={styles.screenSubtitle}>
-                  {activeComputer?.managedUser
-                    ? `${t('restriction.ageAdjustment')} · ${t('restriction.account', { name: activeComputer.managedUser })}`
-                    : t('restriction.ageAdjustment')}
-                </Text>
-              </View>
-
-              <View
-                accessibilityLiveRegion="polite"
-                style={[styles.syncBadge, syncStatus === 'syncing' && styles.syncBadgeActive]}
-              >
-                <View style={styles.syncDot} />
-                <Text style={styles.syncBadgeText}>
-                  {syncStatus === 'syncing' ? t('restriction.syncing') : t('restriction.sync')}
-                </Text>
-              </View>
-            </View>
+            <Text accessibilityRole="header" style={styles.screenTitle}>{t('nav.age')}</Text>
 
             <Text style={styles.description}>
               {t('restriction.ageDescription')}
@@ -138,17 +90,11 @@ export function AgeRestrictionScreen({ computer: activeComputer }: { computer: P
               <View style={styles.infoIconCircle}>
                 <Text style={styles.infoIconText}>i</Text>
               </View>
-              <Text style={styles.infoText}>{t(`restriction.summary${selectedId}`)}</Text>
+              <Text style={styles.infoText}>{t('restriction.ageSummary', { age: localizedTitle(selectedId) })}</Text>
             </Card>
           </View>
         </ScrollView>
 
-        {syncStatus === 'syncing' ? (
-          <View accessibilityLiveRegion="polite" style={styles.syncToast}>
-            <View style={styles.syncDot} />
-            <Text style={styles.syncToastText}>{t('restriction.sending')}</Text>
-          </View>
-        ) : null}
       </View>
     </SafeAreaView>
   );
@@ -174,54 +120,7 @@ const createStyles = (colors: ColorPalette) => StyleSheet.create({
     maxWidth: 440,
     width: '100%',
   },
-  headerRow: {
-    alignItems: 'center',
-    borderBottomColor: colors.border,
-    borderBottomWidth: 1,
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    paddingBottom: spacing.md,
-  },
-  headerTitles: {
-    flex: 1,
-    gap: 2,
-    paddingRight: spacing.sm,
-  },
-  computerName: {
-    color: colors.textPrimary,
-    fontSize: 17,
-    fontWeight: '700',
-  },
-  screenSubtitle: {
-    color: colors.textSecondary,
-    fontSize: typography.label,
-  },
-  syncBadge: {
-    alignItems: 'center',
-    backgroundColor: colors.surface,
-    borderColor: colors.border,
-    borderRadius: radius.pill,
-    borderWidth: 1,
-    flexDirection: 'row',
-    gap: 6,
-    paddingHorizontal: spacing.sm + 2,
-    paddingVertical: spacing.xs + 1,
-  },
-  syncBadgeActive: {
-    backgroundColor: colors.accentSoft,
-    borderColor: colors.accent,
-  },
-  syncDot: {
-    backgroundColor: colors.accent,
-    borderRadius: radius.pill,
-    height: 6,
-    width: 6,
-  },
-  syncBadgeText: {
-    color: colors.accentText,
-    fontSize: 11,
-    fontWeight: '600',
-  },
+  screenTitle: { color: colors.textPrimary, fontSize: 22, fontWeight: '700' },
   description: {
     color: colors.textSecondary,
     fontSize: typography.body,

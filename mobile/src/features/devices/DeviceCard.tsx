@@ -1,11 +1,14 @@
 import { router } from 'expo-router';
-import { StyleSheet, Text, View } from 'react-native';
+import { useState } from 'react';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { radius, spacing, typography, type ColorPalette } from '@/theme';
 import type { PairedComputer } from '@/features/devices/services/devices';
 import { useLanguage } from '@/features/i18n/LanguageProvider';
 import { useThemedStyles } from '@/features/theme/ThemeProvider';
+import { ComputerIcon } from './ComputerIcon';
+import { ComputerIconPicker } from './ComputerIconPicker';
 
 type DeviceCardProps = {
   computer: PairedComputer;
@@ -16,6 +19,7 @@ type DeviceCardProps = {
 export function DeviceCard({ computer, onRemove, removing = false }: DeviceCardProps) {
   const { language, t } = useLanguage();
   const styles = useThemedStyles(createStyles);
+  const [pickingIcon, setPickingIcon] = useState(false);
   const online = computer.status === 'online';
   const unverified = computer.status === 'unverified';
   const lastSeen = computer.lastSeen
@@ -30,9 +34,10 @@ export function DeviceCard({ computer, onRemove, removing = false }: DeviceCardP
   return (
     <Card style={styles.card}>
       <View style={styles.row}>
-        <View style={[styles.deviceMark, online && styles.deviceMarkOnline]}>
-          <View style={[styles.dot, online && styles.dotOnline]} />
-        </View>
+        <Pressable accessibilityRole="button" accessibilityLabel={t('device.changeIcon', { name: computer.name })} disabled={removing} onPress={() => setPickingIcon(true)} style={styles.iconButton}>
+          <ComputerIcon deviceId={computer.id} selected={online} />
+          <View style={styles.editBadge}><Text style={styles.editMark}>✎</Text></View>
+        </Pressable>
         <View style={styles.details}>
           <Text style={styles.name}>{computer.name}</Text>
           <Text style={styles.managedUser}>
@@ -64,6 +69,7 @@ export function DeviceCard({ computer, onRemove, removing = false }: DeviceCardP
           style={styles.removeButton}
         />
       ) : null}
+      <ComputerIconPicker visible={pickingIcon} deviceId={computer.id} name={computer.name} onClose={() => setPickingIcon(false)} />
     </Card>
   );
 }
@@ -78,17 +84,9 @@ const createStyles = (colors: ColorPalette) => StyleSheet.create({
     flexDirection: 'row',
     gap: spacing.md,
   },
-  deviceMark: {
-    alignItems: 'center',
-    backgroundColor: colors.surfaceRaised,
-    borderRadius: radius.sm,
-    height: 40,
-    justifyContent: 'center',
-    width: 40,
-  },
-  deviceMarkOnline: { backgroundColor: colors.accentSoft },
-  dot: { backgroundColor: colors.textMuted, borderRadius: radius.pill, height: 8, width: 8 },
-  dotOnline: { backgroundColor: colors.success },
+  iconButton: { minWidth: 44, minHeight: 44, justifyContent: 'center', alignItems: 'center' },
+  editBadge: { position: 'absolute', bottom: -2, right: -3, height: 18, width: 18, borderRadius: radius.pill, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.surface, alignItems: 'center', justifyContent: 'center' },
+  editMark: { color: colors.accentText, fontSize: 12 },
   details: { flex: 1, gap: spacing.xs },
   name: { color: colors.textPrimary, fontSize: typography.body, fontWeight: '600' },
   managedUser: { color: colors.textSecondary, fontSize: typography.label },

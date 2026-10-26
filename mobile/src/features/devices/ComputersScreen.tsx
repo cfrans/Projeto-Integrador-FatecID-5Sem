@@ -24,11 +24,13 @@ export function ComputersScreen() {
   const requestId = useRef(0);
   const removeOperation = useRef(0);
   const removalPromptOpen = useRef(false);
+  const removalInProgress = useRef(false);
 
-  const loadComputers = useCallback(() => {
+  const loadComputers = useCallback((silent = false) => {
+    if (silent && removalInProgress.current) return Promise.resolve();
     const request = ++requestId.current;
-    setState({ status: 'loading' });
-    devices.listPairedComputers()
+    if (!silent) setState({ status: 'loading' });
+    return devices.listPairedComputers()
       .then((computers) => {
         if (request === requestId.current) setState({ status: 'loaded', computers });
       })
@@ -39,8 +41,16 @@ export function ComputersScreen() {
 
   useFocusEffect(useCallback(() => {
     setRemovingId(null);
-    loadComputers();
+    let cancelled = false;
+    let timer: ReturnType<typeof setTimeout>;
+    const poll = async (silent = false) => {
+      await loadComputers(silent);
+      if (!cancelled) timer = setTimeout(() => void poll(true), 5000);
+    };
+    void poll();
     return () => {
+      cancelled = true;
+      clearTimeout(timer);
       requestId.current += 1;
       removeOperation.current += 1;
       removalPromptOpen.current = false;
@@ -70,14 +80,17 @@ export function ComputersScreen() {
           onPress: async () => {
             removalPromptOpen.current = false;
             const operation = ++removeOperation.current;
+            removalInProgress.current = true;
+            requestId.current += 1;
             setRemovingId(computer.id);
             setRemovalError(null);
             try {
               await devices.removeAssociation(computer.id);
-              if (operation === removeOperation.current) loadComputers();
+              if (operation === removeOperation.current) await loadComputers();
             } catch (error) {
               if (operation === removeOperation.current) setRemovalError(devicesErrorMessage(error));
             } finally {
+              removalInProgress.current = false;
               if (operation === removeOperation.current) setRemovingId(null);
             }
           },

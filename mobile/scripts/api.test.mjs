@@ -6,6 +6,8 @@ import './pairing.test.mjs';
 import './device-selection.test.mjs';
 import './preferences.test.mjs';
 import './restrictions.test.mjs';
+import './simulation.test.mjs';
+import './icons.test.mjs';
 
 const originalFetch = globalThis.fetch;
 

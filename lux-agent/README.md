@@ -4,7 +4,7 @@ Fundação Python 3 do Agent com três comandos: `read_policies.py` lê polític
 
 A [proposta de protocolo](../docs/agent-protocol.md) separa a observação periódica de vínculos, agora implementada, do futuro transporte de comandos, com reserva, resultados e recuperação. Os endpoints e modelos de comandos continuam em revisão, sem implementação.
 
-A PoC de leitura usa PyGObject/libmalcontent e AccountsService, sem alterar políticas ou solicitar elevação. A VM de referência é Lux 3/Canopus, GNOME 50.4 e malcontent 0.13.1-5. Leituras com e sem restrições foram validadas; consultar outra conta exigiu autenticação administrativa. Privilégios mínimos do futuro serviço permanecem pendentes. O mock do Agent no backend ainda não existe.
+A PoC de leitura usa PyGObject/libmalcontent e AccountsService, sem alterar políticas ou solicitar elevação. A VM de referência é Lux 3/Canopus, GNOME 50.4 e malcontent 0.13.1-5. Leituras com e sem restrições foram validadas; consultar outra conta exigiu autenticação administrativa. Privilégios mínimos do futuro serviço permanecem pendentes. O [client simulado](../docs/simulated-client.md) é um programa separado para demonstração; seu contrato não implementa comandos ou políticas Linux neste Agent.
 
 ## Diagnóstico autenticado
 

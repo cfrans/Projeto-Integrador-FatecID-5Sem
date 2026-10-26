@@ -1,65 +1,35 @@
-import { useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import type { PairedComputer } from '@/features/devices/services/devices';
 import { useLanguage } from '@/features/i18n/LanguageProvider';
 import { radius, spacing, typography, type ColorPalette } from '@/theme';
 import { useTheme, useThemedStyles } from '@/features/theme/ThemeProvider';
+import { useSimulation } from './SimulationProvider';
+import { ApplicationIcon } from './ApplicationIcon';
 
 type BrowserId = 'firefox' | 'chromium' | 'brave' | 'gnome-web';
-type BrowserOption = { id: BrowserId; name: string; icon: string };
-type SyncStatus = 'synced' | 'syncing';
-
+type BrowserOption = { id: BrowserId; name: string };
 const BROWSERS: readonly BrowserOption[] = [
-  { id: 'firefox', name: 'Firefox', icon: '◈' },
-  { id: 'chromium', name: 'Chromium', icon: '◎' },
-  { id: 'brave', name: 'Brave', icon: '▽' },
-  { id: 'gnome-web', name: 'GNOME Web', icon: '⌂' },
+  { id: 'firefox', name: 'Firefox' },
+  { id: 'chromium', name: 'Chromium' },
+  { id: 'brave', name: 'Brave' },
+  { id: 'gnome-web', name: 'GNOME Web' },
 ];
 
-export function BrowserRestrictionScreen({ computer }: { computer: PairedComputer }) {
-  const [blockBrowsers, setBlockBrowsers] = useState(true);
-  const [allowedBrowsers, setAllowedBrowsers] = useState<Record<BrowserId, boolean>>({
-    firefox: true,
-    chromium: false,
-    brave: false,
-    'gnome-web': true,
-  });
-  const [syncStatus, setSyncStatus] = useState<SyncStatus>('synced');
+export function BrowserRestrictionScreen() {
+  const { snapshot, save } = useSimulation();
+  const { blockBrowsers, allowedBrowsers } = snapshot.settings;
   const { t } = useLanguage();
   const styles = useThemedStyles(createStyles);
 
-  function updateSetting(update: () => void) {
-    update();
-    setSyncStatus('syncing');
-    setTimeout(() => setSyncStatus('synced'), 900);
-  }
-
   function toggleBrowser(id: BrowserId) {
-    updateSetting(() => {
-      setAllowedBrowsers((current) => ({ ...current, [id]: !current[id] }));
-    });
+    void save({ allowedBrowsers: { [id]: !allowedBrowsers[id] } });
   }
-
-  const computerName = computer?.name ?? t('nav.browsers');
-  const managedUser = computer?.managedUser ? t('restriction.account', { name: computer.managedUser }) : t('nav.browsers');
 
   return (
     <SafeAreaView edges={['left', 'right']} style={styles.safeArea}>
       <View style={styles.container}>
         <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
-          <View style={styles.header}>
-
-            <View style={styles.headerCopy}>
-              <Text numberOfLines={1} style={styles.computerName}>{computerName}</Text>
-              <Text style={styles.screenSubtitle}>{managedUser}</Text>
-            </View>
-
-            <View accessibilityLiveRegion="polite" style={styles.syncBadge}>
-              <View style={styles.syncDot} />
-              <Text style={styles.syncText}>{syncStatus === 'syncing' ? t('restriction.syncing') : t('restriction.sync')}</Text>
-            </View>
-          </View>
+          <Text accessibilityRole="header" style={styles.screenTitle}>{t('nav.browsers')}</Text>
 
           <View style={[styles.blockCard, blockBrowsers && styles.blockCardActive]}>
             <View style={styles.blockCopy}>
@@ -69,7 +39,7 @@ export function BrowserRestrictionScreen({ computer }: { computer: PairedCompute
             <SwitchControl
               accessibilityLabel={t('restriction.blockBrowsers')}
               value={blockBrowsers}
-              onPress={() => updateSetting(() => setBlockBrowsers((current) => !current))}
+              onPress={() => void save({ blockBrowsers: !blockBrowsers })}
             />
           </View>
 
@@ -85,7 +55,7 @@ export function BrowserRestrictionScreen({ computer }: { computer: PairedCompute
                 onPress={() => toggleBrowser(browser.id)}
                 style={({ pressed }) => [styles.browserRow, pressed && styles.pressed]}
               >
-                <Text style={styles.browserIcon}>{browser.icon}</Text>
+                <ApplicationIcon name={browser.name} />
                 <Text style={styles.browserName}>{browser.id === 'gnome-web' ? t('restriction.schoolBrowser') : browser.name}</Text>
                 <SwitchControl value={allowedBrowsers[browser.id]} />
               </Pressable>
@@ -144,26 +114,7 @@ const createStyles = (colors: ColorPalette) => StyleSheet.create({
   safeArea: { backgroundColor: colors.background, flex: 1 },
   container: { flex: 1 },
   content: { padding: spacing.lg, paddingBottom: spacing.xxl },
-  header: {
-    alignItems: 'center',
-    flexDirection: 'row',
-    gap: spacing.md,
-    marginBottom: spacing.lg,
-  },
-  headerCopy: { flex: 1, gap: 2 },
-  computerName: { color: colors.textPrimary, fontSize: 17, fontWeight: '700' },
-  screenSubtitle: { color: colors.textSecondary, fontSize: typography.label },
-  syncBadge: {
-    alignItems: 'center',
-    backgroundColor: colors.accentSoft,
-    borderRadius: radius.pill,
-    flexDirection: 'row',
-    gap: 6,
-    paddingHorizontal: spacing.sm + 2,
-    paddingVertical: spacing.xs + 1,
-  },
-  syncDot: { backgroundColor: colors.accent, borderRadius: radius.pill, height: 6, width: 6 },
-  syncText: { color: colors.accentText, fontSize: 11, fontWeight: '600' },
+  screenTitle: { color: colors.textPrimary, fontSize: 22, fontWeight: '700', marginBottom: spacing.lg },
   blockCard: {
     alignItems: 'center',
     backgroundColor: colors.surface,
@@ -202,7 +153,6 @@ const createStyles = (colors: ColorPalette) => StyleSheet.create({
     minHeight: 64,
     paddingHorizontal: spacing.md,
   },
-  browserIcon: { color: colors.textSecondary, fontSize: 22, textAlign: 'center', width: 24 },
   browserName: { color: colors.textPrimary, flex: 1, fontSize: typography.body, fontWeight: '600' },
   switch: {
     backgroundColor: colors.surfaceRaised,

@@ -4,6 +4,17 @@ export type Language = 'pt-BR' | 'en' | 'es';
 
 export const translations: Record<Language, Record<TranslationKey, string>> = {
   'pt-BR': {
+    "device.changeIcon": "Alterar ícone de {name}",
+    "device.iconTitle": "Ícone do computador",
+    "device.icon.desktop": "Computador",
+    "device.icon.laptop": "Notebook",
+    "device.icon.gaming": "PC gamer",
+    "device.icon.server": "Servidor",
+    "device.iconLocalNote": "Sua escolha fica salva neste aparelho, para esta conta.",
+    "device.iconLoadError": "Não foi possível carregar seus ícones. Tente novamente.",
+    "device.iconSaveError": "Não foi possível salvar o ícone. Tente novamente.",
+    'restriction.selectedComputer': 'Computador selecionado', 'restriction.change': 'Trocar', 'restriction.changeComputer': 'Trocar computador', 'common.close': 'Fechar',
+    'simulation.title': 'Simulação', 'simulation.loading': 'Carregando configurações…', 'simulation.saving': 'Salvando configurações…', 'simulation.pending': 'Salvo · aguardando o client simulado', 'simulation.applied': 'Aplicado no client simulado', 'simulation.realUnavailable': 'A integração de restrições com PCs reais ainda não está disponível.',
     'nav.computers': 'Computadores',
     'nav.pairComputer': 'Parear computador',
     'nav.about': 'Sobre o projeto',
@@ -30,7 +41,7 @@ export const translations: Record<Language, Record<TranslationKey, string>> = {
     'about.footer': 'Fatec Indaiatuba Dr. Archimedes Lammoglia · 2026 · versão 0.9.0 (camada simulada)',
     'home.eyebrow': 'PIPLUP · CONTROLE FAMILIAR', 'home.greeting': 'Olá, {name}', 'home.subtitle': 'Acompanhe os computadores da sua família.',
     'common.signOut': 'Sair', 'common.signingOut': 'Saindo…', 'common.addComputer': 'Adicionar computador',
-    'home.addDescription': 'Leia o QR Code exibido no Lux para associar um novo computador.', 'common.computers': 'Computadores',
+    'home.addDescription': 'Leia o QR Code exibido no computador ou no client simulado para criar o vínculo.', 'common.computers': 'Computadores',
     'common.viewAll': 'Ver todos', 'common.loadingComputers': 'Carregando computadores…', 'common.loadError': 'Não foi possível carregar',
     'common.retry': 'Tentar novamente', 'home.noneTitle': 'Nenhum computador associado', 'home.noneDescription': 'Leia o QR Code temporário exibido no computador para criar um vínculo.',
     'home.shortcuts': 'ATALHOS DE RESTRIÇÃO', 'home.browsers': 'Navegadores', 'home.blocked': 'Bloqueados', 'home.apps': 'Aplicativos',
@@ -54,6 +65,17 @@ export const translations: Record<Language, Record<TranslationKey, string>> = {
     'pairing.eyebrow': 'PAREAMENTO SEGURO', 'pairing.title': 'Adicionar computador', 'pairing.description': 'Leia o QR Code temporário exibido no computador. Confira os dados antes de criar o vínculo.', 'pairing.demoCreated': 'Vínculo de demonstração criado', 'pairing.computerAssociated': 'Computador associado', 'pairing.demoNote': 'Este computador é uma simulação. A integração real com o Lux ainda não foi validada.', 'pairing.activeNote': 'O vínculo está ativo. A conexão com o Lux ainda não foi validada.', 'pairing.viewComputers': 'Ver computadores', 'pairing.confirm': 'Confirme este computador', 'pairing.managedAccount': 'Conta gerenciada: {name}', 'pairing.demoConfirm': 'Demonstração: confirmar cria somente um vínculo de demonstração; não comprova integração com o Lux.', 'pairing.qrValid': 'QR válido até {time}', 'pairing.creating': 'Criando vínculo…', 'pairing.confirmLink': 'Confirmar vínculo', 'common.cancel': 'Cancelar', 'pairing.validating': 'Validando QR Code…', 'pairing.readAnother': 'Ler outro QR Code', 'pairing.cameraNeeded': 'A câmera é necessária', 'pairing.cameraDescription': 'O acesso é usado para ler QR Codes de pareamento.', 'pairing.requestAccess': 'Solicitando acesso…', 'pairing.enableCamera': 'Ativar câmera', 'pairing.openSettings': 'Abrir configurações', 'pairing.qrNote': 'QR temporário de uso único. Não compartilhe o código; ele não é salvo no aparelho.',
   },
   en: {
+    "device.changeIcon": "Change icon for {name}",
+    "device.iconTitle": "Computer icon",
+    "device.icon.desktop": "Desktop",
+    "device.icon.laptop": "Laptop",
+    "device.icon.gaming": "Gaming PC",
+    "device.icon.server": "Server",
+    "device.iconLocalNote": "Your choice is saved on this device for this account.",
+    "device.iconLoadError": "Could not load your icons. Try again.",
+    "device.iconSaveError": "Could not save the icon. Try again.",
+    'restriction.selectedComputer': 'Selected computer', 'restriction.change': 'Change', 'restriction.changeComputer': 'Change computer', 'common.close': 'Close',
+    'simulation.title': 'Simulation', 'simulation.loading': 'Loading settings…', 'simulation.saving': 'Saving settings…', 'simulation.pending': 'Saved · waiting for the simulated client', 'simulation.applied': 'Applied in the simulated client', 'simulation.realUnavailable': 'Restriction integration with real PCs is not available yet.',
     'nav.computers': 'Computers',
     'nav.pairComputer': 'Pair computer',
     'nav.about': 'About the project',
@@ -80,7 +102,7 @@ export const translations: Record<Language, Record<TranslationKey, string>> = {
     'about.footer': 'Fatec Indaiatuba Dr. Archimedes Lammoglia · 2026 · version 0.9.0 (simulated layer)',
     'home.eyebrow': 'PIPLUP · FAMILY CONTROL', 'home.greeting': 'Hello, {name}', 'home.subtitle': 'Keep track of your family computers.',
     'common.signOut': 'Sign out', 'common.signingOut': 'Signing out…', 'common.addComputer': 'Add computer',
-    'home.addDescription': 'Scan the QR Code shown on Lux to pair a new computer.', 'common.computers': 'Computers', 'common.viewAll': 'View all',
+    'home.addDescription': 'Scan the QR Code shown on the computer or simulated client to create the link.', 'common.computers': 'Computers', 'common.viewAll': 'View all',
     'common.loadingComputers': 'Loading computers…', 'common.loadError': 'Could not load', 'common.retry': 'Try again',
     'home.noneTitle': 'No computer associated', 'home.noneDescription': 'Scan the temporary QR Code shown on the computer to create a link.',
     'home.shortcuts': 'RESTRICTION SHORTCUTS', 'home.browsers': 'Browsers', 'home.blocked': 'Blocked', 'home.apps': 'Apps', 'home.installed': 'View installed',
@@ -97,6 +119,17 @@ export const translations: Record<Language, Record<TranslationKey, string>> = {
     'pairing.eyebrow': 'SECURE PAIRING', 'pairing.title': 'Add computer', 'pairing.description': 'Scan the temporary QR Code shown on the computer. Check the details before creating the link.', 'pairing.demoCreated': 'Demo link created', 'pairing.computerAssociated': 'Computer associated', 'pairing.demoNote': 'This computer is a simulation. Real integration with Lux has not been validated yet.', 'pairing.activeNote': 'The link is active. Connection to Lux has not been validated yet.', 'pairing.viewComputers': 'View computers', 'pairing.confirm': 'Confirm this computer', 'pairing.managedAccount': 'Managed account: {name}', 'pairing.demoConfirm': 'Demo: confirming creates only a demo link; it does not prove Lux integration.', 'pairing.qrValid': 'QR valid until {time}', 'pairing.creating': 'Creating link…', 'pairing.confirmLink': 'Confirm link', 'common.cancel': 'Cancel', 'pairing.validating': 'Validating QR Code…', 'pairing.readAnother': 'Scan another QR Code', 'pairing.cameraNeeded': 'Camera required', 'pairing.cameraDescription': 'Access is used to scan pairing QR Codes.', 'pairing.requestAccess': 'Requesting access…', 'pairing.enableCamera': 'Enable camera', 'pairing.openSettings': 'Open settings', 'pairing.qrNote': 'One-time QR Code. Do not share it; it is not saved on the device.',
   },
   es: {
+    "device.changeIcon": "Cambiar icono de {name}",
+    "device.iconTitle": "Icono del ordenador",
+    "device.icon.desktop": "Ordenador",
+    "device.icon.laptop": "Portátil",
+    "device.icon.gaming": "PC para juegos",
+    "device.icon.server": "Servidor",
+    "device.iconLocalNote": "Tu elección se guarda en este dispositivo para esta cuenta.",
+    "device.iconLoadError": "No se pudieron cargar tus iconos. Inténtalo de nuevo.",
+    "device.iconSaveError": "No se pudo guardar el icono. Inténtalo de nuevo.",
+    'restriction.selectedComputer': 'Ordenador seleccionado', 'restriction.change': 'Cambiar', 'restriction.changeComputer': 'Cambiar ordenador', 'common.close': 'Cerrar',
+    'simulation.title': 'Simulación', 'simulation.loading': 'Cargando configuración…', 'simulation.saving': 'Guardando configuración…', 'simulation.pending': 'Guardado · esperando al cliente simulado', 'simulation.applied': 'Aplicado en el cliente simulado', 'simulation.realUnavailable': 'La integración de restricciones con PCs reales aún no está disponible.',
     'nav.computers': 'Computadoras',
     'nav.pairComputer': 'Vincular computadora',
     'nav.about': 'Sobre el proyecto',
@@ -122,7 +155,7 @@ export const translations: Record<Language, Record<TranslationKey, string>> = {
     'about.courses': 'ASIGNATURAS INTEGRADAS',
     'about.footer': 'Fatec Indaiatuba Dr. Archimedes Lammoglia · 2026 · versión 0.9.0 (capa simulada)',
     'home.eyebrow': 'PIPLUP · CONTROL FAMILIAR', 'home.greeting': 'Hola, {name}', 'home.subtitle': 'Acompaña los ordenadores de tu familia.',
-    'common.signOut': 'Salir', 'common.signingOut': 'Saliendo…', 'common.addComputer': 'Añadir ordenador', 'home.addDescription': 'Lee el código QR mostrado en Lux para vincular un ordenador nuevo.',
+    'common.signOut': 'Salir', 'common.signingOut': 'Saliendo…', 'common.addComputer': 'Añadir ordenador', 'home.addDescription': 'Lee el código QR mostrado en el ordenador o cliente simulado para crear el vínculo.',
     'common.computers': 'Ordenadores', 'common.viewAll': 'Ver todos', 'common.loadingComputers': 'Cargando ordenadores…', 'common.loadError': 'No se pudo cargar', 'common.retry': 'Intentar de nuevo',
     'home.noneTitle': 'Ningún ordenador asociado', 'home.noneDescription': 'Lee el código QR temporal mostrado en el ordenador para crear un vínculo.', 'home.shortcuts': 'ATAJOS DE RESTRICCIÓN',
     'home.browsers': 'Navegadores', 'home.blocked': 'Bloqueados', 'home.apps': 'Aplicaciones', 'home.installed': 'Ver instaladas', 'home.installation': 'Instalación', 'home.age': 'Edad', 'home.upTo12': 'Hasta 12 años',
@@ -173,13 +206,8 @@ Object.assign(translations["pt-BR"], {
   "restriction.allowInstall": "Permitir instalação de {name}",
   "restriction.denyInstall": "Recusar instalação de {name}",
   "restriction.schoolBrowser": "GNOME Web (escola)",
-  "restriction.ageDescription": "Aplicativos com classificação acima da faixa escolhida ficam ocultos na loja e não podem ser abertos.",
+  "restriction.ageDescription": "Escolha a faixa etária para o computador selecionado. O client simulado exibe essa preferência.",
   "restriction.sending": "Enviando alteração ao Web Service…",
-  "restriction.summaryL": "5 aplicativos instalados ficam bloqueados por essa faixa, incluindo Minecraft, Steam e Discord.",
-  "restriction.summary10": "4 aplicativos instalados ficam bloqueados por essa faixa, incluindo Steam, Discord e Telegram.",
-  "restriction.summary12": "3 aplicativos instalados ficam bloqueados por essa faixa, incluindo Steam e Discord.",
-  "restriction.summary16": "1 aplicativo instalado fica bloqueado por essa faixa, incluindo Steam.",
-  "restriction.summary18": "Nenhum aplicativo instalado fica bloqueado por essa faixa etária.",
   "device.managed": "Conta gerenciada",
   "device.demo": "Demonstração",
   "device.unverified": "Conexão não validada",
@@ -225,13 +253,8 @@ Object.assign(translations["en"], {
   "restriction.allowInstall": "Allow installation of {name}",
   "restriction.denyInstall": "Deny installation of {name}",
   "restriction.schoolBrowser": "GNOME Web (school)",
-  "restriction.ageDescription": "Apps rated above the selected age are hidden in the store and cannot be opened.",
+  "restriction.ageDescription": "Choose an age rating for the selected computer. The simulated client displays this preference.",
   "restriction.sending": "Sending change to the Web Service…",
-  "restriction.summaryL": "5 installed apps are blocked for this age, including Minecraft, Steam and Discord.",
-  "restriction.summary10": "4 installed apps are blocked for this age, including Steam, Discord and Telegram.",
-  "restriction.summary12": "3 installed apps are blocked for this age, including Steam and Discord.",
-  "restriction.summary16": "1 installed app is blocked for this age, including Steam.",
-  "restriction.summary18": "No installed apps are blocked for this age.",
   "device.managed": "Managed account",
   "device.demo": "Demo",
   "device.unverified": "Connection not verified",
@@ -277,13 +300,8 @@ Object.assign(translations["es"], {
   "restriction.allowInstall": "Permitir instalación de {name}",
   "restriction.denyInstall": "Rechazar instalación de {name}",
   "restriction.schoolBrowser": "GNOME Web (escuela)",
-  "restriction.ageDescription": "Las aplicaciones con clasificación superior a la edad elegida se ocultan en la tienda y no se pueden abrir.",
+  "restriction.ageDescription": "Elige la clasificación para el ordenador seleccionado. El cliente simulado muestra esta preferencia.",
   "restriction.sending": "Enviando cambio al Web Service…",
-  "restriction.summaryL": "Se bloquean 5 aplicaciones instaladas para esta edad, incluidas Minecraft, Steam y Discord.",
-  "restriction.summary10": "Se bloquean 4 aplicaciones instaladas para esta edad, incluidas Steam, Discord y Telegram.",
-  "restriction.summary12": "Se bloquean 3 aplicaciones instaladas para esta edad, incluidas Steam y Discord.",
-  "restriction.summary16": "Se bloquea 1 aplicación instalada para esta edad, incluida Steam.",
-  "restriction.summary18": "No se bloquea ninguna aplicación instalada para esta edad.",
   "device.managed": "Cuenta gestionada",
   "device.demo": "Demostración",
   "device.unverified": "Conexión no validada",
@@ -403,6 +421,42 @@ Object.assign(translations["es"], {
 Object.assign(translations['pt-BR'], { 'restriction.noApplications': 'Nenhum aplicativo instalado.' });
 Object.assign(translations.en, { 'restriction.noApplications': 'No applications installed.' });
 Object.assign(translations.es, { 'restriction.noApplications': 'Ninguna aplicación instalada.' });
+
+Object.assign(translations["pt-BR"], {
+  "home.manageBrowsers": "Gerenciar permissões",
+  "home.manageInstall": "Revisar instalações",
+  "home.manageAge": "Escolher faixa etária",
+  "restriction.ageSummary": "Faixa escolhida: {age}. O inventário ainda não informa a classificação dos aplicativos; não há contagem de bloqueios por idade.",
+  "simulation.clientonline": "Client simulado conectado",
+  "simulation.clientoffline": "Client simulado desconectado",
+  "simulation.clientunverified": "Aguardando primeira comunicação do client",
+  "simulation.connectionUnknown": "Não foi possível atualizar a conexão",
+  "simulation.lastContact": "Último contato às {time}"
+});
+
+Object.assign(translations["en"], {
+  "home.manageBrowsers": "Manage permissions",
+  "home.manageInstall": "Review installations",
+  "home.manageAge": "Choose age rating",
+  "restriction.ageSummary": "Selected rating: {age}. The inventory does not yet include app age ratings; a count of apps blocked by age is unavailable.",
+  "simulation.clientonline": "Simulated client connected",
+  "simulation.clientoffline": "Simulated client disconnected",
+  "simulation.clientunverified": "Waiting for the first client contact",
+  "simulation.connectionUnknown": "Could not refresh connection status",
+  "simulation.lastContact": "Last contact at {time}"
+});
+
+Object.assign(translations["es"], {
+  "home.manageBrowsers": "Gestionar permisos",
+  "home.manageInstall": "Revisar instalaciones",
+  "home.manageAge": "Elegir clasificación",
+  "restriction.ageSummary": "Clasificación elegida: {age}. El inventario aún no incluye la clasificación de las aplicaciones; no hay un recuento de bloqueos por edad.",
+  "simulation.clientonline": "Cliente simulado conectado",
+  "simulation.clientoffline": "Cliente simulado desconectado",
+  "simulation.clientunverified": "Esperando el primer contacto del cliente",
+  "simulation.connectionUnknown": "No se pudo actualizar la conexión",
+  "simulation.lastContact": "Último contacto a las {time}"
+});
 
 export function deviceLanguage(languageTag: string): Language {
   const tag = languageTag.toLowerCase();

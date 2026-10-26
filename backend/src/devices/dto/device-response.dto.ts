@@ -10,8 +10,11 @@ export class DeviceResponseDto {
   @ApiProperty({ nullable: true, type: String })
   managedUser!: string | null;
 
-  @ApiProperty({ enum: ['unverified'], example: 'unverified' })
-  status!: 'unverified';
+  @ApiProperty({
+    enum: ['unverified', 'online', 'offline'],
+    example: 'unverified',
+  })
+  status!: 'unverified' | 'online' | 'offline';
 
   @ApiProperty({
     nullable: true,
@@ -19,7 +22,7 @@ export class DeviceResponseDto {
     format: 'date-time',
     example: null,
   })
-  lastSeen!: null;
+  lastSeen!: string | null;
 
   @ApiProperty({ example: true })
   isDemo!: boolean;
