@@ -378,10 +378,6 @@ test('pairing authorizes one guardian, consumes atomically, and revokes access',
       .post('/agent/pairing-sessions')
       .set(agentHeader(lockDevice.raw))
       .expect(201);
-    await prisma.pairingSession.update({
-      where: { tokenHash: digest(lockSession.body.token) },
-      data: { expiresAt: new Date(Date.now() + 500) },
-    });
     let releaseDeviceLock;
     let signalDeviceLock;
     const deviceLocked = new Promise((resolve) => {
@@ -393,6 +389,10 @@ test('pairing authorizes one guardian, consumes atomically, and revokes access',
       await new Promise((resolve) => {
         releaseDeviceLock = resolve;
       });
+      await tx.pairingSession.update({
+        where: { tokenHash: digest(lockSession.body.token) },
+        data: { expiresAt: new Date(0) },
+      });
     });
     await deviceLocked;
     const blockedCompletion = http
@@ -400,7 +400,7 @@ test('pairing authorizes one guardian, consumes atomically, and revokes access',
       .set(guardianHeader(firstGuardian.token))
       .send({ token: lockSession.body.token })
       .then((response) => response);
-    await new Promise((resolve) => setTimeout(resolve, 700));
+    await new Promise((resolve) => setImmediate(resolve));
     releaseDeviceLock();
     await blockedTransaction;
     const expiredWhileLocked = await blockedCompletion;
@@ -498,14 +498,18 @@ test('pairing authorizes one guardian, consumes atomically, and revokes access',
       .set(guardianHeader(firstGuardian.token))
       .send({ token: provisionedSession.body.token })
       .expect(200);
-    const secretHashBeforeProvisionRetry = await prisma.agentIdentity.count();
+    const duplicateOutputName = `Duplicate output ${randomUUID()}`;
+    const duplicateIdentityScope = { device: { name: duplicateOutputName } };
+    const secretHashBeforeProvisionRetry = await prisma.agentIdentity.count({
+      where: duplicateIdentityScope,
+    });
     const retryProvision = spawnSync(
       process.execPath,
       [
         'dist/src/agent/agent-admin.js',
         'provision',
         '--name',
-        'Duplicate output fixture',
+        duplicateOutputName,
         '--output',
         credentialPath,
       ],
@@ -514,8 +518,12 @@ test('pairing authorizes one guardian, consumes atomically, and revokes access',
     assert.notEqual(retryProvision.status, 0);
     assert.match(retryProvision.stderr, /Provisionamento falhou/);
     assert.equal(
-      await prisma.agentIdentity.count(),
+      await prisma.agentIdentity.count({ where: duplicateIdentityScope }),
       secretHashBeforeProvisionRetry,
+    );
+    assert.equal(
+      await prisma.device.count({ where: { name: duplicateOutputName } }),
+      0,
     );
     const revocation = spawnSync(
       process.execPath,
