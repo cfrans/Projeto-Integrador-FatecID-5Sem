@@ -2,6 +2,7 @@ import { randomBytes, createHash, randomUUID } from 'node:crypto';
 import { open, unlink } from 'node:fs/promises';
 import { isAbsolute, resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
+import { revokeCommands } from '../commands/revoke-commands.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 
 type Options = Map<string, string | true>;
@@ -108,6 +109,7 @@ async function revoke(args: string[]) {
         >`SELECT id FROM Device WHERE id = ${deviceId} FOR UPDATE`;
         if (!device) throw new Error('Computador não encontrado.');
         const now = new Date();
+        await revokeCommands(tx, deviceId);
         await tx.agentIdentity.updateMany({
           where: { deviceId, revokedAt: null },
           data: { revokedAt: now },

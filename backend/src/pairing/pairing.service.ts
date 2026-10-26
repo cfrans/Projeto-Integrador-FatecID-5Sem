@@ -9,6 +9,7 @@ import {
 import { randomBytes, createHash, randomUUID } from 'node:crypto';
 import type { Prisma } from '../../generated/prisma/client.js';
 import { PrismaService } from '../prisma/prisma.service.js';
+import { revokeCommands } from '../commands/revoke-commands.js';
 import type { AuthenticatedAgent } from './agent-auth/agent-auth.guard.js';
 
 const SESSION_TTL_MS = 5 * 60 * 1000;
@@ -288,6 +289,7 @@ export class PairingService {
     deviceId: string,
     now: Date,
   ) {
+    await revokeCommands(tx, deviceId, associationId);
     await tx.deviceAssociation.update({
       where: { id: associationId },
       data: { revokedAt: now, activeDeviceId: null },
