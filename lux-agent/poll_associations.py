@@ -23,12 +23,12 @@ def request_timeout(signum, frame):
 
 
 def query_associations(
-    endpoint: str, credential: str, timeout: float
+    endpoint: str, credential: str, timeout: float, ca_file: str | None = None
 ) -> list[dict[str, Any]]:
     previous = signal.signal(signal.SIGALRM, request_timeout)
     try:
         signal.setitimer(signal.ITIMER_REAL, timeout)
-        return fetch_associations(endpoint, credential, timeout)
+        return fetch_associations(endpoint, credential, timeout, ca_file)
     except TimeoutError:
         raise DiagnosticError(
             "Prazo total da consulta excedido.", 4,
@@ -52,6 +52,7 @@ def poll_associations(
     endpoint: str,
     credential: str,
     *,
+    ca_file: str | None = None,
     interval: float = 15,
     max_backoff: float = 300,
     jitter: float = 0.2,
@@ -64,7 +65,7 @@ def poll_associations(
         queries += 1
         retry_after = 0.0
         try:
-            associations = query_associations(endpoint, credential, timeout)
+            associations = query_associations(endpoint, credential, timeout, ca_file)
             print(
                 f"Consulta {queries}: HTTP 200; {len(associations)} associação(ões) no histórico.",
                 flush=True,
@@ -92,6 +93,7 @@ def main(argv: list[str] | None = None) -> int:
         description="Consulta periodicamente os vínculos do próprio computador, sem alterá-los."
     )
     parser.add_argument("--backend-url", required=True)
+    parser.add_argument("--ca-file", help="Arquivo PEM de CA confiável para este processo; omitido usa a confiança padrão")
     parser.add_argument("--credential-file", required=True)
     parser.add_argument("--allow-local-http", action="store_true")
     parser.add_argument("--interval", type=float, default=15, help="Intervalo base em segundos (padrão: 15)")
@@ -119,7 +121,7 @@ def main(argv: list[str] | None = None) -> int:
             previous_handlers[signum] = signal.signal(signum, stop_polling)
         credential = load_credential(args.credential_file)
         return poll_associations(
-            endpoint, credential, interval=args.interval, max_backoff=args.max_backoff,
+            endpoint, credential, ca_file=args.ca_file, interval=args.interval, max_backoff=args.max_backoff,
             jitter=args.jitter, timeout=args.timeout, max_queries=args.max_queries,
         )
     except DiagnosticError as error:

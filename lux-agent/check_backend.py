@@ -12,7 +12,7 @@ from email.utils import parsedate_to_datetime
 from typing import Any
 from urllib.error import HTTPError, URLError
 from urllib.parse import urlsplit
-from urllib.request import HTTPRedirectHandler, ProxyHandler, Request, build_opener
+from urllib.request import HTTPRedirectHandler, HTTPSHandler, ProxyHandler, Request, build_opener
 
 
 class DiagnosticError(Exception):
@@ -106,10 +106,14 @@ def parse_retry_after(value: str | None) -> float | None:
 
 
 def fetch_associations(
-    endpoint: str, credential: str, timeout: float
+    endpoint: str, credential: str, timeout: float, ca_file: str | None = None
 ) -> list[dict[str, Any]]:
     request = Request(endpoint, headers={"Authorization": f"Bearer {credential}", "Accept": "application/json"})
-    opener = build_opener(ProxyHandler({}), NoRedirect())
+    try:
+        context = ssl.create_default_context(cafile=ca_file)
+    except (OSError, ValueError):
+        raise DiagnosticError("Não foi possível carregar o certificado CA configurado.", 2) from None
+    opener = build_opener(ProxyHandler({}), NoRedirect(), HTTPSHandler(context=context))
     try:
         with opener.open(request, timeout=timeout) as response:
             if response.status != 200:
@@ -186,13 +190,16 @@ def fetch_associations(
     return associations
 
 
-def check_backend(endpoint: str, credential: str, timeout: float) -> int:
-    return len(fetch_associations(endpoint, credential, timeout))
+def check_backend(
+    endpoint: str, credential: str, timeout: float, ca_file: str | None = None
+) -> int:
+    return len(fetch_associations(endpoint, credential, timeout, ca_file))
 
 
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description="Valida uma vez a comunicação autenticada do Lux Agent.")
     parser.add_argument("--backend-url", required=True, help="Origem HTTPS do backend")
+    parser.add_argument("--ca-file", help="Arquivo PEM de CA confiável para este processo; omitido usa a confiança padrão")
     parser.add_argument("--credential-file", required=True, help="Arquivo privado gerado pelo provisionamento")
     parser.add_argument("--timeout", type=float, default=10, help="Timeout de operações de rede em segundos (padrão: 10)")
     parser.add_argument("--allow-local-http", action="store_true", help="Permite HTTP somente em loopback para desenvolvimento")
@@ -202,7 +209,7 @@ def main(argv: list[str] | None = None) -> int:
             raise DiagnosticError("Timeout deve ser maior que zero e no máximo 120 segundos.", 2)
         endpoint = backend_endpoint(args.backend_url, args.allow_local_http)
         credential = load_credential(args.credential_file)
-        count = check_backend(endpoint, credential, args.timeout)
+        count = check_backend(endpoint, credential, args.timeout, args.ca_file)
     except DiagnosticError as error:
         print(f"Erro: {error}", file=sys.stderr)
         return error.code
