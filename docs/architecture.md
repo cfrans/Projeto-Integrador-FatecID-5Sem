@@ -5,15 +5,15 @@
 ```mermaid
 flowchart TD
     M[Mobile Expo] -->|REST: autenticação, dispositivos e pareamento| B[Backend NestJS]
-    A[Lux Agent Python 3] -->|polling autenticado REST/HTTPS futuro| B[Backend NestJS]
-    A -->|interfaces locais a validar| G[GNOME / controles parentais]
+    A[Lux Agent Python 3] -->|polling de vínculos REST/HTTPS; comandos futuros| B[Backend NestJS]
+    A -->|leitura via libmalcontent comprovada; escrita futura| G[GNOME / controles parentais]
     B -->|Prisma| D[(MySQL 8.4)]
     U[Interface local Python / GTK4 / libadwaita futura] -->|pareamento sob demanda e autorização local a validar| A
 ```
 
 O mobile é um cliente remoto e conversa somente com a API; não acessa MySQL nem o computador Lux diretamente. O backend é um monólito modular em TypeScript/Node.js LTS com NestJS, REST e Prisma. Ele disponibiliza a API, persiste dados e intermedeia operações com agentes. O agente Python 3 será instalado como serviço systemd, iniciará comunicação com o backend por polling e integrará operações locais permitidas pelo sistema, reportando resultados. O GNOME/Lux aplica as restrições. A interface gráfica local de pareamento será um aplicativo Python/GTK4/libadwaita distinto do serviço, aberto sob demanda por um administrador. Fechá-la não interrompe o Agent. Ambos serão instalados no Lux; estarem neste repositório não implica execução no servidor ou celular.
 
-O backend persiste responsáveis, dispositivos, inventário, pedidos de instalação e contratos de pareamento em MySQL; autentica responsáveis com Argon2id e JWT de 30 minutos, e computadores com credenciais individuais provisionadas administrativamente. O mobile usa login, consulta de perfil e listagem reais, armazena a sessão em SecureStore no Android/iOS e protege a navegação. A listagem filtra pelo responsável autenticado e distingue vínculo ativo de fixtures legadas; nenhum registro comprova integração Linux. As fixtures são identificadas como demonstração e a conexão permanece não validada. A comunicação agente-backend e a integração do agente com o GNOME são futuras. As consultas de inventário e pedidos exigem vínculo ativo e leem os dados persistidos; a ingestão desses dados ainda não existe. O agente iniciará a comunicação por REST/HTTPS (polling); conectividade de entrada no computador não é requisito assumido. Os contratos de identidade e pareamento estão definidos nesta etapa; confirmação de aplicação parental ainda depende de investigação e validação no Lux real.
+O backend persiste responsáveis, dispositivos, inventário, pedidos de instalação e contratos de pareamento em MySQL; autentica responsáveis com Argon2id e JWT de 30 minutos, e computadores com credenciais individuais provisionadas administrativamente. O mobile usa login, consulta de perfil e listagem reais, armazena a sessão em SecureStore no Android/iOS e protege a navegação. A listagem filtra pelo responsável autenticado e distingue vínculo ativo de fixtures legadas; nenhum registro comprova integração Linux. As fixtures são identificadas como demonstração e a conexão permanece não validada. Existe uma PoC local de leitura libmalcontent em `lux-agent/`; o diagnóstico autenticado e o polling de vínculos Agent → backend já existem; transporte de comandos e aplicação de políticas pelo agente são futuros. As consultas de inventário e pedidos exigem vínculo ativo e leem os dados persistidos; a ingestão existe somente para o client demonstrativo. O agente iniciará a comunicação por REST/HTTPS (polling); conectividade de entrada no computador não é requisito assumido. Os contratos de identidade e pareamento estão definidos nesta etapa; confirmação de aplicação parental ainda depende de investigação e validação no Lux real.
 
 ## Etapas de implementação
 
@@ -21,20 +21,22 @@ Estado baseado na implementação existente. “Implementada” descreve o códi
 
 | Etapa | Estado | Evidência atual e trabalho restante |
 | --- | --- | --- |
-| 1. Fundação NestJS, Prisma, MySQL e Docker | Implementada | Scaffold modular, conexão/saúde, quatro migrations e Compose com watch. Execução no host prevista pelos mesmos scripts/configuração; limites da validação em [README](../README.md#limites-de-validação-dos-fluxos). |
-| 2. Autenticação, dispositivos e integração mobile | Parcial | Login/perfil JWT, listagem autorizada e revogação integrados. Contas vêm de seed; computadores de seed ou provisionamento administrativo. Não há cadastro público, edição geral de dispositivos nem presença real. |
+| 1. Fundação NestJS, Prisma, MySQL e Docker | Implementada | Scaffold modular, conexão/saúde, cinco migrations e Compose com watch. Execução no host prevista pelos mesmos scripts/configuração; limites da validação em [README](../README.md#limites-de-validação-dos-fluxos). |
+| 2. Autenticação, dispositivos e integração mobile | Parcial | Login/perfil JWT, listagem autorizada e revogação integrados. Contas vêm de seed; computadores de seed, provisionamento administrativo ou cadastro demonstrativo autenticado em desenvolvimento/teste. Não há cadastro público de computadores reais, edição geral de dispositivos nem presença real. |
 | 3. Infraestrutura de pareamento seguro | Implementada na API/mobile | Identidade individual, token de cinco minutos/uso único, consumo transacional, leitura/confirmação de QR e revogação. Autorização local e pareamento com Agent físico pendentes. |
-| 4. Prova de conceito Python/malcontent no Lux | Bloqueada pela disponibilidade do ambiente | Nenhum código ou prova local documentada; a validação depende de acesso à instalação Lux, cuja ISO não está disponível. Validar interfaces, permissões e uma operação mínima no computador real. |
-| 5. Lux Agent mínimo | Planejada | Implementar identidade instalada, HTTPS de saída, polling, pareamento inicialmente com QR no terminal, recuperação de conexão e instalação systemd. Contratos de pareamento da API já existem. |
+| 4. Prova de conceito Python/malcontent no Lux | Leitura validada com e sem restrições | VM Lux 3/Canopus, GNOME 50.4, malcontent 0.13.1-5. Própria conta consultada sem sudo; leitura restritiva de outra conta exigiu sudo autenticado pelo usuário. JSONs antes/depois idênticos e campos expostos pela CLI compatíveis; testes no WSL2 e Lux. Privilégios mínimos do futuro serviço pendentes; ver [registro](lux-integration.md#registro-de-provas-técnicas). |
+| 5. Lux Agent mínimo | Parcial | Diagnóstico e polling GET de associações com credencial protegida, backoff/jitter, Retry-After, limite de consultas e encerramento por sinal. Consultas reais validadas no WSL2/Lux e parada após revogação no WSL2; 42 testes nos dois ambientes. HTTPS real, comandos, pareamento local e systemd pendentes; [evidências](../lux-agent/README.md#validação-do-polling--2026-10-24). |
 | 6. Interface GTK4/libadwaita | Planejada | Aplicativo Python independente para autorização e QR temporário; definir comunicação local com Agent e validar permissões. |
 | 7. Controle parental nativo real | Planejada | Implementar somente operações demonstradas na prova técnica, incluindo consulta posterior do resultado; backend deverá registrar comandos/resultados. |
 | 8. Validação ponta a ponta e expansão | Planejada | Validar mobile → API → Agent → GNOME, falhas, revogação e aplicação confirmada; expandir capacidades gradualmente. |
 
-A investigação GNOME pode avançar em paralelo assim que houver ambiente. O foco acadêmico principal permanece no mobile; mocks identificados e contratos explícitos permitem seu desenvolvimento sem bloquear pela integração Linux. Etapas do roadmap não equivalem a entregas executadas.
+A investigação GNOME pode avançar na VM disponível. O foco acadêmico principal permanece no mobile; mocks identificados e contratos explícitos permitem seu desenvolvimento sem bloquear pela integração Linux. Etapas do roadmap não equivalem a entregas executadas.
 
 ## Fluxo esperado de operações parentais
 
-Este fluxo é planejado; não existem modelos, endpoints ou processamento de comandos parentais no código atual.
+Este fluxo para o Agent real é planejado; não existem fila ou processamento de comandos parentais nativos no código atual. O [client simulado](simulated-client.md) usa um contrato separado de estado desejado e confirmação demonstrativa.
+
+A [proposta de protocolo do Agent](agent-protocol.md) detalha os contratos mínimos, estados, autorização e recuperação para revisão antes de alterar backend/banco. É uma proposta nova, não uma decisão aprovada nem uma implementação. A primeira operação sugerida é um diagnóstico sem acesso ao GNOME; o polling de associações está implementado separadamente usando o endpoint atual, sem reservar ou executar comandos.
 
 1. O responsável solicita a alteração pelo mobile via HTTPS/REST.
 2. NestJS autentica, autoriza o recurso e registra o comando pendente em MySQL por Prisma.
@@ -51,13 +53,13 @@ Há duas fronteiras de simulação:
 | Cenário | Fluxo | O que o mock substitui |
 | --- | --- | --- |
 | Utilitário demonstrativo preservado, fora do fluxo atual | `pairingDemo` no mobile → mock em memória | Simulação local de pareamento, sem modificar a API ou conectar ao Lux |
-| Futuro, com API integrada | Mobile → Backend → mock do Lux Agent | Operações expostas pelo agente, permitindo desenvolver backend sem computador Lux |
+| Implementado, com API integrada | Mobile → Backend → `simulated-client/` | Cadastro demonstrativo, pareamento, configurações, inventário e decisões de instalação, sem aplicar políticas no sistema operacional |
 
 `devices.listPairedComputers(): Promise<PairedComputer[]>` usa `GET /devices`, sem fallback para mock. A resposta traz `id`, `name`, `managedUser` opcional, `status: "unverified"`, `lastSeen: null`, `isDemo`, `paired` e `associationId` quando pareado. O nome histórico do método não implica pareamento validado. Home e Computadores consomem o serviço HTTP da feature; autenticação e erros passam pelo cliente compartilhado. Os seeds podem criar fixtures persistidas com `isDemo: true`, mas não simulam um agente online.
 
 `pairingDemo.simulatePairing()` permanece como utilitário de mock, separado do fluxo HTTP. A tela de pareamento usa a API para validar e consumir o QR; os mocks existentes e placeholders parentais são preservados. Uma fixture de identidade/pareamento deve permanecer demonstrativa, inclusive na confirmação mobile, e não comprova conexão a um Lux.
 
-No cenário futuro, o mock do agente deverá cumprir o mesmo contrato do agente real. Esse mock ainda não foi implementado. Uma resposta simulada não confirma suporte nem aplicação da operação no GNOME.
+O client demonstrativo reutiliza a identidade e o pareamento existentes, mas seu estado versionado é separado do protocolo futuro de comandos reais. Há uma única tabela adicional por vínculo e reutilização do inventário/pedidos; contrato e execução em [Client simulado](simulated-client.md). Uma confirmação simulada não comprova suporte nem aplicação da operação no GNOME.
 
 ## Fronteiras do pareamento
 
@@ -71,4 +73,4 @@ Fixtures e identidades de desenvolvimento devem permanecer identificadas como de
 
 ## Limites técnicos do Lux
 
-O ambiente de referência previsto é GNOME 50.5. Uma ISO do Lenovo Lux não está disponível para reproduzir o ambiente. D-Bus, malcontent/libmalcontent, AccountsService e autorização via polkit são hipóteses de investigação, não interfaces validadas nem uma promessa de API estável. Ver [integração Lux](lux-integration.md) para critérios e registro de evidências.
+O ambiente disponível é uma VM VirtualBox com Lux 3/Canopus (Debian Trixie), GNOME 50.4, malcontent 0.13.1-5 e AccountsService ativo. A leitura via Python/PyGObject/libmalcontent está comprovada em contas com e sem restrições, com autenticação administrativa para consultar outra conta. O usuário relatou configuração nativa de horários, bloqueio de login via PAM/GDM e restrições observadas no GNOME; isso não implementa escrita pelo Agent nem comprova encerramento automático ou bloqueio de execução direta. `libpam-malcontent` precisou de instalação manual. A avaliação de horários UTC foi verificada em memória; aplicação efetiva nas fronteiras do dia, privilégios mínimos e autorização do futuro serviço ainda exigem validação. Ver [integração Lux](lux-integration.md) para evidências e limites.

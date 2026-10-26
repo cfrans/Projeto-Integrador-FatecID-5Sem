@@ -1,6 +1,6 @@
 # piplup
 
-Projeto Integrador: aplicativo Expo para controle parental em computadores Lenovo Lux, com API NestJS, Prisma e MySQL. Login, perfil, listagem, pareamento e revogação de vínculos usam a API real. O mobile também possui telas de controle para navegadores, aplicativos, instalação e faixa etária, seleção de idioma em português, inglês e espanhol, e temas claro/escuro com acento vermelho. A demonstração usa computadores fictícios; ainda não há Lux Agent, interface GTK ou integração Lux/GNOME. Consulte o [estado das etapas](docs/architecture.md#etapas-de-implementação).
+Projeto Integrador: aplicativo Expo para controle parental em computadores Lenovo Lux, com API NestJS, Prisma e MySQL. Login, perfil, listagem, pareamento e revogação de vínculos usam a API real. O mobile também possui telas de controle para navegadores, aplicativos, instalação e faixa etária, seleção de idioma em português, inglês e espanhol, e temas claro/escuro com acento vermelho. A demonstração usa computadores fictícios. Existe uma [PoC Python de leitura nativa e diagnóstico autenticado do Agent no Lux](lux-agent/README.md); o Agent já consulta vínculos periodicamente; serviço automático, interface GTK e integração parental ponta a ponta ainda não existem. Consulte o [estado das etapas](docs/architecture.md#etapas-de-implementação).
 
 ## Estado atual
 
@@ -26,7 +26,7 @@ Projeto Integrador: aplicativo Expo para controle parental em computadores Lenov
 2. Criar modelos Prisma e endpoints para configurações de navegadores, aplicativos, instalação e faixa etária.
 3. Persistir as ações do responsável e retornar estados confirmados, sem tratar uma alteração apenas enviada como concluída.
 4. Implementar o Lux Agent em Python como serviço systemd, com identidade provisionada, polling autenticado e recuperação de conexão.
-5. Validar no computador Lux as interfaces GNOME, D-Bus, malcontent/libmalcontent, AccountsService e polkit antes de definir operações suportadas.
+5. Definir privilégios mínimos do futuro Agent e validar operações de escrita; a PoC de leitura na VM Lux já foi validada com e sem restrições, exigindo autenticação administrativa para outra conta.
 6. Implementar a interface local GTK4/libadwaita para autorização administrativa e provisionamento/pareamento do Agent.
 7. Conectar o Agent às decisões de instalação e restrições, registrando sucesso, falha e indisponibilidade no backend.
 8. Expandir a cobertura de testes para troca de idioma e tema, múltiplos computadores, ausência de conexão, pedidos de instalação e fluxo ponta a ponta.
