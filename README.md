@@ -1,6 +1,6 @@
 # piplup
 
-Projeto Integrador: aplicativo Expo para controle parental em computadores Lenovo Lux, com API NestJS, Prisma e MySQL. Login, perfil, listagem, pareamento e revogação de vínculos usam a API real. O mobile também possui telas de controle para navegadores, aplicativos, instalação e faixa etária, seleção de idioma em português, inglês e espanhol, e temas claro/escuro com acento vermelho. A demonstração usa computadores fictícios. Existe uma [PoC Python de leitura nativa e diagnóstico autenticado do Agent no Lux](lux-agent/README.md); o Agent já consulta vínculos periodicamente; serviço automático, interface GTK e integração parental ponta a ponta ainda não existem. Consulte o [estado das etapas](docs/architecture.md#etapas-de-implementação).
+Projeto Integrador: aplicativo Expo para controle parental em computadores Lenovo Lux, com API NestJS, Prisma e MySQL. Login, perfil, listagem, pareamento e revogação de vínculos usam a API real. O mobile também possui telas de controle para navegadores, aplicativos, instalação e faixa etária, seleção de idioma em português, inglês e espanhol, e temas claro/escuro com acento vermelho. A demonstração usa computadores fictícios. Existe uma [PoC Python de leitura nativa e diagnóstico autenticado do Agent no Lux](lux-agent/README.md); o Agent já consulta vínculos e processa o diagnóstico `agent.ping` por HTTPS com resultado persistido; serviço automático, interface GTK e integração parental ponta a ponta ainda não existem. Consulte o [estado das etapas](docs/architecture.md#etapas-de-implementação).
 
 ## Estado atual
 
@@ -17,6 +17,7 @@ Projeto Integrador: aplicativo Expo para controle parental em computadores Lenov
 - Estados condicionais para aplicativos instalados e pedidos de instalação: sem computador pareado, não há dados fictícios exibidos.
 - Seleção de idioma em **Sobre o projeto → Idioma**, com português, inglês e espanhol. O idioma inicial é detectado pelo sistema do dispositivo e a escolha manual é persistida.
 - Temas **Sistema**, **Claro** e **Escuro** em **Sobre o projeto → Tema**. Sistema acompanha a aparência do dispositivo; a escolha manual é persistida. O visor da câmera no pareamento permanece escuro.
+- Primeiro comando `agent.ping` com autorização por vínculo, reserva única e diário do Agent, validado no Lux real por HTTPS; sem comandos parentais ou UI mobile de comandos.
 - Testes de typecheck, lint, testes de API e verificações de integração existentes no backend/mobile.
 
 ### Próximos passos

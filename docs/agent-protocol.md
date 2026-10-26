@@ -1,177 +1,110 @@
-# Proposta de polling e comandos do Lux Agent
+# Protocolo de comandos do Lux Agent — versão 1
 
-Status: proposta de comandos para revisão, não implementada nem aprovada. Os endpoints e o modelo de comandos abaixo não existem em execução. O polling somente de leitura de associações foi implementado separadamente; consultar o [README do Agent](../lux-agent/README.md#polling-somente-de-leitura). A etapa 5 permanece parcial; o estado implementado fica em [Arquitetura](architecture.md#etapas-de-implementação).
+Implementado e validado com `agent.ping` entre responsável HTTP, NestJS, MySQL e Agent Python no Lux por HTTPS. O mobile ainda não cria nem apresenta comandos. Procedimento e evidências em [Validação de ping](agent-ping-validation.md); instalação systemd, GTK, pareamento local e operações parentais continuam pendentes.
 
-## Contratos existentes e fronteiras
+## Escopo e revisão da proposta
 
-| Recurso existente | Reuso e limite |
+REST/HTTPS de saída e persistência no MySQL existente, sem broker, WebSocket, Redis ou outra autenticação. Reutiliza JWT de responsável, `AgentAuthGuard`, `AgentIdentity`, `DeviceAssociation` e o lock de `Device` usado no pareamento. `read_policies.py` permanece independente do transporte remoto.
+
+A única intenção válida é `{ "type": "agent.ping", "version": 1, "parameters": {} }`. Seu sucesso é `{ "reachable": true }`: confirma processamento e retorno, sem consultar hostname, contas, GNOME ou políticas. Operações/versões desconhecidas, parâmetros arbitrários, shell, scripts e URLs de retorno são recusados.
+
+Decisões resolvidas antes da implementação:
+
+| Tema | Contrato implementado |
 | --- | --- |
-| `AgentIdentity` e `AgentAuthGuard` | Credencial Bearer individual, hash SHA-256, `deviceId` derivado da identidade, recusa de revogados e de demonstração fora de desenvolvimento/teste. Falha de banco na autenticação retorna 503. |
-| JWT de responsável | Identifica o solicitante mobile; não autentica o Agent. |
-| `DeviceAssociation` | Histórico e no máximo um vínculo ativo por computador; a solicitação deve pertencer ao vínculo específico que a autorizou. |
-| `Device.guardianId` | Escopo da listagem atual. Fixtures legadas podem ter responsável sem associação ativa: esse campo sozinho não deve autorizar novos comandos. |
-| `PairingSession` | Confiança no vínculo via token temporário. Não reutilizar tokens ou sessões como comandos. |
-| `GET /agent/associations` | Histórico do próprio computador; pode observar vínculos periodicamente, mas não fornece solicitações nem registra presença. |
-| `POST /agent/pairing-sessions`, DELETE de associações | Pareamento e revogação; não constituem transporte de comandos. |
-| `check_backend.py` / `poll_associations.py` | Diagnóstico único e polling de vínculos; compartilham proteção de arquivo, URL/TLS, redirects bloqueados, registros validados e erros classificados com `Retry-After`. O diagnóstico mantém retorno por contagem e códigos existentes; polling distingue TLS permanente de conexão transitória. |
-| `read_policies.py` | Leitura local, independente do HTTP, para login explícito. Seu JSON não é contrato de resultado remoto. |
+| `requestId` | UUID v4, normalizado em minúsculas, único por `(associationId, requestId)`. Repetição equivalente retorna o mesmo comando; UUID novo é intenção nova. Outro vínculo pode usar o mesmo UUID, sem recuperar o histórico anterior. |
+| Vínculo | Exige `DeviceAssociation` original com `revokedAt: null`, `activeDeviceId` igual ao dispositivo e responsável compatível com `Device.guardianId`. O campo do dispositivo sozinho não autoriza. |
+| Revogação | Criação/claim/resultado e revogações serializam pela mesma linha de `Device`. A identidade é revalidada depois do lock; o guard não é a única verificação. Transações usam `READ COMMITTED` com lock exclusivo da linha do dispositivo, evitando gap locks entre computadores diferentes. |
+| `claimId` | UUID v4, único por `(deviceId, claimId)`, vinculado à identidade autenticada e a uma única reserva. Não é credencial nem lease renovável. |
+| Prazos | Cinco minutos para reservar; 30 segundos a partir do primeiro claim. Valores definidos pelo servidor, sem parâmetros de prazo enviados pelo cliente. O orçamento de 30 s é constante, não uma coluna redundante. |
+| Incerteza | Timeout após reserva produz estado efetivo `unknown`, sem reentrega. Resultado tardio da mesma reserva é aceito somente com identidade e vínculo original ainda ativos. |
+| Resultado | Definitivo e tipado. PUT equivalente retorna o mesmo recibo; status/erro diferentes retornam 409. O único resultado de sucesso aceito é `reachable: true`. |
+| Limites | Servidor de produção/desenvolvimento inicializado por `main.ts`: corpos JSON até 16 KiB. Respostas de comandos são limitadas pelo contrato fixo e polling de no máximo um item; cliente recusa mais de 16 KiB. |
 
-O schema tem somente `Guardian`, `Device`, `AgentIdentity`, `PairingSession` e `DeviceAssociation`. Há polling somente de leitura dos vínculos; não há fila, comandos, resultados, capacidades anunciadas, executor remoto, diário local ou presença persistida. A listagem mantém `status: "unverified"` e `lastSeen: null`.
+A reserva não torna a execução e a revogação uma transação distribuída. Revogar antes do claim impede a reserva. Depois do claim, não é possível garantir interrupção de execução local já autorizada/iniciada: a transação marca reservas sem resultado como `unknown` e bloqueia novos claims/resultados daquele vínculo. Nenhum resultado passa para novo responsável, inclusive se o mesmo responsável parear novamente.
 
-A revogação atual de vínculo invalida sessões de pareamento e retira `Device.guardianId`, mas não revoga a identidade do Agent. A revogação administrativa da identidade invalida também sessões/vínculo. Nenhum desses caminhos trata comandos, pois esse modelo ainda não existe. Operações de pareamento usam transação e lock da linha de `Device`; esse padrão pode ser reutilizado sem manter lock durante HTTP ou execução Linux.
+## Endpoints
 
-## Escopo mínimo proposto
+JSON validado, `Cache-Control: no-store` nas respostas de sucesso, UUIDs e datas UTC ISO 8601. Os endpoints de Agent derivam o dispositivo da identidade, sem aceitar seleção de outro computador.
 
-REST/HTTPS de saída, consultas curtas periódicas e MySQL/Prisma como persistência. Sem broker, WebSocket, Redis, segundo sistema de autenticação ou acesso de entrada no Lux.
-
-Para validar futuramente o transporte completo, aceitar inicialmente apenas `agent.ping`, versão 1, parâmetros `{}` e resultado `{ "reachable": true }`. Essa operação diagnóstica não consulta contas nem altera o GNOME. Ela comprova processamento e retorno pelo Agent; não equivale a uma política aplicada. Não é executada nesta iteração.
-
-`policies.read` é candidata posterior, não operação já autorizada: depende de definir a conta gerenciada local, permissões de leitura e um resultado tipado. Escritas parentais ficam excluídas desta versão. Não aceitar shell, scripts, caminhos executáveis, nomes de funções livres, URLs de retorno ou seleção arbitrária de usuários. Operações/versões desconhecidas são recusadas, sem fallback.
-
-## Endpoints novos propostos
-
-Todos usam JSON validado, limite inicial proposto de 16 KiB por corpo/resposta e `Cache-Control: no-store`. Identificadores são UUIDs, datas são UTC ISO 8601. O Agent usa o Bearer existente em cada requisição; nunca recebe nem informa um `deviceId` para escolher outro computador. Preservar HTTPS com certificado validado, redirects bloqueados e proxies de ambiente ignorados; a única exceção HTTP continua sendo loopback de desenvolvimento com opção explícita, sem fallback automático.
-
-| Endpoint proposto | Contrato e autorização |
+| Endpoint | Autorização e resposta |
 | --- | --- |
-| `GET /agent/commands` | Agent; retorna no máximo uma solicitação própria ainda pendente, a mais antiga por `createdAt, id`. Só retorna vínculos atualmente ativos. Sem reserva implícita. |
-| `POST /agent/commands/:id/claim` | Agent; corpo `{ claimId }`. Reserva única e atômica. Repetir o mesmo `claimId` retorna o estado atual da mesma reserva; outro identificador não toma seu lugar. |
-| `PUT /agent/commands/:id/result` | Agent; corpo `{ claimId, status, result, error }`. Persiste resultado definitivo uma única vez; repetição equivalente retorna 200 e o mesmo registro; resultado diferente retorna 409. |
-| `POST /devices/:deviceId/commands` | JWT do responsável; corpo `{ requestId, type, version, parameters }`. Exige associação ativa do solicitante e identidade ativa; cria `pending`, retorna 201, ou 200 se repetição equivalente. |
-| `GET /devices/:deviceId/commands/:id` | JWT; consulta estado/resultado somente se o responsável ainda possui o vínculo original ativo. Novo responsável não herda resultados do anterior. |
+| `POST /devices/:deviceId/commands` | JWT; corpo `{ requestId, type, version, parameters }`; vínculo e identidade ativos. 201 na criação, 200 na repetição equivalente, com a representação do comando. Intenção válida incompatível com a chave existente: 409; operação/parâmetros inválidos: 400. |
+| `GET /devices/:deviceId/commands/:id` | JWT; somente responsável com o vínculo original ainda ativo. Retorna a representação do comando; recurso alheio/inacessível: 404. |
+| `GET /agent/commands` | Bearer do Agent; `{ protocolVersion: 1, serverTime, commands: [] }`, com no máximo o pendente válido mais antigo por `createdAt, id`. Ausência de vínculo retorna lista vazia. Não reserva. |
+| `POST /agent/commands/:id/claim` | Bearer; corpo `{ claimId }`. 200 com `{ protocolVersion: 1, serverTime, command }`. Mesmo claim/identidade retorna estado atual e prazo original; outra reserva ou outro comando ainda `running` dentro do prazo: 409. |
+| `PUT /agent/commands/:id/result` | Bearer; corpo abaixo. Retorna 200 com `{ id, status, completedAt }`, estável na repetição equivalente. Não aceita resultado sem claim correspondente. |
 
-Os dois endpoints do responsável são a fronteira futura de criação/consulta; não exigem mudanças no mobile nesta iteração. Um teste inicial poderá criar fixtures isoladas, sem expor um endpoint administrativo público.
+A representação do comando contém `id`, `associationId`, `requestId`, `type`, `version`, `parameters`, `status`, `createdAt`, `expiresAt`, `executionTimeoutSeconds: 30`, `claimId`, `executionDeadlineAt`, `result`, `error` e `completedAt`. Campos ainda não definidos são `null`. Não contém credenciais, hash de autenticação, nome ou email do responsável.
 
-Exemplo de resposta de polling:
+Criação:
 
 ```json
 {
-  "protocolVersion": 1,
-  "serverTime": "2026-10-24T12:00:00.000Z",
-  "commands": [
-    {
-      "id": "8cfb7732-e7b8-4b71-bdfa-1cba99dfc981",
-      "associationId": "7ea5c654-e28e-4516-a0ae-38f7657a7898",
-      "type": "agent.ping",
-      "version": 1,
-      "parameters": {},
-      "status": "pending",
-      "createdAt": "2026-10-24T11:59:30.000Z",
-      "expiresAt": "2026-10-24T12:04:30.000Z",
-      "executionTimeoutSeconds": 30,
-      "claimId": null,
-      "executionDeadlineAt": null
-    }
-  ]
+  "requestId": "26ed5ff2-cd21-4f75-a51d-fd5ba9a8a10b",
+  "type": "agent.ping",
+  "version": 1,
+  "parameters": {}
 }
 ```
 
-Fila vazia ou ausência de vínculo: 200 com `commands: []`, sem erro de autenticação. Solicitações já reservadas não voltam à fila; o diário e a repetição do claim original permitem recuperar seu estado. GET somente calcula o estado efetivo pelo relógio do servidor, sem reservar ou consumir. Não oferece prova de presença nem altera o contrato de `/devices`.
-
-A resposta de claim é 200 com `{ protocolVersion, serverTime, command }`, no mesmo formato. A primeira reserva devolve `running`, o `claimId` recebido e `executionDeadlineAt`. O Agent só pode iniciar trabalho após essa confirmação e o registro local descrito abaixo. Repetições mostram o estado atual, inclusive se já concluído; não reiniciam prazos. O estado só muda mediante claim/resultado válido ou vencimento/revogação previstos; não aceitar status livre enviado pelo cliente.
-
-Exemplo de envio de resultado:
+Resultado:
 
 ```json
 {
-  "claimId": "6c6e2d93-d1b5-4081-b2d0-a19569b64b17",
+  "claimId": "da32dc6b-333b-40da-93db-2e743d789c26",
   "status": "succeeded",
   "result": { "reachable": true },
   "error": null
 }
 ```
 
-`failed` exige `result: null` e `error: { code }`; `succeeded` exige resultado específico da operação e `error: null`. Códigos iniciais: `UNSUPPORTED_OPERATION`, `INVALID_PARAMETERS`, `EXECUTION_TIMEOUT`, `LOCAL_UNAVAILABLE`; futuras leituras podem acrescentar `PERMISSION_DENIED`. Não transmitir traceback, stderr, senha ou mensagens brutas de D-Bus. PUT retorna 200 com `{ id, status, completedAt }`, estável nas repetições equivalentes. O backend só aceita transições e resultados compatíveis com a operação registrada.
+Falha usa `status: "failed"`, `result: null` e `error: { "code": "EXECUTION_TIMEOUT" }`. Códigos aceitos: `UNSUPPORTED_OPERATION`, `INVALID_PARAMETERS`, `EXECUTION_TIMEOUT`, `LOCAL_UNAVAILABLE`. O Agent atual recusa contrato/operação desconhecida antes de reservar e gera somente ping ou falha de orçamento local; não envia traceback, stderr ou dados Linux. Sucesso exige `error: null`; falha exige exatamente um código permitido.
 
-## Persistência e autorização propostas
+Erros: 400 contrato inválido; 401 autenticação/identidade revogada; 404 recurso alheio/inexistente; 409 conflito; 410 vínculo original revogado, identidade indisponível na criação ou comando vencido/cancelado antes da reserva; 413 corpo excessivo; 503 indisponibilidade operacional. Erros não expõem exceções ou corpos do backend na CLI.
 
-Uma tabela `AgentCommand`, sem tabela de tentativas na primeira versão:
+## Persistência e estados
 
-| Grupo | Campos propostos |
+A migration `20261026035355_agent_ping_commands` cria somente `AgentCommand`, índices únicos/de fila e FKs restritivas para dispositivo, associação original e identidade da reserva. Não modifica registros existentes nem remove a CHECK de vínculo ativo. Campos: identificação/escopo, intenção, estado, criação/validade, claim/identidade/horários e resultado/erro/conclusão. Não há tabela de tentativas ou worker de expiração.
+
+| Estado | Significado |
 | --- | --- |
-| Identificação e escopo | `id`, `deviceId`, `associationId`, `requestId` |
-| Intenção imutável | `type`, `version`, `parameters` JSON validado |
-| Estado e prazos | `status`, `createdAt`, `expiresAt`, `executionTimeoutSeconds` |
-| Reserva única | `claimId` opcional único, `claimedByIdentityId`, `claimedAt`, `executionDeadlineAt` |
-| Resultado | `result` JSON opcional, `errorCode` opcional, `completedAt` opcional |
+| `pending` | Persistido e ainda não reservado. |
+| `running` | Reserva confirmada; não comprova que a execução começou. |
+| `succeeded` | Resultado de ping validado e persistido. |
+| `failed` | Falha tipada confirmada e persistida. |
+| `expired` | Validade terminou antes do claim; não entregar. |
+| `cancelled` | Revogação enquanto pendente. |
+| `unknown` | Reserva sem resultado confiável após orçamento ou revogação. |
 
-Relacionar a Device, DeviceAssociation e AgentIdentity; preservar histórico com exclusão restritiva. O responsável deriva da associação original, sem nova tabela de permissões. Unicidade de `(associationId, requestId)` evita duplicação na criação; comparar a intenção validada, sem depender da ordem das chaves JSON. Mesma chave com intenção diferente: 409. Índice de consulta por `(deviceId, status, createdAt, id)`. Detalhes de tipos, CHECKs e SQL da migration exigem revisão própria; nenhum schema foi alterado.
+`expired` por validade e `unknown` por timeout são calculados na leitura pelo relógio do servidor, sem cron nem necessidade de gravar esses estados derivados. A fila filtra os expirados e nunca entrega comandos já reservados. Revogação grava `cancelled` para `pending` e `unknown` para `running`, na mesma transação; resultados terminais permanecem imutáveis.
 
-Criação, claim, resultado e revogações devem serializar pela mesma linha de `Device`, com consultas parametrizadas e transações curtas. Depois do lock, revalidar identidade, ambiente demo, associação original, `guardianId`, prazo e estado. O claim fica vinculado à identidade autenticada; o UUID da reserva não é outra credencial. O guard sozinho não fecha uma corrida entre autenticação e revogação. Não aceitar `guardianId`, vínculo, estado inicial ou prazos arbitrários enviados pelo mobile.
+Somente uma reserva ainda dentro do prazo pode estar em execução por dispositivo. Depois de timeout, um novo ping explícito pode avançar; o antigo não volta à fila. `expiresAt` não impede reenviar um resultado já produzido. Timeout de rede nunca é convertido em falha de execução confirmada.
 
-Polling deve filtrar pelo dispositivo autenticado e associação ativa correspondente ao responsável atual, nunca apenas por `guardianId`. Revalidar essas condições na transação de claim, mesmo se o GET acabou de autorizá-las. Um vínculo novo, inclusive com o mesmo responsável, não revive solicitações do vínculo anterior.
+## Agent e diário local
 
-## Estados, prazos e recuperação
+`poll_associations.py --state-dir /diretorio/privado` ativa o processamento no ciclo existente. Sem a opção, permanece o polling somente de vínculos. A cada ciclo, consulta associações, recupera claims/resultados locais pendentes, consulta no máximo um comando e processa somente ping validado. Não importa nem chama malcontent.
 
-| Estado proposto | Significado |
-| --- | --- |
-| `pending` | Registrado, ainda sem reserva; não executado pelo protocolo. |
-| `running` | Reservado para processamento; não comprova que a chamada local começou ou terminou. |
-| `succeeded` | Resultado validado e persistido; para `agent.ping`, apenas diagnóstico. |
-| `failed` | Agent confirmou falha conhecida e persistiu o erro; não inferir isso de timeout HTTP. |
-| `expired` | Prazo para reservar terminou enquanto estava pendente; não entregar. |
-| `cancelled` | Vínculo/identidade revogado antes da reserva; não entregar. |
-| `unknown` | Houve reserva, mas falta resultado confiável após prazo ou revogação; efeito local não pode ser presumido. |
+O diário SQLite usa a biblioteca padrão, `synchronous=FULL`, journal de rollback e commit antes de cada efeito externo. Diretório `0700`, arquivos regulares privados `0600`, pertencentes ao executor, sem symlinks/hardlinks. `flock` impede duas instâncias no mesmo diretório. O diário é vinculado por hash à origem e à credencial, recusando reutilização com outro backend/identidade. Seu diretório deve ficar em armazenamento persistente privado com diretórios ancestrais confiáveis; os exemplos em `/tmp` são exclusivos para testes descartáveis.
 
-Transições: `pending → running → succeeded/failed`; `pending → expired/cancelled`; `running → unknown` por prazo ou revogação sem resultado. Um `unknown` por timeout admite resultado tardio da mesma reserva se identidade e vínculo continuam ativos. `succeeded`/`failed` são imutáveis. Cancelar ou expirar trabalho ainda pendente não significa desfazer políticas.
+1. Salvar `commandId`, `claimId` e `claim_pending` antes do POST. Resposta perdida/reinício: repetir esse UUID.
+2. Confirmar `running`, conferir orçamento com `serverTime` e tempo monotônico de ida/volta; salvar `started` antes de executar.
+3. Salvar resultado local antes do PUT; marcar `acknowledged` somente após recibo compatível.
+4. Reinício com resultado salvo: reenviar o PUT, sem executar. Reinício com `started` sem resultado: preservar registro e não repetir; o backend mostrará `unknown` ao vencer o prazo.
+5. Claim devolvido com estado terminal/desconhecido ou sem orçamento não executa; registro fica abandonado/incerto. Falha de diário impede início da operação.
 
-`expiresAt` limita o início da reserva, não o envio posterior de um resultado já produzido. `executionDeadlineAt` é calculado pelo servidor na primeira reserva. Não renovar prazos em retries. As consultas de fila e de estado calculam expiração/timeout sem escrita; mutações materializam o estado sob lock. Não é necessário um worker de expiração ou cron nesta versão. Inicialmente propor validade de cinco minutos e orçamento de processamento de 30 segundos para ping, sem relação com o token de pareamento. Valores precisam de revisão antes do uso em outras operações.
+Não se promete execução exatamente uma vez: MySQL, disco local e processamento não compartilham transação. A janela entre `started` e resultado salvo é explicitamente incerta. Não remova, compartilhe ou recrie o diário para contornar conflitos. Exclusão/rotação e retenção ainda não têm automação.
 
-A reserva é única: não há lease com reentrega automática, troca de executor ou repetição da execução após timeout. Isso reduz estados e impede que uma resposta perdida faça o backend ordenar a mesma execução novamente. Aceita-se a perda de disponibilidade: casos ambíguos exigem diagnóstico e, para uma nova execução desejada, uma nova solicitação explícita. O claim deve permitir no máximo uma reserva `running` ainda dentro do prazo por dispositivo. Após `unknown`, um novo ping explícito pode avançar; a solicitação incerta nunca volta à fila. Inicialmente somente ping é aceito; antes de escritas será necessário rever reconciliação, ordenação e efeitos tardios.
+## Rede e recuperação
 
-O futuro Agent mantém um diário privado durável por `commandId`/`claimId`, fora do repositório, e exclusão entre instâncias locais:
+Preservados: credencial privada, HTTPS e hostname verificados, CA explícita opcional, proxies de ambiente ignorados, redirects proibidos e HTTP apenas em loopback com opção explícita. Cada requisição de comandos tem limite de resposta de 16 KiB e prazo total controlado por temporizador Linux; o timeout da CLI não representa o tempo máximo de um ciclo com várias requisições. O prazo de execução de ping é independente do timeout de rede.
 
-1. Persistir a intenção de claim e seu UUID antes de POST. Resposta perdida: repetir o mesmo claim, nunca gerar outra reserva.
-2. Confirmada a reserva e ainda dentro do prazo, persistir `started` antes de qualquer execução. Um GET repetido não dispara trabalho.
-3. Persistir o resultado definitivo antes do PUT. Manter uma saída pendente até o backend confirmar o mesmo resultado.
-4. Reinício com resultado salvo: reenviar somente o PUT. Reinício com `started` sem resultado: não executar de novo; preservar incerteza, que aparecerá como `unknown` após o prazo.
-5. Sem diário confiável, não assumir que uma reserva devolvida pelo backend nunca foi executada. Falha de escrita no diário impede iniciar operação.
+Cadência/backoff/jitter/`Retry-After` e sinais são os do polling existente. 429, conexão/timeout e 5xx transitórios preservam o diário e repetem no próximo ciclo; 501/505 são permanentes. 401 e TLS encerram. 409 encerra com diagnóstico e preserva o mesmo identificador para investigação; não troca claim ou executa outra vez. 404/410 de claim/resultado marcam a entrada como abandonada e permitem seguir consultando. SIGINT/SIGTERM não apagam pendências.
 
-Não se promete execução exatamente uma vez: não existe transação única entre MySQL, disco do Agent e GNOME. O protocolo deduplica criação/reserva/resultado e evita reexecução automática conhecida; a janela entre registrar `started` e salvar o resultado fica explicitamente incerta. Novas solicitações com outros UUIDs representam novas intenções, mesmo com parâmetros iguais.
+## Validação e limites
 
-## Cadência e falhas de comunicação
+[Testes MySQL](../backend/test/commands.mysql-test.mjs): vínculo/identidade, fixture legada, isolamento, criação/claim/resultado idempotentes, concorrência, expiração após espera por lock, revogação administrativa/do responsável e resultado tardio. [Testes Python](../lux-agent/test_commands.py): diário, exclusão, permissões, corrupção, troca de identidade/origem, respostas perdidas, reinício ambíguo e contratos não suportados. [Evidência real no Lux](agent-ping-validation.md#evidência--2026-10-26).
 
-Proposta inicial: polling a cada 15 segundos após o término da consulta, variação aleatória de até 20%, uma requisição por vez e um processamento por computador. Não adicionar long polling nem atualizar presença nesta entrega. No piloto de observação, usar somente GET de associações; não interpretar HTTP 200 como Agent online no mobile.
+Ficam pendentes: UI mobile de comandos, usuário/instalação do serviço, pareamento/autorização local, quotas/retenção, presença, hospedagem HTTPS definitiva, primeira leitura remota e reconciliação antes de escritas parentais. `status: "unverified"`/`lastSeen: null` dos dispositivos permanecem. Sucesso de ping não comprova política aplicada ou identidade física do equipamento.
 
-| Situação | Comportamento proposto |
-| --- | --- |
-| Sem rede, DNS, timeout de conexão/leitura, 5xx | Aguardar com backoff 15, 30, 60, 120, até 300 segundos e jitter; resetar após resposta válida. Não acumular requisições sobrepostas. |
-| 429/503 com `Retry-After` válido | Esperar pelo menos o prazo indicado; não encurtá-lo para caber no teto do backoff. |
-| 401 | Parar o ciclo e exigir intervenção administrativa; nunca reprovisionar sozinho. |
-| TLS/certificado inválido, 403, protocolo/JSON incompatível | Parar com diagnóstico controlado; nunca ignorar certificado ou tentar HTTP como fallback. |
-| 400/404 | Erro de contrato/recurso; não repetir cegamente. Recurso de outro dispositivo retorna 404. |
-| 409 | Reserva ou resultado conflitante; reconciliar o mesmo identificador, sem executar novamente. |
-| 410 | Solicitação expirada/revogada antes da reserva; descartar autorização para iniciar e consultar novamente. |
-
-O diagnóstico único mantém timeout por operação de rede. O polling de vínculos já limita a consulta inteira via temporizador Linux e a resposta a 1 MiB; testes cobrem interrupção de consulta lenta. O futuro transporte de comandos ainda precisa do orçamento de execução e dos limites de payload propostos acima. Usar relógio monotônico para esperas e orçamento local, levando em conta `serverTime` e tempo de trânsito; o servidor decide validade. Relógio local divergente não estende autorização. SIGINT/SIGTERM interrompem espera sem apagar resultados ainda não confirmados.
-
-Computador offline mantém solicitações pendentes no backend até expirar; ao voltar não recebe vencidas nem de vínculos revogados. Não enfileirar execução parental local para funcionar desconectado. Revogação de vínculo permite continuar observando associações com a identidade válida; revogação de identidade encerra toda comunicação autenticada.
-
-Revogar não interrompe uma chamada Linux já iniciada. A futura implementação precisa estender os dois caminhos existentes de revogação, na mesma transação, para cancelar pendências e marcar reservas sem resultado como incertas; recusa claims/resultados posteriores do vínculo revogado. Um resultado já salvo no Agent não deve vazar para novo responsável. Identidade revogada recebe 401 inclusive no reenvio de resultado. Para futuras escritas, controle de autorização e privilégio mínimo local continuam obrigatórios; HTTPS não fornece permissões no GNOME.
-
-## Validação do contrato e próxima implementação
-
-Revisão de cenários, ainda sem testes executáveis do protocolo novo:
-
-| Cenário | Resultado exigido na futura implementação |
-| --- | --- |
-| Dois POSTs de criação iguais | Um comando; mesma resposta lógica. Chave reutilizada com outro conteúdo: 409. |
-| Dois Agents disputam claim | Uma reserva sob lock; outra recebe conflito. Mesmo claim repetido é consultado, sem renovar prazo. |
-| Resposta do claim se perde | Repetição do mesmo UUID recupera a reserva. Sem resultado local, uma execução anterior incerta não é repetida. |
-| PUT foi salvo, mas sua resposta se perde | Reenvio equivalente recebe o mesmo resultado; conteúdo diferente não o sobrescreve. |
-| Processo cai depois de chamar GNOME | Diário sem resultado definitivo impede nova execução; estado desconhecido, sem sucesso presumido. |
-| Revogação entre GET e claim | Claim revalida sob lock e não autoriza execução. |
-| Revogação após claim | Não prometer interrupção local; estado incerto sem resultado, sem reentrega ou acesso por novo vínculo. |
-| Fixture legada, outro dispositivo ou outro responsável | Não autorizar comandos; recurso alheio retorna 404. |
-| Offline além da validade ou prazo excedido após reserva | `expired` antes do claim; `unknown` depois do claim, sem repetição automática. |
-
-Próximos incrementos recomendados:
-
-1. Revisar esta proposta, especialmente reserva sem reentrega, prazos e diagnóstico inicial `agent.ping`.
-2. Observação periódica de `GET /agent/associations` implementada em `poll_associations.py`, sem mutação no backend nem executor. A extração do cliente preserva registros, categoria de erro e `Retry-After`; cadência, backoff, 401, TLS, interrupção e ausência de sobreposição têm testes. Isso não implementa os endpoints de comandos propostos.
-3. Após a revisão do contrato, implementar modelo/migration e endpoints de polling/reserva/resultado no backend com fixtures e testes HTTP/MySQL dedicados: concorrência, isolamento, revogação e idempotência. Validar primeiro com cliente de teste, sem GNOME.
-4. Implementar diário e processamento exclusivo de ping no Agent. Depois especificar separadamente a primeira leitura remota e seu alvo local; só então considerar escritas comprovadas.
-
-Pendências de segurança/produto: conta gerenciada autorizada e proteção contra troca/reuso de UID; usuário/privilégios do Agent; autorização local por operação; HTTPS real e certificado; retenção e proteção do diário/resultados; quotas de comandos; observabilidade sem segredos. Ausência de polling não distingue computador desligado de falha de rede: presença exige contrato próprio. Não introduzir permissões Linux ou infraestrutura adicionais para resolver essas pendências nesta iteração.
-
-Fundamentação: [RFC 9110, semântica e idempotência HTTP](https://www.rfc-editor.org/rfc/rfc9110.html#section-9.2.2) e [identificadores de intenção e retries idempotentes, AWS Builders' Library](https://aws.amazon.com/builders-library/making-retries-safe-with-idempotent-APIs/). São referências de desenho; a proposta não depende de serviços AWS.
+Referências: [Prisma 7: transações](https://www.prisma.io/docs/orm/v7/prisma-client/queries/transactions), [Prisma 7: migrations](https://www.prisma.io/docs/orm/v7/prisma-migrate/workflows/development-and-production), [SQLite no Python](https://docs.python.org/3.12/library/sqlite3.html) e [flock](https://docs.python.org/3.12/library/fcntl.html#fcntl.flock).

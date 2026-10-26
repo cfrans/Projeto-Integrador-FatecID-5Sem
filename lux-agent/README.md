@@ -1,8 +1,8 @@
 # Lux Agent
 
-Fundação Python 3 do Agent com três comandos: `read_policies.py` lê políticas nativas; `check_backend.py` valida uma vez a identidade provisionada; `poll_associations.py` consulta periodicamente os vínculos no NestJS, somente por GET. Não há infraestrutura de comandos remotos, pareamento local, serviço systemd ou GTK.
+Fundação Python 3 do Agent com três comandos: `read_policies.py` lê políticas nativas; `check_backend.py` valida uma vez a identidade provisionada; `poll_associations.py` consulta vínculos e, com `--state-dir`, processa somente `agent.ping`. Não há comandos parentais, pareamento local, serviço systemd ou GTK.
 
-A [proposta de protocolo](../docs/agent-protocol.md) separa a observação periódica de vínculos, agora implementada, do futuro transporte de comandos, com reserva, resultados e recuperação. Os endpoints e modelos de comandos continuam em revisão, sem implementação.
+O [protocolo v1](../docs/agent-protocol.md) implementa reserva única e resultado idempotente de ping com diário privado. A [validação ponta a ponta](../docs/agent-ping-validation.md) usou NestJS/MySQL e Lux reais por HTTPS. Operações parentais continuam fora do executor.
 
 A PoC de leitura usa PyGObject/libmalcontent e AccountsService, sem alterar políticas ou solicitar elevação. A VM de referência é Lux 3/Canopus, GNOME 50.4 e malcontent 0.13.1-5. Leituras com e sem restrições foram validadas; consultar outra conta exigiu autenticação administrativa. Privilégios mínimos do futuro serviço permanecem pendentes. O mock do Agent no backend ainda não existe.
 
@@ -16,6 +16,8 @@ Provisione pela [ferramenta administrativa existente](../docs/backend.md#provisi
 python3 -B lux-agent/check_backend.py --backend-url https://api.exemplo --credential-file /caminho/privado/agent-credential
 python3 -B lux-agent/check_backend.py --backend-url http://127.0.0.1:3000 --credential-file /caminho/privado/agent-credential --allow-local-http
 ```
+
+Para HTTPS real no WSL2 e no Lux, siga o [procedimento temporário com CA explícita](../docs/lux-https-development.md). Os dois comandos de rede aceitam `--ca-file /caminho/ca.pem`, sem instalar confiança global ou desativar a validação TLS.
 
 A URL deve ser apenas a origem (sem usuário, senha, caminho, query ou fragmento). HTTPS valida certificados pelo Python/sistema; não existe opção para ignorar TLS. HTTP exige `--allow-local-http` e host loopback (`127.0.0.1`, `::1` ou `localhost`). Proxies de ambiente são ignorados e redirecionamentos recusados para evitar encaminhamento da credencial. Configure somente um backend confiável. `--timeout` controla operações de rede (padrão 10 segundos; máximo 120), não um prazo total da execução. Não há repetição automática.
 
@@ -69,7 +71,7 @@ python3 -B lux-agent/poll_associations.py --backend-url https://api.exemplo --cr
 | `--timeout` | Prazo total por consulta, padrão 10 s, máximo 120 s |
 | `--max-queries` | Limite de tentativas, incluindo falhas; não espera após a última; omitido mantém o ciclo |
 
-Intervalo e backoff devem ser positivos e no máximo 86400 s; jitter deve estar entre 0 e menos de 1. A primeira consulta é imediata. Só há uma requisição por vez e nenhum processamento de comandos. Falhas transitórias dobram a base de espera até o teto; sucesso restaura a base ao intervalo. O jitter é aplicado antes do teto. Em HTTP 429/503, um `Retry-After` válido em segundos ou data HTTP é um piso da espera, inclusive acima do teto; um cabeçalho inválido usa o backoff normal. Datas HTTP dependem do relógio local correto. O limite de tentativas não é um limite de duração: `Retry-After` pode impor uma espera longa, interrompível por sinal.
+Intervalo e backoff devem ser positivos e no máximo 86400 s; jitter deve estar entre 0 e menos de 1. A primeira consulta é imediata. Só há uma requisição por vez; sem `--state-dir`, não há processamento de comandos. Falhas transitórias dobram a base de espera até o teto; sucesso restaura a base ao intervalo. O jitter é aplicado antes do teto. Em HTTP 429/503, um `Retry-After` válido em segundos ou data HTTP é um piso da espera, inclusive acima do teto; um cabeçalho inválido usa o backoff normal. Datas HTTP dependem do relógio local correto. O limite de tentativas não é um limite de duração: `Retry-After` pode impor uma espera longa, interrompível por sinal.
 
 Categorias de erro: `configuration`, `authentication`, `tls`, `connection`, `http` e `response`. Falhas de conexão/timeout e HTTP 429/5xx permitem repetição, exceto 501/505 por incompatibilidade. HTTP 401 encerra com código 3; TLS encerra com 4; demais erros HTTP permanentes e contrato inválido encerram com o código do diagnóstico. Não há fallback para HTTP, desativação de certificado ou redirecionamento. A exceção HTTP continua restrita ao loopback com `--allow-local-http` explícito.
 
@@ -85,7 +87,7 @@ ssh -o BatchMode=yes -o ExitOnForwardFailure=yes -R 127.0.0.1:13000:127.0.0.1:30
 
 ### Validação do polling — 2026-10-24
 
-- Três consultas consecutivas retornaram HTTP 200/histórico vazio no WSL2 e no Lux contra NestJS/MySQL reais, com intervalo de 1 s, jitter 0 e limite 3. A VM usou loopback por túnel SSH; HTTPS real continua pendente.
+- Três consultas consecutivas retornaram HTTP 200/histórico vazio no WSL2 e no Lux contra NestJS/MySQL reais, com intervalo de 1 s, jitter 0 e limite 3. A VM usou loopback por túnel SSH; HTTPS real estava pendente nessa etapa e foi validado posteriormente no [guia HTTPS](../docs/lux-https-development.md).
 - Revogação durante um ciclo no WSL2: primeira consulta HTTP 200; após invalidação administrativa da identidade demonstrativa, a segunda recebeu HTTP 401 e o processo encerrou com código 3, sem terceira tentativa. No Lux, a mesma identidade já revogada foi recusada na primeira consulta, também com código 3.
 - A suíte final tem 42 testes, executados em Python 3.12.3 no WSL2 e 3.14.6 no Lux. Cadência, recuperação, backoff, jitter e esperas longas usam tempo simulado. HTTP 429/503 e `Retry-After` usam servidor local; falhas de certificado são simuladas. Subprocessos limitados verificam SIGINT/SIGTERM durante espera e SIGTERM durante HTTP em andamento. O prazo total também foi exercitado, sem esperar o atraso completo.
 - A PoC leu novamente a própria conta no Lux sem sudo, com filtros/limites desativados. Não houve nova leitura privilegiada. Não se desligou o backend/MySQL para provocar indisponibilidade e não se executou a suíte MySQL dedicada.
@@ -93,9 +95,23 @@ ssh -o BatchMode=yes -o ExitOnForwardFailure=yes -R 127.0.0.1:13000:127.0.0.1:30
 
 Referências: [sinais Python 3.14](https://docs.python.org/3.14/library/signal.html), [erros urllib no Python 3.12](https://docs.python.org/3.12/library/urllib.error.html) e [Retry-After na RFC 9110](https://www.rfc-editor.org/rfc/rfc9110.html#section-10.2.3).
 
+## Processar `agent.ping`
+
+Adicione `--state-dir /caminho/privado/state` ao polling para habilitar o executor. O diretório deve ser exclusivo, `0700`, pertencente à conta executora e localizado sob pais confiáveis. Se ainda não existir, o Agent cria somente esse diretório; o pai deve existir. Em uso contínuo, preserve-o em armazenamento persistente e mantenha a mesma origem/credencial. Sem essa opção, o comportamento continua somente leitura de vínculos.
+
+```bash
+python3 -B lux-agent/poll_associations.py --backend-url https://localhost:3443 --credential-file /caminho/privado/credential --ca-file /caminho/privado/ca.pem --state-dir /caminho/privado/state --max-queries 3
+```
+
+`command_processor.py` valida o contrato, reserva antes de executar e devolve apenas `{ "reachable": true }`. `command_journal.py` usa SQLite padrão com commits duráveis, arquivos privados `0600` e exclusão por `flock`. Guarda claim antes do POST, `started` antes da execução e resultado antes do PUT. Resultado salvo é reenviado sem reexecução; `started` sem resultado permanece incerto. Não há promessa de execução exatamente uma vez. Não apague o diário para contornar um conflito.
+
+A CLI mantém backoff, TLS, timeout por requisição e sinais. Comandos usam limite de 16 KiB por resposta. Sem rede/503, preserva pendências para o ciclo seguinte; 401/TLS/409 encerram. 404/410 de claim/resultado abandonam a autorização local. O processamento não importa malcontent, não recebe shell e não altera presença no mobile.
+
+Procedimento e resultados: [validação de ping](../docs/agent-ping-validation.md). Passaram 63 testes Python no WSL2 e Lux, incluindo respostas de claim/resultado perdidas, reinício, erros de diário e comandos desconhecidos. A aplicação de políticas e o pareamento/autorização administrativa local permanecem pendentes.
+
 ## Desenvolver e testar no WSL2
 
-O fonte permanece versionado neste repositório. Os testes usam `unittest` da biblioteca padrão, sem GI, D-Bus ou dependências pip:
+O fonte permanece versionado neste repositório. Os testes usam `unittest` da biblioteca padrão, sem GI, D-Bus ou dependências pip. A suíte HTTPS também exige o executável OpenSSL 3 para gerar certificados temporários:
 
 ```bash
 python3 -m unittest discover -s lux-agent -v
@@ -119,13 +135,13 @@ Se faltar dependência ou houver divergência, investigue antes de prosseguir. I
 Revise a simulação e depois execute o mesmo rsync sem `-n`:
 
 ```bash
-rsync -rltivn -e 'ssh -o BatchMode=yes -o ConnectTimeout=10' --include='/poll_associations.py' --include='/test_poll_associations.py' --include='/check_backend.py' --include='/test_check_backend.py' --include='/read_policies.py' --include='/test_read_policies.py' --include='/README.md' --exclude='*' lux-agent/ lux:lux-agent-poc/
-rsync -rltiv -e 'ssh -o BatchMode=yes -o ConnectTimeout=10' --include='/poll_associations.py' --include='/test_poll_associations.py' --include='/check_backend.py' --include='/test_check_backend.py' --include='/read_policies.py' --include='/test_read_policies.py' --include='/README.md' --exclude='*' lux-agent/ lux:lux-agent-poc/
+rsync -rltivn -e 'ssh -o BatchMode=yes -o ConnectTimeout=10' --include='/poll_associations.py' --include='/test_poll_associations.py' --include='/check_backend.py' --include='/test_check_backend.py' --include='/test_https_transport.py' --include='/command_journal.py' --include='/command_processor.py' --include='/test_commands.py' --include='/read_policies.py' --include='/test_read_policies.py' --include='/README.md' --exclude='*' lux-agent/ lux:lux-agent-poc/
+rsync -rltiv -e 'ssh -o BatchMode=yes -o ConnectTimeout=10' --include='/poll_associations.py' --include='/test_poll_associations.py' --include='/check_backend.py' --include='/test_check_backend.py' --include='/test_https_transport.py' --include='/command_journal.py' --include='/command_processor.py' --include='/test_commands.py' --include='/read_policies.py' --include='/test_read_policies.py' --include='/README.md' --exclude='*' lux-agent/ lux:lux-agent-poc/
 ssh lux 'python3 -B -m unittest discover -s ~/lux-agent-poc -v'
 ssh lux 'python3 -B ~/lux-agent-poc/read_policies.py --user USUARIO_ALVO'
 ```
 
-O destino é uma cópia executável em `~/lux-agent-poc/`, sem Git e sem edição de fonte na VM. A lista de inclusão transfere somente os sete arquivos indicados (seis Python e este README); `.env`, chaves, credenciais, caches e qualquer outro arquivo ficam excluídos. Não use `--delete` nem sincronize a raiz do repositório. Substitua `USUARIO_ALVO` pelo login da conta que deseja consultar; não há usuário implícito nem seleção automática de conta infantil.
+O destino é uma cópia executável em `~/lux-agent-poc/`, sem Git e sem edição de fonte na VM. A lista de inclusão transfere somente os onze arquivos indicados (dez Python e este README); `.env`, chaves, credenciais, caches e qualquer outro arquivo ficam excluídos. Não use `--delete` nem sincronize a raiz do repositório. Substitua `USUARIO_ALVO` pelo login da conta que deseja consultar; não há usuário implícito nem seleção automática de conta infantil.
 
 Use o Python do sistema Lux com seus bindings GI e comece sem `sudo`: a PoC usa `ManagerGetValueFlags.NONE`, sem autorização interativa ou elevação automática. Permissão negada, serviço indisponível ou dados inválidos retornam erro em stderr e código 1, sem JSON parcial. Argumentos inválidos retornam 2; uma consulta completa retorna 0 e JSON em stdout.
 

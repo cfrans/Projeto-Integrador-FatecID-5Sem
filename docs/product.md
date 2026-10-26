@@ -6,7 +6,7 @@ O Lenovo Lux Parental (PIPLUP, identificado como `piplup` no código) é um proj
 
 ## Estado atual
 
-O aplicativo Expo usa autenticação real de responsáveis e consulta registros de computadores pela API NestJS. A persistência utiliza Prisma e MySQL. A infraestrutura de pareamento seguro está implementada no backend e integrada ao mobile. A fundação do Lux Agent possui diagnóstico autenticado e PoC de leitura nativa validados no Lux, além de polling somente de leitura dos vínculos; pareamento local e operações parentais remotas ainda não existem. Fixtures permanecem identificadas como demonstração.
+O aplicativo Expo usa autenticação real de responsáveis e consulta registros de computadores pela API NestJS. A persistência utiliza Prisma e MySQL. A infraestrutura de pareamento seguro está implementada no backend e integrada ao mobile. A fundação do Lux Agent possui diagnóstico autenticado e PoC de leitura nativa validados no Lux, além de polling de vínculos e `agent.ping` validado por HTTPS com resultado persistido; pareamento local e operações parentais remotas ainda não existem. Fixtures permanecem identificadas como demonstração.
 
 ## Usuários
 
@@ -27,7 +27,7 @@ O primeiro MVP deverá reunir autenticação real, gerenciamento de dispositivos
 
 ## Etapa atual e fora de escopo
 
-A fundação, autenticação e listagem autorizada já foram entregues. A infraestrutura de pareamento já existe na API/mobile, com um responsável ativo por computador, tokens temporários de uso único e revogação. A identidade do computador exige provisionamento administrativo separado do pareamento. A etapa 5 do Agent é parcial; o protocolo de comandos está em [proposta para revisão](agent-protocol.md), sem execução remota ou aplicação de restrições. A pequena interface local Python/GTK4/libadwaita de pareamento é planejada, separada do Agent systemd; a prova de conceito poderá começar com QR no terminal. Criar um mecanismo próprio de bloqueio parental ou modificar o código-fonte do GNOME/Controle Parental está fora do escopo.
+A fundação, autenticação e listagem autorizada já foram entregues. A infraestrutura de pareamento já existe na API/mobile, com um responsável ativo por computador, tokens temporários de uso único e revogação. A identidade do computador exige provisionamento administrativo separado do pareamento. A etapa 5 do Agent é parcial; o [protocolo v1 de comandos](agent-protocol.md) permite somente `agent.ping`, validado no Lux real. Não há execução parental remota ou aplicação de restrições. A pequena interface local Python/GTK4/libadwaita de pareamento é planejada, separada do Agent systemd; a prova de conceito poderá começar com QR no terminal. Criar um mecanismo próprio de bloqueio parental ou modificar o código-fonte do GNOME/Controle Parental está fora do escopo.
 
 ## Referências e limites
 

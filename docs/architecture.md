@@ -5,7 +5,7 @@
 ```mermaid
 flowchart TD
     M[Mobile Expo] -->|REST: autenticação, dispositivos e pareamento| B[Backend NestJS]
-    A[Lux Agent Python 3] -->|polling de vínculos REST/HTTPS; comandos futuros| B[Backend NestJS]
+    A[Lux Agent Python 3] -->|polling REST/HTTPS de vínculos e agent.ping| B[Backend NestJS]
     A -->|leitura via libmalcontent comprovada; escrita futura| G[GNOME / controles parentais]
     B -->|Prisma| D[(MySQL 8.4)]
     U[Interface local Python / GTK4 / libadwaita futura] -->|pareamento sob demanda e autorização local a validar| A
@@ -13,7 +13,7 @@ flowchart TD
 
 O mobile é um cliente remoto e conversa somente com a API; não acessa MySQL nem o computador Lux diretamente. O backend é um monólito modular em TypeScript/Node.js LTS com NestJS, REST e Prisma. Ele disponibiliza a API, persiste dados e intermedeia operações com agentes. O agente Python 3 será instalado como serviço systemd, iniciará comunicação com o backend por polling e integrará operações locais permitidas pelo sistema, reportando resultados. O GNOME/Lux aplica as restrições. A interface gráfica local de pareamento será um aplicativo Python/GTK4/libadwaita distinto do serviço, aberto sob demanda por um administrador. Fechá-la não interrompe o Agent. Ambos serão instalados no Lux; estarem neste repositório não implica execução no servidor ou celular.
 
-O backend persiste responsáveis, dispositivos e contratos de pareamento em MySQL; autentica responsáveis com Argon2id e JWT de 30 minutos, e computadores com credenciais individuais provisionadas administrativamente. O mobile usa login, consulta de perfil e listagem reais, armazena a sessão em SecureStore no Android/iOS e protege a navegação. A listagem filtra pelo responsável autenticado e distingue vínculo ativo de fixtures legadas; nenhum registro comprova integração Linux. As fixtures são identificadas como demonstração e a conexão permanece não validada. Existe uma PoC local de leitura libmalcontent em `lux-agent/`; o diagnóstico autenticado e o polling de vínculos Agent → backend já existem; transporte de comandos e aplicação de políticas pelo agente são futuros. O agente iniciará a comunicação por REST/HTTPS (polling); conectividade de entrada no computador não é requisito assumido. Os contratos de identidade e pareamento estão definidos nesta etapa; confirmação de aplicação parental ainda depende de investigação e validação no Lux real.
+O backend persiste responsáveis, dispositivos e contratos de pareamento em MySQL; autentica responsáveis com Argon2id e JWT de 30 minutos, e computadores com credenciais individuais provisionadas administrativamente. O mobile usa login, consulta de perfil e listagem reais, armazena a sessão em SecureStore no Android/iOS e protege a navegação. A listagem filtra pelo responsável autenticado e distingue vínculo ativo de fixtures legadas; nenhum registro comprova integração Linux. As fixtures são identificadas como demonstração e a conexão permanece não validada. Existe uma PoC local de leitura libmalcontent em `lux-agent/`; o diagnóstico autenticado e o polling de vínculos Agent → backend já existem; `agent.ping` já usa reserva, diário e resultado persistido; comandos parentais e aplicação de políticas pelo agente são futuros. O agente iniciará a comunicação por REST/HTTPS (polling); conectividade de entrada no computador não é requisito assumido. Os contratos de identidade e pareamento estão definidos nesta etapa; confirmação de aplicação parental ainda depende de investigação e validação no Lux real.
 
 ## Etapas de implementação
 
@@ -21,11 +21,11 @@ Estado baseado na implementação existente. “Implementada” descreve o códi
 
 | Etapa | Estado | Evidência atual e trabalho restante |
 | --- | --- | --- |
-| 1. Fundação NestJS, Prisma, MySQL e Docker | Implementada | Scaffold modular, conexão/saúde, três migrations e Compose com watch. Execução no host prevista pelos mesmos scripts/configuração; limites da validação em [README](../README.md#limites-de-validação-dos-fluxos). |
+| 1. Fundação NestJS, Prisma, MySQL e Docker | Implementada | Scaffold modular, conexão/saúde, quatro migrations e Compose com watch. Execução no host prevista pelos mesmos scripts/configuração; limites da validação em [README](../README.md#limites-de-validação-dos-fluxos). |
 | 2. Autenticação, dispositivos e integração mobile | Parcial | Login/perfil JWT, listagem autorizada e revogação integrados. Contas vêm de seed; computadores de seed ou provisionamento administrativo. Não há cadastro público, edição geral de dispositivos nem presença real. |
 | 3. Infraestrutura de pareamento seguro | Implementada na API/mobile | Identidade individual, token de cinco minutos/uso único, consumo transacional, leitura/confirmação de QR e revogação. Autorização local e pareamento com Agent físico pendentes. |
 | 4. Prova de conceito Python/malcontent no Lux | Leitura validada com e sem restrições | VM Lux 3/Canopus, GNOME 50.4, malcontent 0.13.1-5. Própria conta consultada sem sudo; leitura restritiva de outra conta exigiu sudo autenticado pelo usuário. JSONs antes/depois idênticos e campos expostos pela CLI compatíveis; testes no WSL2 e Lux. Privilégios mínimos do futuro serviço pendentes; ver [registro](lux-integration.md#registro-de-provas-técnicas). |
-| 5. Lux Agent mínimo | Parcial | Diagnóstico e polling GET de associações com credencial protegida, backoff/jitter, Retry-After, limite de consultas e encerramento por sinal. Consultas reais validadas no WSL2/Lux e parada após revogação no WSL2; 42 testes nos dois ambientes. HTTPS real, comandos, pareamento local e systemd pendentes; [evidências](../lux-agent/README.md#validação-do-polling--2026-10-24). |
+| 5. Lux Agent mínimo | Parcial | Diagnóstico/polling, HTTPS verificado e primeiro comando `agent.ping` com reserva, diário e resultado validados no Lux real. 63 testes Python em WSL2/Lux, 18 testes MySQL; [contrato](agent-protocol.md) e [evidências](agent-ping-validation.md). Comandos parentais, pareamento/autorização local e systemd pendentes. |
 | 6. Interface GTK4/libadwaita | Planejada | Aplicativo Python independente para autorização e QR temporário; definir comunicação local com Agent e validar permissões. |
 | 7. Controle parental nativo real | Planejada | Implementar somente operações demonstradas na prova técnica, incluindo consulta posterior do resultado; backend deverá registrar comandos/resultados. |
 | 8. Validação ponta a ponta e expansão | Planejada | Validar mobile → API → Agent → GNOME, falhas, revogação e aplicação confirmada; expandir capacidades gradualmente. |
@@ -36,7 +36,7 @@ A investigação GNOME pode avançar na VM disponível. O foco acadêmico princi
 
 Este fluxo é planejado; não existem modelos, endpoints ou processamento de comandos parentais no código atual.
 
-A [proposta de protocolo do Agent](agent-protocol.md) detalha os contratos mínimos, estados, autorização e recuperação para revisão antes de alterar backend/banco. É uma proposta nova, não uma decisão aprovada nem uma implementação. A primeira operação sugerida é um diagnóstico sem acesso ao GNOME; o polling de associações está implementado separadamente usando o endpoint atual, sem reservar ou executar comandos.
+O [protocolo do Agent](agent-protocol.md) implementa somente `agent.ping`, com vínculo original ativo, reserva única, diário privado e resultados idempotentes. O [ping ponta a ponta](agent-ping-validation.md) foi validado com Lux real por HTTPS. O fluxo parental abaixo permanece planejado; não há execução remota de malcontent ou escrita GNOME.
 
 1. O responsável solicita a alteração pelo mobile via HTTPS/REST.
 2. NestJS autentica, autoriza o recurso e registra o comando pendente em MySQL por Prisma.

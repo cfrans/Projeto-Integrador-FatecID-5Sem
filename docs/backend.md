@@ -14,6 +14,7 @@ backend/
   src/auth/                      login, contratos e proteção JWT
   src/devices/                   listagem e revogação por responsável
   src/pairing/                   sessões e autenticação individual do Agent
+  src/commands/                  comandos tipados, reserva e resultado
   src/agent/agent-admin.ts        ferramenta administrativa de identidade
   prisma/schema.prisma           modelos de autenticação, dispositivos e pareamento
   prisma7.config.ts              CLI e caminho de migrations
@@ -26,13 +27,13 @@ backend/
   package-lock.json              instalação reproduzível
 ```
 
-O scaffold atual usa ESM, Vitest e Oxlint. Controllers recebem HTTP, services concentram lógica e módulos organizam providers conforme as convenções NestJS. DTOs validam entradas e documentam os contratos de autenticação e dispositivos. Os módulos adicionais são Prisma, Auth, Devices e Pairing.
+O scaffold atual usa ESM, Vitest e Oxlint. Controllers recebem HTTP, services concentram lógica e módulos organizam providers conforme as convenções NestJS. DTOs validam entradas e documentam os contratos de autenticação e dispositivos. Os módulos adicionais são Prisma, Auth, Devices, Pairing e Commands.
 
 Para novos scaffolds, use os comandos oficiais compatíveis com as versões adotadas: `npx @nestjs/cli new` e `npx prisma init`. Antes de usar APIs NestJS, Prisma ou MySQL, consulte a documentação oficial correspondente às versões declaradas no projeto; não gere manualmente estruturas já fornecidas pelos scaffolds nem introduza camadas ou dependências sem necessidade demonstrada.
 
 `PrismaService` conecta e executa `SELECT 1` durante a inicialização. `GET /health` consulta o banco novamente, retorna `{ "status": "ok", "database": "ok" }` ou HTTP 503 se a consulta falhar. Uma falha de conexão inicial impede a aplicação de iniciar. Shutdown hooks encerram a conexão ao receber sinais de término.
 
-Swagger fica em `/docs`; OpenAPI em `/docs-json`. O ambiente local usa HTTP em localhost. HTTPS e exposição da API serão decisões de hospedagem futuras, antes de conectar responsáveis ou agentes reais.
+Swagger fica em `/docs`; OpenAPI em `/docs-json`. O ambiente local usa HTTP em localhost. A [validação HTTPS de desenvolvimento](lux-https-development.md) usa um proxy temporário e CA explícita no Agent, sem alterar NestJS/Compose. A configuração definitiva de HTTPS e exposição da API permanece uma decisão de hospedagem futura.
 
 ## Executar com Docker
 
@@ -137,7 +138,7 @@ O schema e migrations aditivas de responsável e dispositivos estão versionados
 
 ## Responsabilidades do backend
 
-O backend implementa autenticação de responsáveis e leitura de registros de dispositivos limitada ao responsável autenticado. O módulo Pairing implementa sessões e vínculos revogáveis; a ferramenta administrativa provisiona e invalida identidades individuais. Existe uma [PoC Linux de leitura e diagnóstico autenticado do Agent](../lux-agent/README.md), reutilizando `GET /agent/associations`; o Agent também possui polling somente de leitura desses vínculos; transporte de comandos e serviço Agent não estão implementados. A aplicação das restrições pertence ao GNOME; sucesso de transporte não deve ser confundido com aplicação confirmada no computador.
+O backend implementa autenticação de responsáveis e leitura de registros de dispositivos limitada ao responsável autenticado. O módulo Pairing implementa sessões e vínculos revogáveis; a ferramenta administrativa provisiona e invalida identidades individuais. Existe uma [PoC Linux de leitura e diagnóstico autenticado do Agent](../lux-agent/README.md), reutilizando `GET /agent/associations`; o Agent também consulta vínculos e, com diário habilitado, processa `agent.ping` pelo [protocolo v1](agent-protocol.md). Comandos parentais e serviço systemd não estão implementados. A aplicação das restrições pertence ao GNOME; sucesso de transporte não deve ser confundido com aplicação confirmada no computador.
 
 ## Integração do mobile
 
@@ -184,12 +185,16 @@ O [roteiro mobile](mobile.md) documenta o teste manual completo com Docker/WSL: 
 
 ## Próximas responsabilidades e decisões pendentes
 
-A [proposta de protocolo do Agent](agent-protocol.md) reúne os endpoints e o modelo de comandos sugeridos, ainda sujeitos a revisão. Nenhum deles foi implementado; não há migration de comandos. A proposta reutiliza autenticação, vínculo e transações por dispositivo existentes, com diagnóstico inicial sem execução parental.
+O [protocolo v1 do Agent](agent-protocol.md) implementa o primeiro diagnóstico remoto `agent.ping`, com modelo/migration, endpoints de criação/polling/reserva/resultado e diário no Python. Foi validado com MySQL isolado e Lux real por HTTPS; comandos parentais continuam excluídos.
 
-As próximas etapas implementarão o Agent Python/systemd e a interface independente Python/GTK4/libadwaita, validando no Lux proteção da identidade, autorização local e QR. Coordenação de comandos parentais continua planejada: faltam modelos e endpoints para registrar comandos, disponibilizar trabalho por polling e receber/persistir resultados. O backend deverá distinguir pendência, falha/indisponibilidade e aplicação confirmada; aceite HTTP não comprova alteração no GNOME. Estados, repetição segura e sincronização serão definidos antes da implementação. Autenticação e listagem já estão integradas ao mobile; comportamento offline ainda não foi acordado. O backend não aplica restrições Linux nem envia comandos arbitrários para execução.
+As próximas etapas implementarão o Agent Python/systemd e a interface independente Python/GTK4/libadwaita, validando no Lux proteção da identidade, autorização local e QR. Coordenação de comandos parentais continua planejada: a infraestrutura existe apenas para ping e precisa de novos contratos tipados, autorização e reconciliação antes de operações Linux. O backend deverá distinguir pendência, falha/indisponibilidade e aplicação confirmada; aceite HTTP não comprova alteração no GNOME. Estados, repetição segura e sincronização serão definidos antes da implementação. Autenticação e listagem já estão integradas ao mobile; comportamento offline ainda não foi acordado. O backend não aplica restrições Linux nem envia comandos arbitrários para execução.
 
 Referências: [Nest CLI](https://docs.nestjs.com/cli/overview), [comandos da CLI](https://docs.nestjs.com/cli/usages), [Swagger](https://docs.nestjs.com/openapi/introduction) e [Prisma 7/MySQL](https://www.prisma.io/docs/v7/prisma-orm/quickstart/mysql).
 
 ## Limitações e dependências
 
 O override de MariaDB 3.5.4 fica restrito ao adapter Prisma para corrigir vulnerabilidades do driver, conforme o [changelog do mantenedor](https://github.com/mariadb-corporation/mariadb-connector-nodejs/releases/tag/3.5.4). A CLI Prisma entra na árvore de produção por peer dependency do client, apesar de estar declarada em devDependencies. Confira dependências com `npm audit`; atualizações precisam preservar a compatibilidade entre Prisma, Node e NestJS.
+
+## Comandos diagnósticos do Agent
+
+O módulo `Commands` implementa criação/consulta por responsável e polling/claim/resultado por Agent. A única operação é `agent.ping` versão 1, parâmetros vazios e resultado mínimo. Exige vínculo original ativo e identidade válida, com transações serializadas por dispositivo e índices de idempotência. [Contrato completo](agent-protocol.md) e [validação com banco isolado/Lux real](agent-ping-validation.md). O bootstrap limita corpos JSON a 16 KiB. A UI mobile e operações parentais não fazem parte desta entrega.
