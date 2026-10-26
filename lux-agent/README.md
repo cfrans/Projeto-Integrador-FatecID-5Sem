@@ -4,7 +4,7 @@ Pacote Python `lux_agent` com três subcomandos: `read-policies` lê políticas 
 
 O [protocolo v1](../docs/agent-protocol.md) implementa reserva única e resultado idempotente de ping com diário privado. A [validação ponta a ponta](../docs/agent-ping-validation.md) usou NestJS/MySQL e Lux reais por HTTPS. Operações parentais continuam fora do executor.
 
-A PoC de leitura usa PyGObject/libmalcontent e AccountsService, sem alterar políticas ou solicitar elevação. A VM de referência é Lux 3/Canopus, GNOME 50.4 e malcontent 0.13.1-5. Leituras com e sem restrições foram validadas; consultar outra conta exigiu autenticação administrativa. Privilégios mínimos do futuro serviço permanecem pendentes. O mock do Agent no backend ainda não existe.
+A PoC de leitura usa PyGObject/libmalcontent e AccountsService, sem alterar políticas ou solicitar elevação. A VM de referência é Lux 3/Canopus, GNOME 50.4 e malcontent 0.13.1-5. Leituras com e sem restrições foram validadas; consultar outra conta exigiu autenticação administrativa. Privilégios mínimos do futuro serviço permanecem pendentes. O [client simulado](../docs/simulated-client.md) é um programa separado para demonstração; seu contrato não implementa comandos ou políticas Linux neste Agent.
 
 ## Organização e execução
 

@@ -1,0 +1,9 @@
+{
+  "name": "piplup-simulated-client",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "engines": { "node": ">=24.15 <25" },
+  "scripts": { "start": "node server.mjs", "test": "node --test test/*.test.mjs", "test:integration": "node --test test/*.mysql-test.mjs", "lint": "node --check server.mjs && node --check public/client.js" },
+  "dependencies": { "qrcode": "1.5.4" }
+}

@@ -4,7 +4,9 @@ import * as SecureStore from 'expo-secure-store';
 import { ThemeProvider as NavigationThemeProvider } from 'expo-router/react-navigation';
 import { darkColors, darkNavigationTheme, lightColors, lightNavigationTheme, type ColorPalette, type ThemeScheme } from '@/theme';
 
-export type ThemePreference = 'system' | 'light' | 'dark';
+import { resolveTheme, type ThemePreference } from './preferences';
+
+export type { ThemePreference } from './preferences';
 
 type ThemeContextValue = {
   colors: ColorPalette;
@@ -58,9 +60,7 @@ export function AppThemeProvider({ children }: { children: ReactNode }) {
     void savePreference(nextPreference);
   }, []);
 
-  const scheme: ThemeScheme = preference === 'system'
-    ? systemColorScheme === 'light' ? 'light' : 'dark'
-    : preference;
+  const scheme: ThemeScheme = resolveTheme(preference, systemColorScheme);
   const colors = scheme === 'dark' ? darkColors : lightColors;
   const navigationTheme = scheme === 'dark' ? darkNavigationTheme : lightNavigationTheme;
   const value = useMemo(

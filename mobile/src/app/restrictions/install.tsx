@@ -1,5 +1,9 @@
+import { useSimulationReady } from '@/features/restrictions/SimulationProvider';
+import { useRestrictionComputer } from '@/features/restrictions/RestrictionDeviceProvider';
 import { InstallationRestrictionScreen } from '@/features/restrictions/InstallationRestrictionScreen';
 
 export default function InstallScreen() {
-  return <InstallationRestrictionScreen />;
+  const computer = useRestrictionComputer();
+  const ready = useSimulationReady();
+  return computer && ready ? <InstallationRestrictionScreen key={computer.id} computer={computer} /> : null;
 }

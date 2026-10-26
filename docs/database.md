@@ -56,6 +56,12 @@ Migrations Prisma são versionadas junto ao código e aplicadas de forma control
 
 `backend/prisma/schema.prisma` define `Guardian` com UUID, email único, nome e hash Argon2id da senha, e `Device` com UUID, nome, usuário gerenciado opcional, `guardianId` e `isDemo`. As migrations versionadas criam esses modelos. A relação usa comportamento restritivo para exclusão e índice simples por `guardianId`; nomes não são identidade única. `prisma:generate` gera código ignorado pelo Git, sem alterar o banco. Comandos e execução estão em [Backend](backend.md).
 
+### Inventário e pedidos persistidos
+
+`InstalledApplication` guarda UUID, computador, nome, categoria e o valor reportado de `allowed`. `InstallationRequest` guarda UUID, computador, aplicativo solicitado, solicitante, data UTC, faixa etária e estado `PENDING`, `APPROVED` ou `DENIED`. Ambos pertencem a `Device` e são removidos em cascata com o computador; revogar vínculo não apaga esses registros.
+
+Os marcadores opcionais `Device.applicationsReportedAt` e `Device.installationRequestsReportedAt` distinguem relatório ausente de relatório vazio. Registros e marcador devem ser atualizados atomicamente pela futura ingestão autenticada do Agent, ainda não implementada. Não representam presença online ou aplicação confirmada de restrições. Os contratos de leitura estão em [Backend](backend.md#consultas-de-aplicativos-e-pedidos-de-instalação).
+
 Para **aplicar migrations existentes**, use `npm run prisma:migrate:deploy` em `backend/` ou a inicialização automática do Compose. Esse comando não cria migrations nem exige shadow database.
 
 Para **criar uma nova migration**, altere o schema intencionalmente e use um banco exclusivo de desenvolvimento. O Prisma precisa criar/remover bancos temporários de comparação (shadow databases). A conta padrão do Compose só tem permissões no banco da aplicação. A preparação abaixo é opcional, feita por um administrador apenas para quem desenvolve migrations; não é necessária para executar a API.
@@ -87,3 +93,9 @@ O seed de dispositivos de desenvolvimento requer `DEV_GUARDIAN_EMAIL` de uma con
 `AgentCommand` foi acrescentado pela migration `20261026035355_agent_ping_commands`, gerada pelo Prisma e validada apenas em banco descartável nesta entrega. Mantém dispositivo/vínculo original, intenção, prazos, reserva vinculada à identidade e resultado. As unicidades são `(associationId, requestId)` e `(deviceId, claimId)`; relações históricas usam FKs restritivas. A CHECK de associação ativa anterior permanece.
 
 Criação, reserva, resultado e revogação bloqueiam a mesma linha de `Device`. Essas transações e as de pareamento usam `READ COMMITTED`: a ordenação por dispositivo vem do `FOR UPDATE`, evitando deadlocks de gap locks entre computadores distintos. Expiração e timeout são estados efetivos calculados na leitura, sem cron; revogação materializa cancelamento/incerteza. [Semântica dos estados](agent-protocol.md#persistência-e-estados). Revise o SQL antes de atualizar bancos persistentes; atualizar o backend exige schema e Prisma Client correspondentes. [Procedimento isolado e evidências](agent-ping-validation.md).
+
+## Estado demonstrativo
+
+A migration `20261025120000_simulation_state` adiciona somente `SimulationState`, ligada a `DeviceAssociation`, com configurações JSON, revisão desejada e confirmação simulada. Novo vínculo começa sem o estado do anterior. Inventário e pedidos reutilizam as tabelas existentes. Aplique com `prisma:migrate:deploy` e regenere o client; ver [contrato da simulação](simulated-client.md#contrato-da-simulação).
+
+A migration aditiva `20261025160000_simulation_presence` inclui `SimulationState.lastSeenAt` opcional. Heartbeat/relatório autenticado do próprio client renova o horário no vínculo ativo; consultas do responsável não o alteram. Vínculos novos não herdam presença ou configurações anteriores.

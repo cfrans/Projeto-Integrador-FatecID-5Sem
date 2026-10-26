@@ -36,7 +36,7 @@ export default function RegisterScreen() {
   const [confirmPassword, setConfirmPassword] = useState('');
   const [errors, setErrors] = useState<FieldErrors>({});
   const [done, setDone] = useState(false);
-  const { t } = useLanguage();
+  const { t, localize } = useLanguage();
   const { colors } = useTheme();
   const styles = useThemedStyles(createStyles);
 
@@ -117,7 +117,7 @@ export default function RegisterScreen() {
                     textContentType="name"
                     value={name}
                   />
-                  {errors.name ? <Text style={styles.error}>{errors.name}</Text> : null}
+                  {errors.name ? <Text style={styles.error}>{localize(errors.name)}</Text> : null}
                 </View>
 
                 <View style={styles.field}>
@@ -138,7 +138,7 @@ export default function RegisterScreen() {
                     textContentType="emailAddress"
                     value={email}
                   />
-                  {errors.email ? <Text style={styles.error}>{errors.email}</Text> : null}
+                  {errors.email ? <Text style={styles.error}>{localize(errors.email)}</Text> : null}
                 </View>
 
                 <View style={styles.field}>
@@ -158,7 +158,7 @@ export default function RegisterScreen() {
                     textContentType="newPassword"
                     value={password}
                   />
-                  {errors.password ? <Text style={styles.error}>{errors.password}</Text> : null}
+                  {errors.password ? <Text style={styles.error}>{localize(errors.password)}</Text> : null}
                 </View>
 
                 <View style={styles.field}>
@@ -178,7 +178,7 @@ export default function RegisterScreen() {
                     textContentType="newPassword"
                     value={confirmPassword}
                   />
-                  {errors.confirmPassword ? <Text style={styles.error}>{errors.confirmPassword}</Text> : null}
+                  {errors.confirmPassword ? <Text style={styles.error}>{localize(errors.confirmPassword)}</Text> : null}
                 </View>
               </View>
 

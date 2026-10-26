@@ -69,7 +69,7 @@ O login usa a hierarquia observada no HTML: marca no topo, “Bem-vindo de volta
 
 ## Home, computadores e pareamento
 
-A Home e a lista mantêm cards compactos com nome, conta gerenciada e status acompanhado de texto. As ações contornadas abrem a lista ou o pareamento. Carregamento, erro com nova tentativa e lista vazia usam a mesma paleta. A lista utiliza `FlatList`; o conteúdo da Home pode rolar.
+Na Home, Sair é um botão compacto com ícone à esquerda, contorno e fundo no canto superior, com alvo de toque mínimo de 44, sem ocupar uma linha inteira. A Home e a lista mantêm cards compactos com nome, conta gerenciada e status acompanhado de texto. As ações contornadas abrem a lista ou o pareamento. Carregamento, erro com nova tentativa e lista vazia usam a mesma paleta. A lista utiliza `FlatList`; o conteúdo da Home pode rolar.
 
 O pareamento preserva a moldura de leitura e a confirmação do HTML numa única rota. A leitura usa `expo-camera`; confirmação do computador e remoção de vínculo reutilizam os componentes existentes. Dados demonstrativos continuam identificados como demonstração. O Button mantém estado desativado visual e acessível durante solicitações pendentes; nenhuma mudança de paleta ou estrutura de navegação foi necessária.
 
@@ -88,3 +88,15 @@ O PDF mostra erro, sucesso, sincronização em andamento, falha de comunicação
 Mensagens do PDF sobre chaves guardadas apenas no celular, fila offline, prazos e fechamento automático não são decisões de segurança ou garantias técnicas. Revisar o texto após definir contratos e validar a integração. Ações normais e destrutivas compartilham a cor vermelha no código atual; quando existirem, diferenciá-las por texto/contexto e confirmação apropriada.
 
 TODO: validar contraste, fonte ampliada e leitores de tela em dispositivo. Não inferir especificações de produção apenas das medidas de impressão.
+
+## Restrições: contexto compartilhado
+
+O retorno fica somente no cabeçalho nativo. O computador e a conta aparecem uma vez, em um cartão compacto; com múltiplos vínculos, **Trocar** abre uma lista modal e preserva a aba atual. O status de aplicação simulada fica abaixo do seletor, com texto e indicador discreto. Cada aba exibe seu título, sem repetir nome/conta ou badge de simulação. A barra inferior respeita o inset do sistema.
+
+Navegadores usam [logos locais das fontes oficiais](../mobile/assets/browsers/README.md), preservando proporção e cores, sem downloads em tempo de execução ou dependência gráfica adicional.
+
+## Identidade de aplicativos e computadores
+
+`ApplicationIcon` compartilha logos locais entre navegadores, inventário e pedidos de instalação; nomes conhecidos e IDs Linux têm aliases explícitos, e desconhecidos mantêm a inicial. [Fontes dos aplicativos](../mobile/assets/applications/README.md).
+
+Computadores usam monitor por padrão, com opções Notebook, PC gamer e Servidor. Toque no ícone com o indicador de edição no cartão da Home ou da lista para personalizar; o seletor das restrições usa a mesma escolha. A preferência é local, separada por responsável e UUID do computador; não altera hardware, presença ou dados no backend. [Assets e licença](../mobile/assets/computers/README.md).

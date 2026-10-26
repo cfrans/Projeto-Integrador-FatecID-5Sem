@@ -27,7 +27,7 @@ backend/
   package-lock.json              instalação reproduzível
 ```
 
-O scaffold atual usa ESM, Vitest e Oxlint. Controllers recebem HTTP, services concentram lógica e módulos organizam providers conforme as convenções NestJS. DTOs validam entradas e documentam os contratos de autenticação e dispositivos. Os módulos adicionais são Prisma, Auth, Devices, Pairing e Commands.
+O scaffold atual usa ESM, Vitest e Oxlint. Controllers recebem HTTP, services concentram lógica e módulos organizam providers conforme as convenções NestJS. DTOs validam entradas e documentam os contratos de autenticação e dispositivos. Os módulos adicionais são Prisma, Auth, Devices, Pairing, Commands e Simulation.
 
 Para novos scaffolds, use os comandos oficiais compatíveis com as versões adotadas: `npx @nestjs/cli new` e `npx prisma init`. Antes de usar APIs NestJS, Prisma ou MySQL, consulte a documentação oficial correspondente às versões declaradas no projeto; não gere manualmente estruturas já fornecidas pelos scaffolds nem introduza camadas ou dependências sem necessidade demonstrada.
 
@@ -40,7 +40,7 @@ Swagger fica em `/docs`; OpenAPI em `/docs-json`. O ambiente local usa HTTP em l
 Na raiz, copie `.env.example` para `.env`, preencha senhas locais distintas para `MYSQL_PASSWORD` e `MYSQL_ROOT_PASSWORD`, e defina `JWT_SECRET` com pelo menos 32 bytes aleatórios. Nunca versione esse arquivo.
 
 ```bash
-cp .env.example .env
+test -f .env || cp .env.example .env
 docker compose config --quiet
 docker compose up -d
 docker compose ps
@@ -72,17 +72,17 @@ docker compose down
 
 ## Desenvolvimento no host
 
-Use Node 24.15+ na linha 24 e npm, com MySQL 8.4 instalado ou um servidor de desenvolvimento acessível. Prepare banco/usuário conforme [Banco](database.md), configure `.env` na raiz e execute em `backend/`:
+Use Node 24.15+ na linha 24 e npm, com MySQL 8.4 já saudável. No Windows, siga primeiro o [fluxo recomendado](../README.md#3a-recomendado-no-windows-mysql-no-docker-e-backend-pelo-npm) para iniciar somente o MySQL no Docker. Também é possível usar MySQL instalado diretamente ou servidor de desenvolvimento acessível. Prepare banco/usuário conforme [Banco](database.md), configure `.env` na raiz e execute em `backend/`:
 
 ```bash
 cd backend
-npm install
-npm run prisma:generate
+npm ci
 npm run prisma:migrate:deploy
+npm run prisma:generate
 npm run start:dev
 ```
 
-Nenhum comando Docker é necessário nesse fluxo. `MYSQL_HOST` e `MYSQL_PORT` apontam para o servidor alcançável pelo host (`127.0.0.1:3306` por padrão); o Compose substitui apenas esses valores por `mysql:3306` dentro do backend. A configuração carrega `.env` da raiz, preservando variáveis já injetadas, e mantém o fallback legado de `backend/.env`. Não crie esse segundo arquivo para duplicar a configuração. Usuário, senha e nome do banco são codificados ao compor a URL Prisma; não é necessário manter uma `DATABASE_URL` adicional. `MYSQL_ROOT_PASSWORD` só é usado na inicialização do MySQL Docker e não é necessário para iniciar NestJS/Prisma no host.
+Se o MySQL é independente do Docker, nenhum comando Docker é necessário. `MYSQL_HOST` e `MYSQL_PORT` apontam para o servidor alcançável pelo host (`127.0.0.1:3306` por padrão); o Compose substitui apenas esses valores por `mysql:3306` dentro do backend. A configuração carrega `.env` da raiz, preservando variáveis já injetadas, e mantém o fallback legado de `backend/.env`. Não crie esse segundo arquivo para duplicar a configuração. Usuário, senha e nome do banco são codificados ao compor a URL Prisma; não é necessário manter uma `DATABASE_URL` adicional. `MYSQL_ROOT_PASSWORD` só é usado na inicialização do MySQL Docker e não é necessário para iniciar NestJS/Prisma no host.
 
 Na primeira instalação, gere o client e aplique migrations conforme acima. Para criar o responsável e fixtures, configure também `NODE_ENV=development` e `DEV_GUARDIAN_*` na raiz e execute `npm run prisma:seed` e `npm run prisma:seed:devices` antes de iniciar o watch. No uso diário, basta `npm run start:dev`. Para instalação reproduzível pelo lockfile, use `npm ci`.
 
@@ -128,7 +128,7 @@ O seed de responsável é explícito e exclusivo para `NODE_ENV=development`. `D
 
 ## Listagem de dispositivos implementada
 
-`GET /devices` exige Bearer JWT e consulta somente registros cujo `guardianId` é o id do responsável validado pelo guard. A ordenação por nome e UUID é determinística e não há parâmetro de responsável no endpoint. A resposta é uma lista `{ id, name, managedUser, status: "unverified", lastSeen: null, isDemo, paired, associationId? }`; erro operacional no MySQL retorna HTTP 503. O backend não persiste presença nem horário de atividade. `unverified` e `lastSeen: null` evitam afirmar conexão com o computador antes de implementar e validar um agente.
+`GET /devices` exige Bearer JWT e consulta somente registros cujo `guardianId` é o id do responsável validado pelo guard. A ordenação por nome e UUID é determinística e não há parâmetro de responsável no endpoint. A resposta é uma lista `{ id, name, managedUser, status, lastSeen, isDemo, paired, associationId? }`; erro operacional retorna HTTP 503. PCs reais e fixtures sem contato ficam `unverified`/`null`. PCs demonstrativos com vínculo e identidade ativos usam `online` por até 15 segundos após heartbeat autenticado, depois `offline`, com `lastSeen` ISO. O horário pertence a `SimulationState.lastSeenAt`; leitura pelo responsável não o renova. Presença e confirmação de configuração são independentes, conforme o [contrato da simulação](simulated-client.md#contrato-da-simulação).
 
 `Device.guardianId` registra o escopo de propriedade/acesso da API. Nas fixtures legadas, esse campo não comprova pareamento. O campo `paired` só é verdadeiro quando há uma associação ativa; identidade do Lux e conexão Linux não são comprovadas pela listagem. Todos os registros criados pelo seed de desenvolvimento são demonstrativos (`isDemo: true`) e usam nomes/contas fictícios. O seed é separado: após aplicar migrations e já existir um responsável, configure `DEV_GUARDIAN_EMAIL` com o email dele e `NODE_ENV=development` na `.env`, e execute `npm run prisma:seed:devices` antes do servidor em watch. Ele não cria responsáveis nem altera dados existentes e pode ser repetido.
 
@@ -183,6 +183,17 @@ Para uma fixture de desenvolvimento, acrescente `--demo` ao provisionamento, com
 
 O [roteiro mobile](mobile.md) documenta o teste manual completo com Docker/WSL: provisionamento da fixture, solicitação autenticada de sessão, geração local do QR e validação no celular.
 
+## Consultas de aplicativos e pedidos de instalação
+
+- `GET /devices/:deviceId/applications`: lista `{ id, name, category, allowed }`, ordenada por nome e UUID.
+- `GET /devices/:deviceId/installation-requests`: lista somente pedidos `PENDING`, com `{ id, applicationName, requesterName, requestedAt, ageRating }`, ordenados por data e UUID. `requestedAt` é uma data ISO 8601 UTC.
+
+Ambos exigem JWT do responsável, UUID válido e associação ativa com aquele computador. Dispositivo inexistente, pertencente a outro responsável ou sem vínculo ativo retorna o mesmo HTTP 404. UUID inválido retorna 400; falha operacional retorna 503, sem detalhes internos.
+
+Os dados vêm de `InstalledApplication` e `InstallationRequest`. `Device.applicationsReportedAt` e `Device.installationRequestsReportedAt` indicam se cada relatório já foi recebido. Sem o marcador correspondente, a consulta retorna 503 com mensagem de dados ainda não recebidos; com relatório e nenhum registro, retorna `[]`. O retorno é a última informação persistida, sem garantia de presença ou atualização do computador.
+
+A coleta e ingestão pelo Agent real ainda não existem; o [client simulado](simulated-client.md) publica relatórios demonstrativos autenticados por um módulo separado. Seeds atuais não inventam inventário nem pedidos. Para o Agent real ainda não há endpoints de alteração, aprovação ou recusa; a simulação persiste essas decisões e confirma sua própria aplicação; `allowed` representa o valor registrado, sem executar uma política Linux. Os estados `APPROVED` e `DENIED` apenas permitem excluir pedidos já decididos da consulta; o fluxo de decisão permanece futuro.
+
 ## Próximas responsabilidades e decisões pendentes
 
 O [protocolo v1 do Agent](agent-protocol.md) implementa o primeiro diagnóstico remoto `agent.ping`, com modelo/migration, endpoints de criação/polling/reserva/resultado e diário no Python. Foi validado com MySQL isolado e Lux real por HTTPS; comandos parentais continuam excluídos.
@@ -198,3 +209,7 @@ O override de MariaDB 3.5.4 fica restrito ao adapter Prisma para corrigir vulner
 ## Comandos diagnósticos do Agent
 
 O módulo `Commands` implementa criação/consulta por responsável e polling/claim/resultado por Agent. A única operação é `agent.ping` versão 1, parâmetros vazios e resultado mínimo. Exige vínculo original ativo e identidade válida, com transações serializadas por dispositivo e índices de idempotência. [Contrato completo](agent-protocol.md) e [validação com banco isolado/Lux real](agent-ping-validation.md). O bootstrap limita corpos JSON a 16 KiB. A UI mobile e operações parentais não fazem parte desta entrega.
+
+## Simulação para demonstração
+
+O módulo isolado `src/simulation` reutiliza JWT, identidade do Agent, pareamento e tabelas de inventário/pedidos. A única tabela nova, `SimulationState`, guarda configurações versionadas por vínculo e confirmação simulada. Cadastro autenticado e operações desse módulo são restritos a demonstração em `development`/`test`; não habilitam registro ou controle de PCs reais. Contratos e execução ficam em [Client simulado](simulated-client.md).

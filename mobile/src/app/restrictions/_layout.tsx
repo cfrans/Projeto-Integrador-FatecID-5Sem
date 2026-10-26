@@ -1,5 +1,7 @@
 import { StyleSheet, Text, View, type ColorValue } from 'react-native';
 import { Tabs } from 'expo-router';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { RestrictionDeviceProvider } from '@/features/restrictions/RestrictionDeviceProvider';
 import { useLanguage } from '@/features/i18n/LanguageProvider';
 import { radius } from '@/theme';
 import { useTheme } from '@/features/theme/ThemeProvider';
@@ -45,51 +47,55 @@ function AgeTabIcon({ color }: { color: ColorValue }) {
 export default function RestrictionsLayout() {
   const { t } = useLanguage();
   const { colors } = useTheme();
+  const insets = useSafeAreaInsets();
 
   return (
-    <Tabs
-      screenOptions={{
-        headerShown: false,
-        tabBarActiveTintColor: colors.accentText,
-        tabBarInactiveTintColor: colors.textMuted,
-        tabBarStyle: {
-          backgroundColor: colors.background,
-          borderTopColor: colors.border,
-          height: 60,
-          paddingBottom: 6,
-          paddingTop: 6,
-        },
-      }}
-    >
-      <Tabs.Screen
-        name="browsers"
-        options={{
-          title: t('nav.browsers'),
-          tabBarIcon: ({ color }) => <BrowsersTabIcon color={color} />,
+    <RestrictionDeviceProvider>
+      <Tabs
+        screenOptions={{
+          headerShown: false,
+          tabBarActiveTintColor: colors.accentText,
+          tabBarInactiveTintColor: colors.textMuted,
+          tabBarStyle: {
+            backgroundColor: colors.background,
+            borderTopColor: colors.border,
+            height: 56 + insets.bottom,
+            paddingBottom: Math.max(insets.bottom, 8),
+            paddingTop: 8,
+          },
+          tabBarLabelStyle: { fontSize: 11, fontWeight: '600' },
         }}
-      />
-      <Tabs.Screen
-        name="apps"
-        options={{
-          title: t('nav.apps'),
-          tabBarIcon: ({ color }) => <AppsTabIcon color={color} />,
-        }}
-      />
-      <Tabs.Screen
-        name="install"
-        options={{
-          title: t('nav.install'),
-          tabBarIcon: ({ color }) => <InstallTabIcon color={color} />,
-        }}
-      />
-      <Tabs.Screen
-        name="age"
-        options={{
-          title: t('nav.age'),
-          tabBarIcon: ({ color }) => <AgeTabIcon color={color} />,
-        }}
-      />
-    </Tabs>
+      >
+        <Tabs.Screen
+          name="browsers"
+          options={{
+            title: t('nav.browsers'),
+            tabBarIcon: ({ color }) => <BrowsersTabIcon color={color} />,
+          }}
+        />
+        <Tabs.Screen
+          name="apps"
+          options={{
+            title: t('nav.apps'),
+            tabBarIcon: ({ color }) => <AppsTabIcon color={color} />,
+          }}
+        />
+        <Tabs.Screen
+          name="install"
+          options={{
+            title: t('nav.install'),
+            tabBarIcon: ({ color }) => <InstallTabIcon color={color} />,
+          }}
+        />
+        <Tabs.Screen
+          name="age"
+          options={{
+            title: t('nav.age'),
+            tabBarIcon: ({ color }) => <AgeTabIcon color={color} />,
+          }}
+        />
+      </Tabs>
+    </RestrictionDeviceProvider>
   );
 }
 

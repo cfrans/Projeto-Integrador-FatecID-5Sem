@@ -23,6 +23,8 @@ Decisões resolvidas antes da implementação:
 
 A reserva não torna a execução e a revogação uma transação distribuída. Revogar antes do claim impede a reserva. Depois do claim, não é possível garantir interrupção de execução local já autorizada/iniciada: a transação marca reservas sem resultado como `unknown` e bloqueia novos claims/resultados daquele vínculo. Nenhum resultado passa para novo responsável, inclusive se o mesmo responsável parear novamente.
 
+O schema também inclui inventário, pedidos de instalação e `SimulationState` para o [client demonstrativo](simulated-client.md). Esse estado é separado do protocolo de `agent.ping`; a presença demonstrativa não é alimentada pelo polling do Agent real. PCs reais mantêm `status: "unverified"` e `lastSeen: null`.
+
 ## Endpoints
 
 JSON validado, `Cache-Control: no-store` nas respostas de sucesso, UUIDs e datas UTC ISO 8601. Os endpoints de Agent derivam o dispositivo da identidade, sem aceitar seleção de outro computador.

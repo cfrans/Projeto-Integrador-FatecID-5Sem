@@ -1,4 +1,4 @@
-import { ApiError, api, apiErrorMessage } from '@/lib/api';
+import { ApiError, api, apiErrorMessage } from '../../../lib/api.ts';
 
 export type InstallationRequest = {
   id: string;
@@ -21,9 +21,15 @@ function parseRequest(value: unknown): InstallationRequest {
 
   if (
     typeof request.id !== 'string' ||
+    !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(request.id) ||
     typeof request.applicationName !== 'string' ||
+    !request.applicationName.trim() ||
     typeof request.requesterName !== 'string' ||
+    !request.requesterName.trim() ||
     typeof request.requestedAt !== 'string' ||
+    !/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/.test(request.requestedAt) ||
+    !Number.isFinite(new Date(request.requestedAt).getTime()) ||
+    new Date(request.requestedAt).toISOString() !== request.requestedAt ||
     typeof request.ageRating !== 'string'
   ) {
     throw new InstallationRequestsResponseError();

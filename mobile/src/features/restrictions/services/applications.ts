@@ -1,4 +1,4 @@
-import { ApiError, api, apiErrorMessage } from '@/lib/api';
+import { ApiError, api, apiErrorMessage } from '../../../lib/api.ts';
 
 export type InstalledApplication = {
   id: string;
@@ -20,7 +20,9 @@ function parseApplication(value: unknown): InstalledApplication {
 
   if (
     typeof application.id !== 'string' ||
+    !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(application.id) ||
     typeof application.name !== 'string' ||
+    !application.name.trim() ||
     typeof application.category !== 'string' ||
     typeof application.allowed !== 'boolean'
   ) {

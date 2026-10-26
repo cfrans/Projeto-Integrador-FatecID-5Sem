@@ -6,7 +6,7 @@ O Lenovo Lux Parental (PIPLUP, identificado como `piplup` no código) é um proj
 
 ## Estado atual
 
-O aplicativo Expo usa autenticação real de responsáveis e consulta registros de computadores pela API NestJS. A persistência utiliza Prisma e MySQL. A infraestrutura de pareamento seguro está implementada no backend e integrada ao mobile. A fundação do Lux Agent possui diagnóstico autenticado e PoC de leitura nativa validados no Lux, além de polling de vínculos e `agent.ping` validado por HTTPS com resultado persistido; pareamento local e operações parentais remotas ainda não existem. Fixtures permanecem identificadas como demonstração.
+O aplicativo Expo usa autenticação real de responsáveis e consulta registros de computadores pela API NestJS. A persistência utiliza Prisma e MySQL. A infraestrutura de pareamento seguro está implementada no backend e integrada ao mobile. A fundação do Lux Agent possui diagnóstico autenticado e PoC de leitura nativa validados no Lux, além de polling de vínculos e `agent.ping` validado por HTTPS com resultado persistido; pareamento local e operações parentais remotas ainda não existem. Fixtures permanecem identificadas como demonstração. O [client simulado](simulated-client.md) permite cadastrar/parear PCs demonstrativos e refletir configurações persistidas e decisões de instalação do app. A confirmação vale somente para a simulação.
 
 ## Usuários
 

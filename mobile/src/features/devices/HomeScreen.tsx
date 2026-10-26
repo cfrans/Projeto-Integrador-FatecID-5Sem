@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
+  Image,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -25,7 +26,7 @@ type HomeState =
 
 export function HomeScreen() {
   const { busy, clearError, error, guardian, signOut } = useSession();
-  const { t } = useLanguage();
+  const { t, localize } = useLanguage();
   const { colors } = useTheme();
   const styles = useThemedStyles(createStyles);
   const [state, setState] = useState<HomeState>({ status: 'loading' });
@@ -35,10 +36,10 @@ export function HomeScreen() {
     prefetchTeamAvatars();
   }, []);
 
-  const loadComputers = useCallback(() => {
+  const loadComputers = useCallback((silent = false) => {
     const request = ++requestId.current;
-    setState({ status: 'loading' });
-    devices.listPairedComputers()
+    if (!silent) setState({ status: 'loading' });
+    return devices.listPairedComputers()
       .then((computers) => {
         if (request === requestId.current) setState({ status: 'loaded', computers });
       })
@@ -48,8 +49,16 @@ export function HomeScreen() {
   }, []);
 
   useFocusEffect(useCallback(() => {
-    loadComputers();
+    let cancelled = false;
+    let timer: ReturnType<typeof setTimeout>;
+    const poll = async (silent = false) => {
+      await loadComputers(silent);
+      if (!cancelled) timer = setTimeout(() => void poll(true), 5000);
+    };
+    void poll();
     return () => {
+      cancelled = true;
+      clearTimeout(timer);
       requestId.current += 1;
     };
   }, [loadComputers]));
@@ -65,20 +74,28 @@ export function HomeScreen() {
     <SafeAreaView style={styles.safeArea}>
       <ScrollView contentContainerStyle={styles.content}>
         <View style={styles.greeting}>
-          <Text style={styles.eyebrow}>{t('home.eyebrow')}</Text>
+          <View style={styles.greetingHeader}>
+            <Text style={styles.eyebrow}>{t('home.eyebrow')}</Text>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel={t(busy ? 'common.signingOut' : 'common.signOut')}
+              accessibilityState={{ disabled: busy, busy }}
+              disabled={busy}
+              onPress={() => {
+                clearError();
+                void signOut();
+              }}
+              style={({ pressed }) => [styles.signOutButton, pressed && styles.pressed, busy && styles.signOutDisabled]}
+            >
+              <Image accessible={false} source={require('../../../assets/icons/log-out.png')} style={styles.signOutIcon} />
+              <Text style={styles.signOutText}>{t(busy ? 'common.signingOut' : 'common.signOut')}</Text>
+            </Pressable>
+          </View>
           <Text style={styles.title}>{t('home.greeting', { name: guardian?.name ?? '' })}</Text>
           <Text style={styles.subtitle}>{t('home.subtitle')}</Text>
           {error ? (
-            <Text accessibilityLiveRegion="polite" style={styles.logoutError}>{error}</Text>
+            <Text accessibilityLiveRegion="polite" style={styles.logoutError}>{localize(error)}</Text>
           ) : null}
-          <Button
-            label={busy ? t('common.signingOut') : t('common.signOut')}
-            disabled={busy}
-            onPress={() => {
-              clearError();
-              void signOut();
-            }}
-          />
         </View>
 
         <View style={styles.pairingCard}>
@@ -118,7 +135,7 @@ export function HomeScreen() {
         {state.status === 'error' ? (
           <View style={styles.stateContainer}>
             <Text style={styles.stateTitle}>{t('common.loadError')}</Text>
-            <Text style={styles.stateText}>{state.message}</Text>
+            <Text style={styles.stateText}>{localize(state.message)}</Text>
             <Button label={t('common.retry')} onPress={retry} />
           </View>
         ) : null}
@@ -144,7 +161,7 @@ export function HomeScreen() {
           <View style={styles.shortcutsGrid}>
             <View style={styles.shortcutsRow}>
               <Pressable
-                accessibilityLabel="Navegadores, Bloqueados"
+                accessibilityLabel={`${t('home.browsers')}, ${t('home.manageBrowsers')}`}
                 accessibilityRole="button"
                 onPress={() => router.push('/restrictions/browsers')}
                 style={({ pressed }) => [styles.shortcutCard, pressed && styles.pressed]}
@@ -157,12 +174,12 @@ export function HomeScreen() {
                 </View>
                 <View style={styles.shortcutCopy}>
                   <Text style={styles.shortcutTitle}>{t('home.browsers')}</Text>
-                  <Text style={styles.shortcutSubtitle}>{t('home.blocked')}</Text>
+                  <Text style={styles.shortcutSubtitle}>{t('home.manageBrowsers')}</Text>
                 </View>
               </Pressable>
 
               <Pressable
-                accessibilityLabel="Aplicativos, ver aplicativos instalados"
+                accessibilityLabel={`${t('home.apps')}, ${t('home.installed')}`}
                 accessibilityRole="button"
                 onPress={() => router.push('/restrictions/apps')}
                 style={({ pressed }) => [styles.shortcutCard, pressed && styles.pressed]}
@@ -184,7 +201,7 @@ export function HomeScreen() {
 
             <View style={styles.shortcutsRow}>
               <Pressable
-                accessibilityLabel="Instalação, Bloqueada"
+                accessibilityLabel={`${t('home.installation')}, ${t('home.manageInstall')}`}
                 accessibilityRole="button"
                 onPress={() => router.push('/restrictions/install')}
                 style={({ pressed }) => [styles.shortcutCard, pressed && styles.pressed]}
@@ -197,22 +214,22 @@ export function HomeScreen() {
                 </View>
                 <View style={styles.shortcutCopy}>
                   <Text style={styles.shortcutTitle}>{t('home.installation')}</Text>
-                  <Text style={styles.shortcutSubtitle}>{t('home.blocked')}</Text>
+                  <Text style={styles.shortcutSubtitle}>{t('home.manageInstall')}</Text>
                 </View>
               </Pressable>
 
               <Pressable
-                accessibilityLabel="Faixa etária, Até 12 anos"
+                accessibilityLabel={`${t('home.age')}, ${t('home.manageAge')}`}
                 accessibilityRole="button"
                 onPress={() => router.push('/restrictions/age')}
                 style={({ pressed }) => [styles.shortcutCard, pressed && styles.pressed]}
               >
                 <View style={styles.shortcutIconBox}>
-                  <Text style={styles.ageBadgeIconText}>12+</Text>
+                  <Text style={styles.ageBadgeIconText}>L–18</Text>
                 </View>
                 <View style={styles.shortcutCopy}>
                   <Text style={styles.shortcutTitle}>{t('home.age')}</Text>
-                  <Text style={styles.shortcutSubtitle}>{t('home.upTo12')}</Text>
+                  <Text style={styles.shortcutSubtitle}>{t('home.manageAge')}</Text>
                 </View>
               </Pressable>
             </View>
@@ -232,6 +249,11 @@ const createStyles = (colors: ColorPalette) => StyleSheet.create({
   safeArea: { backgroundColor: colors.background, flex: 1 },
   content: { gap: spacing.xl, padding: spacing.lg, paddingBottom: spacing.xxl },
   greeting: { gap: spacing.sm, paddingTop: spacing.sm },
+  greetingHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: spacing.sm, flexWrap: 'wrap' },
+  signOutButton: { minHeight: 44, minWidth: 64, flexDirection: 'row', gap: spacing.sm, alignItems: 'center', justifyContent: 'center', paddingHorizontal: spacing.md, borderWidth: 1, borderColor: colors.border, borderRadius: radius.sm, backgroundColor: colors.surface },
+  signOutIcon: { width: 16, height: 16, tintColor: colors.textPrimary },
+  signOutText: { color: colors.textPrimary, fontSize: typography.label, fontWeight: '600' },
+  signOutDisabled: { opacity: 0.5 },
   eyebrow: {
     color: colors.accentText,
     fontSize: typography.label,

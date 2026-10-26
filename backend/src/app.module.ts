@@ -4,6 +4,7 @@ import { PrismaModule } from './prisma/prisma.module.js';
 import { AuthModule } from './auth/auth.module.js';
 import { DevicesModule } from './devices/devices.module.js';
 import { PairingModule } from './pairing/pairing.module.js';
+import { SimulationModule } from './simulation/simulation.module.js';
 import { CommandsModule } from './commands/commands.module.js';
 
 @Module({
@@ -13,6 +14,7 @@ import { CommandsModule } from './commands/commands.module.js';
     DevicesModule,
     PairingModule,
     CommandsModule,
+    SimulationModule,
   ],
   controllers: [AppController],
 })

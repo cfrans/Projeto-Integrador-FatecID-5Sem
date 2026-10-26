@@ -65,13 +65,7 @@ export function prefetchTeamAvatars() {
   }
 }
 
-const INTEGRATED_COURSES: readonly string[] = [
-  'Engenharia de Software III',
-  'Laboratório de Banco de Dados',
-  'Segurança da Informação',
-  'Sistemas Operacionais II',
-  'Programação para Dispositivos Móveis',
-];
+const INTEGRATED_COURSES = ['about.course0', 'about.course1', 'about.course2', 'about.course3', 'about.course4'];
 
 function GitHubLogo({ size = 18, color }: { size?: number; color?: string }) {
   const { colors } = useTheme();
@@ -174,7 +168,7 @@ export function AboutScreen() {
                 <Pressable
                   key={option}
                   accessibilityRole="radio"
-                  accessibilityState={{ selected: language === option }}
+                  accessibilityState={{ checked: language === option }}
                   onPress={() => setLanguage(option)}
                   style={[styles.languageOption, language === option && styles.languageOptionSelected]}
                 >
@@ -193,7 +187,7 @@ export function AboutScreen() {
                 <Pressable
                   key={option}
                   accessibilityRole="radio"
-                  accessibilityState={{ selected: preference === option }}
+                  accessibilityState={{ checked: preference === option }}
                   onPress={() => setPreference(option)}
                   style={[
                     styles.languageOption,
@@ -221,7 +215,7 @@ export function AboutScreen() {
               return (
                 <Pressable
                   key={member.username}
-                  accessibilityHint={`Abre o perfil do GitHub de ${member.name}`}
+                  accessibilityHint={t('about.profileHint', { name: member.name })}
                   accessibilityLabel={`${member.name}, @${member.username}`}
                   accessibilityRole="link"
                   onPress={() => openExternalUrl(member.githubUrl)}
@@ -257,8 +251,8 @@ export function AboutScreen() {
           </View>
 
           <Pressable
-            accessibilityHint="Abre o repositório oficial do projeto no GitHub"
-            accessibilityLabel="Ver projeto no GitHub"
+            accessibilityHint={t('about.repositoryHint')}
+            accessibilityLabel={t('about.github')}
             accessibilityRole="link"
             onPress={() => openExternalUrl(REPOSITORY_URL)}
             style={({ pressed }) => [styles.repoButton, pressed && styles.pressed]}
@@ -273,7 +267,7 @@ export function AboutScreen() {
             <View style={styles.coursesWrap}>
               {INTEGRATED_COURSES.map((course) => (
                 <View key={course} style={styles.coursePill}>
-                  <Text style={styles.coursePillText}>{course}</Text>
+                  <Text style={styles.coursePillText}>{t(course)}</Text>
                 </View>
               ))}
             </View>

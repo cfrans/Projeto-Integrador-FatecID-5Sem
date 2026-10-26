@@ -2,8 +2,8 @@ export type HttpPairedComputer = {
   id: string;
   name: string;
   managedUser: string | null;
-  status: 'unverified';
-  lastSeen: null;
+  status: 'unverified' | 'online' | 'offline';
+  lastSeen: string | null;
   isDemo: boolean;
   paired: boolean;
   associationId: string | null;
@@ -25,8 +25,11 @@ function isDevice(value: unknown): value is HttpPairedComputer {
     && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(device.id)
     && typeof device.name === 'string'
     && (typeof device.managedUser === 'string' || device.managedUser === null)
-    && device.status === 'unverified'
-    && device.lastSeen === null
+    && (device.status === 'unverified'
+      ? device.lastSeen === null
+      : device.isDemo === true && device.paired === true
+        && (device.status === 'online' || device.status === 'offline')
+        && typeof device.lastSeen === 'string' && Number.isFinite(Date.parse(device.lastSeen)))
     && typeof device.isDemo === 'boolean'
     && typeof device.paired === 'boolean'
     && (device.paired

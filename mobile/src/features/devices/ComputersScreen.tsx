@@ -15,7 +15,7 @@ type ComputersState =
   | { status: 'loaded'; computers: PairedComputer[] };
 
 export function ComputersScreen() {
-  const { t } = useLanguage();
+  const { t, localize } = useLanguage();
   const { colors } = useTheme();
   const styles = useThemedStyles(createStyles);
   const [state, setState] = useState<ComputersState>({ status: 'loading' });
@@ -24,11 +24,13 @@ export function ComputersScreen() {
   const requestId = useRef(0);
   const removeOperation = useRef(0);
   const removalPromptOpen = useRef(false);
+  const removalInProgress = useRef(false);
 
-  const loadComputers = useCallback(() => {
+  const loadComputers = useCallback((silent = false) => {
+    if (silent && removalInProgress.current) return Promise.resolve();
     const request = ++requestId.current;
-    setState({ status: 'loading' });
-    devices.listPairedComputers()
+    if (!silent) setState({ status: 'loading' });
+    return devices.listPairedComputers()
       .then((computers) => {
         if (request === requestId.current) setState({ status: 'loaded', computers });
       })
@@ -39,8 +41,16 @@ export function ComputersScreen() {
 
   useFocusEffect(useCallback(() => {
     setRemovingId(null);
-    loadComputers();
+    let cancelled = false;
+    let timer: ReturnType<typeof setTimeout>;
+    const poll = async (silent = false) => {
+      await loadComputers(silent);
+      if (!cancelled) timer = setTimeout(() => void poll(true), 5000);
+    };
+    void poll();
     return () => {
+      cancelled = true;
+      clearTimeout(timer);
       requestId.current += 1;
       removeOperation.current += 1;
       removalPromptOpen.current = false;
@@ -60,24 +70,27 @@ export function ComputersScreen() {
     removalPromptOpen.current = true;
 
     Alert.alert(
-      'Remover vínculo?',
-      `“${computer.name}” deixará de aparecer entre os computadores associados à sua conta.`,
+      t('device.removeTitle'),
+      t('device.removeDescription', { name: computer.name }),
       [
-        { text: 'Cancelar', style: 'cancel', onPress: () => { removalPromptOpen.current = false; } },
+        { text: t('common.cancel'), style: 'cancel', onPress: () => { removalPromptOpen.current = false; } },
         {
-          text: 'Remover vínculo',
+          text: t('device.remove'),
           style: 'destructive',
           onPress: async () => {
             removalPromptOpen.current = false;
             const operation = ++removeOperation.current;
+            removalInProgress.current = true;
+            requestId.current += 1;
             setRemovingId(computer.id);
             setRemovalError(null);
             try {
               await devices.removeAssociation(computer.id);
-              if (operation === removeOperation.current) loadComputers();
+              if (operation === removeOperation.current) await loadComputers();
             } catch (error) {
               if (operation === removeOperation.current) setRemovalError(devicesErrorMessage(error));
             } finally {
+              removalInProgress.current = false;
               if (operation === removeOperation.current) setRemovingId(null);
             }
           },
@@ -85,7 +98,7 @@ export function ComputersScreen() {
       ],
       { cancelable: false },
     );
-  }, [loadComputers, removingId]);
+  }, [loadComputers, removingId, t]);
 
   return (
     <SafeAreaView edges={['bottom', 'left', 'right']} style={styles.safeArea}>
@@ -105,7 +118,7 @@ export function ComputersScreen() {
             {state.status === 'error' ? (
               <>
                 <Text style={styles.stateTitle}>{t('common.loadError')}</Text>
-                <Text style={styles.stateText}>{state.message}</Text>
+                <Text style={styles.stateText}>{localize(state.message)}</Text>
                 <Button label={t('common.retry')} onPress={retry} />
               </>
             ) : null}
@@ -126,7 +139,7 @@ export function ComputersScreen() {
               label={t('common.addComputer')}
               onPress={() => router.push('/qr-scan')}
             />
-            {removalError ? <Text accessibilityRole="alert" style={styles.error}>{removalError}</Text> : null}
+            {removalError ? <Text accessibilityRole="alert" style={styles.error}>{localize(removalError)}</Text> : null}
           </View>
         }
         renderItem={({ item }) => (

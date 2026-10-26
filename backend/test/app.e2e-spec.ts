@@ -55,6 +55,7 @@ describe('AppController (e2e)', () => {
       }),
     },
     device: {
+      findFirst: vi.fn(),
       findMany: vi.fn(({ where, select }: {
         where: { guardianId: string };
         select: Record<string, boolean>;
@@ -183,9 +184,10 @@ describe('AppController (e2e)', () => {
         name: true,
         managedUser: true,
         isDemo: true,
+        agentIdentity: { select: { revokedAt: true } },
         associations: {
           where: { guardianId: guardian.id, activeDeviceId: { not: null }, revokedAt: null },
-          select: { id: true },
+          select: { id: true, simulation: { select: { lastSeenAt: true } } },
           take: 1,
         },
       },
@@ -198,6 +200,22 @@ describe('AppController (e2e)', () => {
     expect(other.body).toHaveLength(1);
     expect(other.body[0].id).toBe(devices[1].id);
     expect(other.body[0].id).not.toBe(devices[0].id);
+  });
+
+  it('authenticates and validates both restriction query routes', async () => {
+    const http = request(app.getHttpServer());
+    const jwt = app.get(JwtService);
+    const token = await jwt.signAsync({ sub: guardian.id });
+    for (const endpoint of ['applications', 'installation-requests']) {
+      await http.get(`/devices/${devices[0].id}/${endpoint}`).expect(401);
+      await http.get(`/devices/not-a-uuid/${endpoint}`).set('Authorization', `Bearer ${token}`).expect(400);
+      prisma.device.findFirst.mockResolvedValueOnce(null);
+      await http.get(`/devices/${devices[1].id}/${endpoint}`).set('Authorization', `Bearer ${token}`).expect(404);
+      prisma.device.findFirst.mockResolvedValueOnce({ applicationsReportedAt: null, installationRequestsReportedAt: null });
+      await http.get(`/devices/${devices[0].id}/${endpoint}`).set('Authorization', `Bearer ${token}`).expect(503);
+      prisma.device.findFirst.mockResolvedValueOnce({ applicationsReportedAt: new Date(), installationRequestsReportedAt: new Date(), applications: [], installationRequests: [] });
+      await http.get(`/devices/${devices[0].id}/${endpoint}`).set('Authorization', `Bearer ${token}`).expect(200).expect([]);
+    }
   });
 
   afterEach(async () => {

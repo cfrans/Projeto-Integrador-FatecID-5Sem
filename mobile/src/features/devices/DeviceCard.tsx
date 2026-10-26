@@ -1,10 +1,14 @@
-import { StyleSheet, Text, View } from 'react-native';
+import { router } from 'expo-router';
+import { useState } from 'react';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { radius, spacing, typography, type ColorPalette } from '@/theme';
 import type { PairedComputer } from '@/features/devices/services/devices';
 import { useLanguage } from '@/features/i18n/LanguageProvider';
 import { useThemedStyles } from '@/features/theme/ThemeProvider';
+import { ComputerIcon } from './ComputerIcon';
+import { ComputerIconPicker } from './ComputerIconPicker';
 
 type DeviceCardProps = {
   computer: PairedComputer;
@@ -13,17 +17,13 @@ type DeviceCardProps = {
 };
 
 export function DeviceCard({ computer, onRemove, removing = false }: DeviceCardProps) {
-  const { language } = useLanguage();
+  const { language, t } = useLanguage();
   const styles = useThemedStyles(createStyles);
-  const labels = language === 'en'
-    ? { managed: 'Managed account', unknown: 'not provided', demo: 'Demo', unverified: 'Connection not verified', active: 'Active link', inactive: 'No active link', seen: 'Seen at', removing: 'Removing link…', remove: 'Remove link' }
-    : language === 'es'
-      ? { managed: 'Cuenta gestionada', unknown: 'no informada', demo: 'Demostración', unverified: 'Conexión no validada', active: 'Vínculo activo', inactive: 'Sin vínculo activo', seen: 'Visto a las', removing: 'Quitando vínculo…', remove: 'Quitar vínculo' }
-      : { managed: 'Conta gerenciada', unknown: 'não informada', demo: 'Demonstração', unverified: 'Conexão não validada', active: 'Vínculo ativo', inactive: 'Sem vínculo ativo', seen: 'Visto em', removing: 'Removendo vínculo…', remove: 'Remover vínculo' };
+  const [pickingIcon, setPickingIcon] = useState(false);
   const online = computer.status === 'online';
   const unverified = computer.status === 'unverified';
   const lastSeen = computer.lastSeen
-    ? new Intl.DateTimeFormat('pt-BR', {
+    ? new Intl.DateTimeFormat(language, {
         day: '2-digit',
         month: 'short',
         hour: '2-digit',
@@ -34,37 +34,42 @@ export function DeviceCard({ computer, onRemove, removing = false }: DeviceCardP
   return (
     <Card style={styles.card}>
       <View style={styles.row}>
-        <View style={[styles.deviceMark, online && styles.deviceMarkOnline]}>
-          <View style={[styles.dot, online && styles.dotOnline]} />
-        </View>
+        <Pressable accessibilityRole="button" accessibilityLabel={t('device.changeIcon', { name: computer.name })} disabled={removing} onPress={() => setPickingIcon(true)} style={styles.iconButton}>
+          <ComputerIcon deviceId={computer.id} selected={online} />
+          <View style={styles.editBadge}><Text style={styles.editMark}>✎</Text></View>
+        </Pressable>
         <View style={styles.details}>
           <Text style={styles.name}>{computer.name}</Text>
           <Text style={styles.managedUser}>
-            {labels.managed}: {computer.managedUser ?? labels.unknown}
+            {t('device.managed')}: {computer.managedUser ?? t('common.notProvided')}
           </Text>
-          {computer.isDemo ? <Text style={styles.demoLabel}>{labels.demo}</Text> : null}
+          {computer.isDemo ? <Text style={styles.demoLabel}>{t('device.demo')}</Text> : null}
         </View>
         <View style={styles.statusBlock}>
           <Text style={[styles.status, online ? styles.online : styles.offline]}>
-            {unverified ? labels.unverified : online ? 'Online' : 'Offline'}
+            {unverified ? t('device.unverified') : t(online ? 'device.online' : 'device.offline')}
           </Text>
           {unverified ? (
-            <Text style={styles.lastSeen}>{computer.isPaired ? labels.active : labels.inactive}</Text>
+            <Text style={styles.lastSeen}>{computer.isPaired ? t('device.active') : t('device.inactive')}</Text>
           ) : lastSeen ? (
-            <Text style={styles.lastSeen}>{labels.seen} {lastSeen}</Text>
+            <Text style={styles.lastSeen}>{t('device.seen')} {lastSeen}</Text>
           ) : null}
         </View>
       </View>
+      {computer.isPaired ? (
+        <Button label={t('nav.restrictions')} disabled={removing} onPress={() => router.push({ pathname: '/restrictions/browsers', params: { deviceId: computer.id } })} />
+      ) : null}
       {computer.isPaired && onRemove ? (
         <Button
-          accessibilityHint={`Remove o vínculo de ${computer.name} da sua conta`}
+          accessibilityHint={t('device.removeHint', { name: computer.name })}
           accessibilityState={{ disabled: removing }}
           disabled={removing}
-          label={removing ? labels.removing : labels.remove}
+          label={removing ? t('device.removing') : t('device.remove')}
           onPress={onRemove}
           style={styles.removeButton}
         />
       ) : null}
+      <ComputerIconPicker visible={pickingIcon} deviceId={computer.id} name={computer.name} onClose={() => setPickingIcon(false)} />
     </Card>
   );
 }
@@ -79,17 +84,9 @@ const createStyles = (colors: ColorPalette) => StyleSheet.create({
     flexDirection: 'row',
     gap: spacing.md,
   },
-  deviceMark: {
-    alignItems: 'center',
-    backgroundColor: colors.surfaceRaised,
-    borderRadius: radius.sm,
-    height: 40,
-    justifyContent: 'center',
-    width: 40,
-  },
-  deviceMarkOnline: { backgroundColor: colors.accentSoft },
-  dot: { backgroundColor: colors.textMuted, borderRadius: radius.pill, height: 8, width: 8 },
-  dotOnline: { backgroundColor: colors.success },
+  iconButton: { minWidth: 44, minHeight: 44, justifyContent: 'center', alignItems: 'center' },
+  editBadge: { position: 'absolute', bottom: -2, right: -3, height: 18, width: 18, borderRadius: radius.pill, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.surface, alignItems: 'center', justifyContent: 'center' },
+  editMark: { color: colors.accentText, fontSize: 12 },
   details: { flex: 1, gap: spacing.xs },
   name: { color: colors.textPrimary, fontSize: typography.body, fontWeight: '600' },
   managedUser: { color: colors.textSecondary, fontSize: typography.label },

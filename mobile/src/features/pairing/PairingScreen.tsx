@@ -20,7 +20,7 @@ type PairingState =
   | { status: 'complete'; result: PairingResult };
 
 export function PairingScreen() {
-  const { t } = useLanguage();
+  const { language, t, localize } = useLanguage();
   const { colors } = useTheme();
   const styles = useThemedStyles(createStyles);
   const [permission, requestPermission, getPermission] = useCameraPermissions();
@@ -56,7 +56,7 @@ export function PairingScreen() {
       void getPermissionRef.current().then((result) => {
         if (mounted.current && focusedRef.current) setPermissionOverride(result);
       }).catch(() => {
-        if (mounted.current && focusedRef.current) setState({ status: 'error', message: 'Não foi possível verificar a permissão da câmera.' });
+        if (mounted.current && focusedRef.current) setState({ status: 'error', message: t('pairing.cameraCheckFailed') });
       });
     });
     void getPermissionRef.current().then((result) => {
@@ -70,7 +70,7 @@ export function PairingScreen() {
       operationId.current += 1;
       operationInFlight.current = false;
     };
-  }, []));
+  }, [t]));
 
   const currentPermission = permissionOverride ?? permission;
 
@@ -78,7 +78,7 @@ export function PairingScreen() {
     try {
       await Linking.openSettings();
     } catch {
-      setState({ status: 'error', message: 'Não foi possível abrir as configurações. Ative a câmera nas permissões do aplicativo.' });
+      setState({ status: 'error', message: t('pairing.settingsFailed') });
     }
   }
 
@@ -89,10 +89,10 @@ export function PairingScreen() {
       const result = await requestPermission();
       if (mounted.current && focusedRef.current) setPermissionOverride(result);
       if (mounted.current && focusedRef.current && !result.granted) {
-        setState({ status: 'error', message: 'A permissão da câmera foi negada. Ative o acesso nas configurações para ler o QR Code.' });
+        setState({ status: 'error', message: t('pairing.cameraDenied') });
       }
     } catch {
-      if (mounted.current && focusedRef.current) setState({ status: 'error', message: 'Não foi possível acessar a câmera. Verifique a permissão e tente novamente.' });
+      if (mounted.current && focusedRef.current) setState({ status: 'error', message: t('pairing.cameraAccessFailed') });
     } finally {
       if (mounted.current && focusedRef.current) setPermissionPending(false);
     }
@@ -177,14 +177,14 @@ export function PairingScreen() {
               <Text style={styles.sectionTitle}>{t('pairing.confirm')}</Text>
               <Text style={styles.deviceName}>{state.preview.device.name}</Text>
               <Text style={styles.description}>
-                {t('pairing.managedAccount', { name: state.preview.device.managedUser ?? 'não informada' })}
+                {t('pairing.managedAccount', { name: state.preview.device.managedUser ?? t('common.notProvided') })}
               </Text>
               {state.preview.device.isDemo ? (
                 <Text style={styles.demoNote}>
                   {t('pairing.demoConfirm')}
                 </Text>
               ) : null}
-              <Text style={styles.expiry}>{t('pairing.qrValid', { time: new Date(state.preview.expiresAt).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }) })}</Text>
+              <Text style={styles.expiry}>{t('pairing.qrValid', { time: new Date(state.preview.expiresAt).toLocaleTimeString(language, { hour: '2-digit', minute: '2-digit' }) })}</Text>
               <Button
                 accessibilityState={{ disabled: state.status === 'completing' }}
                 disabled={state.status === 'completing'}
@@ -208,7 +208,7 @@ export function PairingScreen() {
                     active
                     barcodeScannerSettings={{ barcodeTypes: ['qr'] }}
                     onMountError={() => {
-                      if (focusedRef.current) setState({ status: 'error', message: 'Não foi possível iniciar a câmera. Tente novamente.' });
+                      if (focusedRef.current) setState({ status: 'error', message: t('pairing.cameraStartFailed') });
                     }}
                     onBarcodeScanned={({ data, type }) => {
                       if (type === 'qr') void scanQr(data);
@@ -229,16 +229,16 @@ export function PairingScreen() {
                   </View>
                 ) : state.status === 'error' && cameraGranted ? (
                   <View style={styles.permissionPrompt}>
-                    <Text accessibilityRole="alert" style={styles.error}>{state.message}</Text>
+                    <Text accessibilityRole="alert" style={styles.error}>{localize(state.message)}</Text>
                     <Button palette={darkColors} label={t('pairing.readAnother')} onPress={() => setState({ status: 'scanning' })} style={styles.permissionButton} />
                     {state.canCheckDevices ? (
-                      <Button palette={darkColors} label="Ver computadores" onPress={() => router.dismissTo('/computers')} style={styles.permissionButton} />
+                      <Button palette={darkColors} label={t('pairing.viewComputers')} onPress={() => router.dismissTo('/computers')} style={styles.permissionButton} />
                     ) : null}
                   </View>
                 ) : !cameraGranted ? (
                   <View style={styles.permissionPrompt}>
                     {state.status === 'error' ? (
-                      <Text accessibilityRole="alert" style={styles.error}>{state.message}</Text>
+                      <Text accessibilityRole="alert" style={styles.error}>{localize(state.message)}</Text>
                     ) : null}
                     <Text style={styles.scannerTitle}>{t('pairing.cameraNeeded')}</Text>
                     <Text style={styles.scannerText}>{t('pairing.cameraDescription')}</Text>

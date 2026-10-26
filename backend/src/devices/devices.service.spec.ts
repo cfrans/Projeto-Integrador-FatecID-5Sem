@@ -16,6 +16,7 @@ describe('DevicesService', () => {
         name: 'Notebook',
         managedUser: null,
         isDemo: true,
+        agentIdentity: { select: { revokedAt: true } },
         associations: [],
       },
     ]);
@@ -38,13 +39,14 @@ describe('DevicesService', () => {
         name: true,
         managedUser: true,
         isDemo: true,
+        agentIdentity: { select: { revokedAt: true } },
         associations: {
           where: {
             guardianId: 'guardian-id',
             activeDeviceId: { not: null },
             revokedAt: null,
           },
-          select: { id: true },
+          select: { id: true, simulation: { select: { lastSeenAt: true } } },
           take: 1,
         },
       },

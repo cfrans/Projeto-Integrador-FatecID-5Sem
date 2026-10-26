@@ -1,0 +1,25 @@
+<!doctype html>
+<html lang="pt-BR">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>piplup · Computador simulado</title><link rel="icon" type="image/png" sizes="64x64" href="/favicon.png"><link rel="stylesheet" href="/style.css"><script src="/client.js" defer></script></head>
+<body>
+  <header><a class="brand" href="/"><img class="brand-logo" src="/piplup.svg" alt="" width="52" height="40"><span class="brand-copy">piplup<small>Computador simulado</small></span></a><span class="demo">Demonstração</span></header>
+  <main>
+    <div id="notice" role="status" aria-live="polite"></div>
+    <section id="setup">
+      <div class="intro"><h1>Um computador<br>para conectar à família.</h1><p>Cadastre este PC de demonstração, leia o QR no app e acompanhe aqui as mudanças feitas pelo responsável.</p><p class="muted">Os controles são simulados. Nenhuma configuração do sistema operacional será alterada.</p></div>
+      <form id="registration"><h2>Preparar computador</h2><label>Nome do computador<input name="name" value="PC da sala" maxlength="100" required></label><label>Conta gerenciada<input name="managedUser" value="Ana" maxlength="100" required></label><hr><p>Use a conta de teste do responsável para autorizar o cadastro.</p><label>E-mail<input name="email" type="email" autocomplete="username" required></label><label>Senha<input name="password" type="password" autocomplete="current-password" required maxlength="128"></label><button type="submit">Cadastrar e gerar QR</button></form>
+    </section>
+    <section id="computer" hidden>
+      <div class="computer-heading"><div><p class="muted" id="managed-user"></p><h1 id="computer-name"></h1></div><div><span class="connection" id="connection"></span><p id="revision" class="muted"></p></div></div>
+      <section id="pairing"><div><h2>Conecte este PC ao app</h2><p>No celular, toque em <strong>Adicionar computador</strong>, leia o QR e confirme o vínculo.</p><button id="generate-qr" type="button">Gerar novo QR</button><p class="muted" id="expiry"></p></div><img id="qr" alt="QR Code temporário de pareamento" width="280" height="280" hidden></section>
+      <div id="policies" hidden>
+        <div class="policy-heading"><h2>Configurações recebidas do app</h2><p>Atualizadas automaticamente enquanto este programa estiver aberto.</p></div>
+        <div class="policy-grid"><section><h3>Navegadores</h3><p id="browser-policy"></p><ul id="browsers"></ul></section><section><h3>Faixa etária e instalação</h3><div class="age" id="age"></div><p id="installation-policy"></p><p class="muted">Estado aplicado somente nesta simulação.</p></section></div>
+        <section class="applications"><h3>Aplicativos deste computador</h3><ul id="applications"></ul><p id="launch-result" role="status" aria-live="polite"></p></section>
+        <section class="requests"><div><h3>Pedir uma instalação</h3><p>O pedido aparece na aba Instalação do app. A decisão volta para este computador.</p><form id="request-form"><label>Aplicativo<input name="applicationName" placeholder="Ex.: GIMP" maxlength="200" required></label><label>Classificação<select name="ageRating"><option value="L">Livre</option><option>10</option><option selected>12</option><option>16</option><option>18</option></select></label><button type="submit">Enviar pedido</button></form></div><div><h3>Pedidos enviados</h3><ul id="requests"></ul></div></section>
+      </div>
+    </section>
+  </main>
+  <footer>piplup · Projeto Integrador Fatec <span id="backend"></span></footer>
+</body>
+</html>

@@ -37,6 +37,13 @@ test('rejects malformed list responses and records', () => {
   assert.throws(() => parseDevicesResponse([{ ...apiDevice, paired: true }]), DeviceResponseError);
 });
 
+test('accepts simulated presence only for paired demo computers with a valid timestamp', () => {
+  const device = { ...apiDevice, paired: true, associationId: '5a9cfd5c-9e62-4c08-94dd-d77f617c0975', status: 'online', lastSeen: '2026-10-25T12:00:00.000Z' };
+  assert.equal(parseDevicesResponse([device])[0].status, 'online');
+  assert.equal(parseDevicesResponse([{ ...device, status: 'offline' }])[0].status, 'offline');
+  for (const invalid of [{ ...device, isDemo: false }, { ...device, paired: false }, { ...device, lastSeen: 'invalid' }]) assert.throws(() => parseDevicesResponse([invalid]), DeviceResponseError);
+});
+
 test('loads the device list and separates association from connection status', async () => {
   const request = async (path, options) => {
     assert.equal(path, '/devices');
