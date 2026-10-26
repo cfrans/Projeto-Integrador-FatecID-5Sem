@@ -105,10 +105,18 @@ def parse_retry_after(value: str | None) -> float | None:
         return None
 
 
-def fetch_associations(
-    endpoint: str, credential: str, timeout: float, ca_file: str | None = None
-) -> list[dict[str, Any]]:
-    request = Request(endpoint, headers={"Authorization": f"Bearer {credential}", "Accept": "application/json"})
+def request_json(
+    endpoint: str, credential: str, timeout: float, ca_file: str | None = None,
+    *, method: str = "GET", payload: dict[str, Any] | None = None,
+    max_bytes: int = 1024 * 1024,
+) -> Any:
+    data = None if payload is None else json.dumps(payload, allow_nan=False).encode("utf-8")
+    if data is not None and len(data) > max_bytes:
+        raise DiagnosticError("Corpo da requisição excede o limite.", 6, category="configuration")
+    request = Request(endpoint, data=data, method=method, headers={
+        "Authorization": f"Bearer {credential}", "Accept": "application/json",
+        **({"Content-Type": "application/json"} if data is not None else {}),
+    })
     try:
         context = ssl.create_default_context(cafile=ca_file)
     except (OSError, ValueError):
@@ -121,7 +129,7 @@ def fetch_associations(
                     "Resposta HTTP inesperada do backend.", 6, category="http",
                     http_status=response.status,
                 )
-            raw = response.read(1024 * 1024 + 1)
+            raw = response.read(max_bytes + 1)
     except HTTPError as error:
         try:
             status = error.code
@@ -165,9 +173,18 @@ def fetch_associations(
             category="connection", retryable=True,
         ) from None
     try:
-        if len(raw) > 1024 * 1024:
+        if len(raw) > max_bytes:
             raise ValueError
-        associations = json.loads(raw)
+        return json.loads(raw)
+    except (ValueError, UnicodeError, RecursionError):
+        raise DiagnosticError("Resposta JSON inválida ou excessiva.", 6, category="response") from None
+
+
+def fetch_associations(
+    endpoint: str, credential: str, timeout: float, ca_file: str | None = None
+) -> list[dict[str, Any]]:
+    associations = request_json(endpoint, credential, timeout, ca_file)
+    try:
         if not isinstance(associations, list):
             raise ValueError
         for item in associations:

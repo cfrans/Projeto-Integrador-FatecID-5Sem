@@ -58,6 +58,7 @@ def poll_associations(
     jitter: float = 0.2,
     timeout: float = 10,
     max_queries: int | None = None,
+    command_processor=None,
 ) -> int:
     queries = 0
     backoff = interval
@@ -66,6 +67,9 @@ def poll_associations(
         retry_after = 0.0
         try:
             associations = query_associations(endpoint, credential, timeout, ca_file)
+            if command_processor is not None:
+                confirmed = command_processor.run_once()
+                print(f"Comandos: {confirmed} resultado(s) confirmado(s).", flush=True)
             print(
                 f"Consulta {queries}: HTTP 200; {len(associations)} associação(ões) no histórico.",
                 flush=True,
@@ -93,6 +97,7 @@ def main(argv: list[str] | None = None) -> int:
         description="Consulta periodicamente os vínculos do próprio computador, sem alterá-los."
     )
     parser.add_argument("--backend-url", required=True)
+    parser.add_argument("--state-dir", help="Ativa agent.ping com diário em diretório privado 0700")
     parser.add_argument("--ca-file", help="Arquivo PEM de CA confiável para este processo; omitido usa a confiança padrão")
     parser.add_argument("--credential-file", required=True)
     parser.add_argument("--allow-local-http", action="store_true")
@@ -103,6 +108,7 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--max-queries", type=int, help="Limita tentativas, incluindo falhas; omitido mantém o ciclo")
     args = parser.parse_args(argv)
     previous_handlers = {}
+    journal = None
     try:
         if (
             not math.isfinite(args.interval) or not 0 < args.interval <= 86400
@@ -120,9 +126,17 @@ def main(argv: list[str] | None = None) -> int:
         for signum in (signal.SIGINT, signal.SIGTERM):
             previous_handlers[signum] = signal.signal(signum, stop_polling)
         credential = load_credential(args.credential_file)
+        processor = None
+        if args.state_dir is not None:
+            from command_journal import CommandJournal
+            from command_processor import CommandProcessor
+
+            origin = endpoint.removesuffix('/agent/associations')
+            journal = CommandJournal(args.state_dir, origin, credential)
+            processor = CommandProcessor(origin + '/agent/commands', credential, journal, args.timeout, args.ca_file)
         return poll_associations(
             endpoint, credential, ca_file=args.ca_file, interval=args.interval, max_backoff=args.max_backoff,
-            jitter=args.jitter, timeout=args.timeout, max_queries=args.max_queries,
+            jitter=args.jitter, timeout=args.timeout, max_queries=args.max_queries, command_processor=processor,
         )
     except DiagnosticError as error:
         print(f"Erro: {error.category}: {error}", file=sys.stderr)
@@ -131,6 +145,8 @@ def main(argv: list[str] | None = None) -> int:
         print("Polling encerrado por sinal.", file=sys.stderr)
         return 0
     finally:
+        if journal is not None:
+            journal.close()
         for signum, handler in previous_handlers.items():
             signal.signal(signum, handler)
 
