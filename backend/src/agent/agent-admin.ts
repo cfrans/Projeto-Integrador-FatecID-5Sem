@@ -101,35 +101,38 @@ async function revoke(args: string[]) {
   const prisma = new PrismaService();
   try {
     await prisma.$connect();
-    await prisma.$transaction(async (tx) => {
-      const [device] = await tx.$queryRaw<
-        { id: string }[]
-      >`SELECT id FROM Device WHERE id = ${deviceId} FOR UPDATE`;
-      if (!device) throw new Error('Computador não encontrado.');
-      const now = new Date();
-      await tx.agentIdentity.updateMany({
-        where: { deviceId, revokedAt: null },
-        data: { revokedAt: now },
-      });
-      await tx.pairingSession.updateMany({
-        where: { deviceId, consumedAt: null, revokedAt: null },
-        data: { revokedAt: now },
-      });
-      const active = await tx.deviceAssociation.findFirst({
-        where: { deviceId, activeDeviceId: deviceId, revokedAt: null },
-        select: { id: true },
-      });
-      if (active) {
-        await tx.deviceAssociation.update({
-          where: { id: active.id },
-          data: { revokedAt: now, activeDeviceId: null },
+    await prisma.$transaction(
+      async (tx) => {
+        const [device] = await tx.$queryRaw<
+          { id: string }[]
+        >`SELECT id FROM Device WHERE id = ${deviceId} FOR UPDATE`;
+        if (!device) throw new Error('Computador não encontrado.');
+        const now = new Date();
+        await tx.agentIdentity.updateMany({
+          where: { deviceId, revokedAt: null },
+          data: { revokedAt: now },
         });
-      }
-      await tx.device.update({
-        where: { id: deviceId },
-        data: { guardianId: null },
-      });
-    });
+        await tx.pairingSession.updateMany({
+          where: { deviceId, consumedAt: null, revokedAt: null },
+          data: { revokedAt: now },
+        });
+        const active = await tx.deviceAssociation.findFirst({
+          where: { deviceId, activeDeviceId: deviceId, revokedAt: null },
+          select: { id: true },
+        });
+        if (active) {
+          await tx.deviceAssociation.update({
+            where: { id: active.id },
+            data: { revokedAt: now, activeDeviceId: null },
+          });
+        }
+        await tx.device.update({
+          where: { id: deviceId },
+          data: { guardianId: null },
+        });
+      },
+      { isolationLevel: 'ReadCommitted' },
+    );
     process.stdout.write(`Identidade revogada: ${deviceId}\n`);
   } catch {
     throw new Error('Revogação falhou.');

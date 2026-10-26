@@ -27,26 +27,30 @@ export class PairingService {
     let expiresAt!: Date;
 
     try {
-      await this.prisma.$transaction(async (tx) => {
-        const [device] = await this.lockDevice(tx, agent.deviceId);
-        if (!device) throw new NotFoundException('Computador não encontrado.');
-        await this.requireActiveIdentity(tx, agent.id, agent.deviceId);
-        this.assertDemoAllowed(device.isDemo);
-        if (device.guardianId)
-          throw new ConflictException(
-            'Computador já associado a um responsável.',
-          );
+      await this.prisma.$transaction(
+        async (tx) => {
+          const [device] = await this.lockDevice(tx, agent.deviceId);
+          if (!device)
+            throw new NotFoundException('Computador não encontrado.');
+          await this.requireActiveIdentity(tx, agent.id, agent.deviceId);
+          this.assertDemoAllowed(device.isDemo);
+          if (device.guardianId)
+            throw new ConflictException(
+              'Computador já associado a um responsável.',
+            );
 
-        const now = new Date();
-        expiresAt = new Date(now.getTime() + SESSION_TTL_MS);
-        await tx.pairingSession.updateMany({
-          where: { deviceId: device.id, consumedAt: null, revokedAt: null },
-          data: { revokedAt: now },
-        });
-        await tx.pairingSession.create({
-          data: { deviceId: device.id, tokenHash: hash, expiresAt },
-        });
-      });
+          const now = new Date();
+          expiresAt = new Date(now.getTime() + SESSION_TTL_MS);
+          await tx.pairingSession.updateMany({
+            where: { deviceId: device.id, consumedAt: null, revokedAt: null },
+            data: { revokedAt: now },
+          });
+          await tx.pairingSession.create({
+            data: { deviceId: device.id, tokenHash: hash, expiresAt },
+          });
+        },
+        { isolationLevel: 'ReadCommitted' },
+      );
     } catch (error) {
       this.rethrowKnown(error);
     }
@@ -108,76 +112,84 @@ export class PairingService {
     const session = await this.findSessionDevice(hash);
     if (!session) throw new GoneException('Token de pareamento inválido.');
     try {
-      return await this.prisma.$transaction(async (tx) => {
-        const [device] = await this.lockDevice(tx, session.deviceId);
-        if (!device)
-          throw new GoneException('Computador não está mais disponível.');
-        const current = await tx.pairingSession.findUnique({
-          where: { tokenHash: hash },
-          select: {
-            id: true,
-            deviceId: true,
-            expiresAt: true,
-            consumedAt: true,
-            revokedAt: true,
-            device: {
-              select: { id: true, name: true, managedUser: true, isDemo: true },
+      return await this.prisma.$transaction(
+        async (tx) => {
+          const [device] = await this.lockDevice(tx, session.deviceId);
+          if (!device)
+            throw new GoneException('Computador não está mais disponível.');
+          const current = await tx.pairingSession.findUnique({
+            where: { tokenHash: hash },
+            select: {
+              id: true,
+              deviceId: true,
+              expiresAt: true,
+              consumedAt: true,
+              revokedAt: true,
+              device: {
+                select: {
+                  id: true,
+                  name: true,
+                  managedUser: true,
+                  isDemo: true,
+                },
+              },
             },
-          },
-        });
-        this.assertUsableSession(current, new Date());
-        this.assertDemoAllowed(device.isDemo);
-        if (device.guardianId)
-          throw new ConflictException(
-            'Computador já associado a um responsável.',
-          );
+          });
+          this.assertUsableSession(current, new Date());
+          this.assertDemoAllowed(device.isDemo);
+          if (device.guardianId)
+            throw new ConflictException(
+              'Computador já associado a um responsável.',
+            );
 
-        await this.requireActiveIdentityForDevice(tx, device.id);
-        const now = new Date();
-        this.assertUsableSession(current, now);
-        const consume = await tx.pairingSession.updateMany({
-          where: {
-            id: current!.id,
-            consumedAt: null,
-            revokedAt: null,
-            expiresAt: { gt: now },
-          },
-          data: { consumedAt: now, consumedByGuardianId: guardianId },
-        });
-        if (consume.count !== 1)
-          throw new GoneException('Token de pareamento já foi consumido.');
+          await this.requireActiveIdentityForDevice(tx, device.id);
+          const now = new Date();
+          this.assertUsableSession(current, now);
+          const consume = await tx.pairingSession.updateMany({
+            where: {
+              id: current!.id,
+              consumedAt: null,
+              revokedAt: null,
+              expiresAt: { gt: now },
+            },
+            data: { consumedAt: now, consumedByGuardianId: guardianId },
+          });
+          if (consume.count !== 1)
+            throw new GoneException('Token de pareamento já foi consumido.');
 
-        const associationId = randomUUID();
-        await tx.deviceAssociation.create({
-          data: {
-            id: associationId,
-            deviceId: device.id,
-            guardianId,
-            activeDeviceId: device.id,
-          },
-        });
-        await tx.device.update({
-          where: { id: device.id },
-          data: { guardianId },
-        });
-        await tx.pairingSession.updateMany({
-          where: {
-            deviceId: device.id,
-            id: { not: current!.id },
-            consumedAt: null,
-            revokedAt: null,
-          },
-          data: { revokedAt: now },
-        });
+          const associationId = randomUUID();
+          await tx.deviceAssociation.create({
+            data: {
+              id: associationId,
+              deviceId: device.id,
+              guardianId,
+              activeDeviceId: device.id,
+            },
+          });
+          await tx.device.update({
+            where: { id: device.id },
+            data: { guardianId },
+          });
+          await tx.pairingSession.updateMany({
+            where: {
+              deviceId: device.id,
+              id: { not: current!.id },
+              consumedAt: null,
+              revokedAt: null,
+            },
+            data: { revokedAt: now },
+          });
 
-        return {
-          ...this.deviceSummary(current!.device),
-          status: 'unverified' as const,
-          lastSeen: null,
-          paired: true as const,
-          associationId,
-        };
-      });
+          return {
+            ...this.deviceSummary(current!.device),
+            status: 'unverified' as const,
+            lastSeen: null,
+            paired: true as const,
+            associationId,
+          };
+        },
+        { isolationLevel: 'ReadCommitted' },
+      );
     } catch (error) {
       this.rethrowKnown(error);
     }
@@ -185,22 +197,31 @@ export class PairingService {
 
   async revokeGuardianAssociation(guardianId: string, deviceId: string) {
     try {
-      return await this.prisma.$transaction(async (tx) => {
-        const [device] = await this.lockDevice(tx, deviceId);
-        if (!device) throw new NotFoundException('Associação não encontrada.');
-        const association = await tx.deviceAssociation.findFirst({
-          where: {
+      return await this.prisma.$transaction(
+        async (tx) => {
+          const [device] = await this.lockDevice(tx, deviceId);
+          if (!device)
+            throw new NotFoundException('Associação não encontrada.');
+          const association = await tx.deviceAssociation.findFirst({
+            where: {
+              deviceId,
+              guardianId,
+              activeDeviceId: deviceId,
+              revokedAt: null,
+            },
+            select: { id: true },
+          });
+          if (!association)
+            throw new NotFoundException('Associação não encontrada.');
+          await this.revokeAssociation(
+            tx,
+            association.id,
             deviceId,
-            guardianId,
-            activeDeviceId: deviceId,
-            revokedAt: null,
-          },
-          select: { id: true },
-        });
-        if (!association)
-          throw new NotFoundException('Associação não encontrada.');
-        await this.revokeAssociation(tx, association.id, deviceId, new Date());
-      });
+            new Date(),
+          );
+        },
+        { isolationLevel: 'ReadCommitted' },
+      );
     } catch (error) {
       this.rethrowKnown(error);
     }
@@ -230,27 +251,32 @@ export class PairingService {
     associationId: string,
   ) {
     try {
-      await this.prisma.$transaction(async (tx) => {
-        const [device] = await this.lockDevice(tx, agent.deviceId);
-        if (!device) throw new NotFoundException('Associação não encontrada.');
-        await this.requireActiveIdentity(tx, agent.id, agent.deviceId);
-        const current = await tx.deviceAssociation.findFirst({
-          where: {
-            id: associationId,
-            deviceId: agent.deviceId,
-            activeDeviceId: agent.deviceId,
-            revokedAt: null,
-          },
-          select: { id: true },
-        });
-        if (!current) throw new NotFoundException('Associação não encontrada.');
-        await this.revokeAssociation(
-          tx,
-          current.id,
-          agent.deviceId,
-          new Date(),
-        );
-      });
+      await this.prisma.$transaction(
+        async (tx) => {
+          const [device] = await this.lockDevice(tx, agent.deviceId);
+          if (!device)
+            throw new NotFoundException('Associação não encontrada.');
+          await this.requireActiveIdentity(tx, agent.id, agent.deviceId);
+          const current = await tx.deviceAssociation.findFirst({
+            where: {
+              id: associationId,
+              deviceId: agent.deviceId,
+              activeDeviceId: agent.deviceId,
+              revokedAt: null,
+            },
+            select: { id: true },
+          });
+          if (!current)
+            throw new NotFoundException('Associação não encontrada.');
+          await this.revokeAssociation(
+            tx,
+            current.id,
+            agent.deviceId,
+            new Date(),
+          );
+        },
+        { isolationLevel: 'ReadCommitted' },
+      );
     } catch (error) {
       this.rethrowKnown(error);
     }
