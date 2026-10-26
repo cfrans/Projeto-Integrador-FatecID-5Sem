@@ -92,26 +92,26 @@ docker compose exec -T backend node dist/src/agent/agent-admin.js provision \
 LUX_DEVICE_ID='<UUID retornado pelo provisionamento>'
 docker cp "$LUX_BACKEND_ID:/tmp/lux-https-credential" "$LUX_TLS_DIR/credential"
 chmod 600 "$LUX_TLS_DIR/credential"
-python3 -B lux-agent/check_backend.py --backend-url https://localhost:3443 \
+PYTHONPATH=lux-agent python3 -B -m lux_agent check-backend --backend-url https://localhost:3443 \
   --credential-file "$LUX_TLS_DIR/credential" --ca-file "$LUX_TLS_DIR/ca.pem"
-python3 -B lux-agent/poll_associations.py --backend-url https://localhost:3443 \
+PYTHONPATH=lux-agent python3 -B -m lux_agent poll --backend-url https://localhost:3443 \
   --credential-file "$LUX_TLS_DIR/credential" --ca-file "$LUX_TLS_DIR/ca.pem" \
   --interval 1 --jitter 0 --max-queries 3
 ```
 
 Esperado: diagnóstico e três consultas com HTTP 200, histórico vazio e saída 0. `--ca-file` está disponível nos dois comandos: seleciona um arquivo PEM de CAs confiáveis somente para o processo. Omitido, usa a confiança padrão do Python; informado, usa o conjunto indicado. Não desativa a validação de certificado ou hostname. Arquivo ausente/inválido retorna código 2 com erro controlado. Não há fallback HTTP nem redirecionamento.
 
-Para o Lux, [sincronize os fontes](../lux-agent/README.md#sincronizar-e-executar-no-lux), incluindo `test_https_transport.py` na lista de inclusão se for executar a suíte. Crie um diretório temporário privado e transfira separadamente apenas a credencial e a CA pública:
+Para o Lux, [sincronize os fontes](../lux-agent/README.md#sincronizar-e-executar-no-lux), usando `deploy-files.txt`, que inclui `tests/test_https_transport.py`. Crie um diretório temporário privado e transfira separadamente apenas a credencial e a CA pública:
 
 ```bash
 LUX_REMOTE_TLS_DIR=$(ssh -o BatchMode=yes lux 'umask 077; mktemp -d /tmp/lux-https.XXXXXX')
 scp "$LUX_TLS_DIR/credential" "$LUX_TLS_DIR/ca.pem" "lux:$LUX_REMOTE_TLS_DIR/"
 ssh -o BatchMode=yes -o ExitOnForwardFailure=yes \
   -R 127.0.0.1:13443:127.0.0.1:3443 lux \
-  "python3 -B ~/lux-agent-poc/poll_associations.py --backend-url https://localhost:13443 --credential-file $LUX_REMOTE_TLS_DIR/credential --ca-file $LUX_REMOTE_TLS_DIR/ca.pem --interval 1 --jitter 0 --max-queries 3"
+  "cd ~/lux-agent-poc && python3 -B -m lux_agent poll --backend-url https://localhost:13443 --credential-file $LUX_REMOTE_TLS_DIR/credential --ca-file $LUX_REMOTE_TLS_DIR/ca.pem --interval 1 --jitter 0 --max-queries 3"
 ```
 
-O túnel encerra ao terminar o comando. Para o diagnóstico, troque o script por `check_backend.py` e remova as três opções de polling. Não use `--allow-local-http`.
+O túnel encerra ao terminar o comando. Para o diagnóstico, troque o subcomando `poll` por `check-backend` e remova as três opções de polling. Não use `--allow-local-http`.
 
 ## Recusas, revogação e erros
 
@@ -134,8 +134,8 @@ docker compose exec -T backend node dist/src/agent/agent-admin.js revoke \
 A revogação é feita apenas na identidade criada para este teste e preserva o histórico. Depois dela, o diagnóstico também deve retornar 401/código 3. Para repetir um cenário de sucesso, provisione outra identidade exclusiva e revogue-a ao terminar.
 
 ```bash
-python3 -B -m unittest discover -s lux-agent -v
-ssh -o BatchMode=yes lux 'python3 -B -m unittest discover -s ~/lux-agent-poc -v'
+PYTHONPATH=lux-agent python3 -B -m unittest discover -s lux-agent/tests -v
+ssh -o BatchMode=yes lux 'cd ~/lux-agent-poc && python3 -B -m unittest discover -s tests -v'
 ```
 
 Os testes TLS exigem o executável `openssl`; geram certificados/chaves em diretório temporário e os removem ao terminar. Cobrem cadeia/hostname, certificado expirado, CA inválida, Bearer, ambas as CLIs, HTTP 401/503, recusa de redirect e contrato inválido com servidor HTTPS local. Esse servidor de teste não substitui a prova com NestJS/MySQL acima. Não interrompa banco/backend para induzir 503.

@@ -123,3 +123,7 @@ Diagnóstico, polling e parada após revogação foram validados no WSL2 e Lux c
 ### Primeiro comando `agent.ping` — 2026-10-26
 
 Responsável criou o comando por HTTPS, o Agent no Lux reservou/processou o ping e o responsável consultou `succeeded` com `{ "reachable": true }`, persistido em MySQL descartável. Reinício com o mesmo diário não repetiu a execução. Passaram 63 testes Python em cada sistema e a suíte MySQL completa com 18 testes. Identidade de teste revogada e artefatos temporários removidos; nenhuma política, conta ou serviço Lux foi alterado. [Procedimento, UUID/horários, limitações e estado do ambiente](agent-ping-validation.md).
+
+### Organização como pacote Python — 2026-10-26
+
+O Agent foi reorganizado em `lux_agent`, com CLI `python3 -m lux_agent`, testes separados e wrappers para as três entradas anteriores. Passaram 69 testes no WSL2 e Lux, preservando os 63 casos anteriores. A CLI no Lux também validou HTTPS/ping/reenvio com servidor de contrato isolado e leu as próprias políticas sem sudo. Nenhum backend, banco ou serviço/política do Lux foi alterado; a integração NestJS/MySQL anterior não foi repetida. [Estrutura, compatibilidade, deploy e evidências](../lux-agent/README.md#validação-da-reorganização--2026-10-26).

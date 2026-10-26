@@ -1,20 +1,89 @@
 # Lux Agent
 
-Fundação Python 3 do Agent com três comandos: `read_policies.py` lê políticas nativas; `check_backend.py` valida uma vez a identidade provisionada; `poll_associations.py` consulta vínculos e, com `--state-dir`, processa somente `agent.ping`. Não há comandos parentais, pareamento local, serviço systemd ou GTK.
+Pacote Python `lux_agent` com três subcomandos: `read-policies` lê políticas nativas; `check-backend` valida uma vez a identidade provisionada; `poll` consulta vínculos e, com `--state-dir`, processa somente `agent.ping`. Não há comandos parentais, pareamento local, serviço systemd ou GTK.
 
 O [protocolo v1](../docs/agent-protocol.md) implementa reserva única e resultado idempotente de ping com diário privado. A [validação ponta a ponta](../docs/agent-ping-validation.md) usou NestJS/MySQL e Lux reais por HTTPS. Operações parentais continuam fora do executor.
 
 A PoC de leitura usa PyGObject/libmalcontent e AccountsService, sem alterar políticas ou solicitar elevação. A VM de referência é Lux 3/Canopus, GNOME 50.4 e malcontent 0.13.1-5. Leituras com e sem restrições foram validadas; consultar outra conta exigiu autenticação administrativa. Privilégios mínimos do futuro serviço permanecem pendentes. O mock do Agent no backend ainda não existe.
 
+## Organização e execução
+
+```text
+lux-agent/
+├── pyproject.toml
+├── .gitignore
+├── deploy-files.txt
+├── README.md
+├── check_backend.py          compatibilidade de execução
+├── poll_associations.py      compatibilidade de execução
+├── read_policies.py          compatibilidade de execução
+├── lux_agent/
+│   ├── __init__.py
+│   ├── __main__.py
+│   ├── cli.py
+│   ├── config.py
+│   ├── errors.py
+│   ├── backend.py
+│   ├── polling.py
+│   ├── commands.py
+│   ├── journal.py
+│   └── parental.py
+└── tests/
+    ├── __init__.py
+    ├── test_check_backend.py
+    ├── test_poll_associations.py
+    ├── test_commands.py
+    ├── test_https_transport.py
+    ├── test_read_policies.py
+    └── test_cli.py
+```
+
+| Módulo | Responsabilidade |
+| --- | --- |
+| `cli` / `__main__` | argparse, três subcomandos, montagem do executor e tratamento de saída/sinais do ciclo. |
+| `config` | Validação de URL, leitura segura da credencial e limites de configuração. Não lê `.env` automaticamente. |
+| `errors` | `DiagnosticError` compartilhado, sem dependência da CLI ou do transporte. |
+| `backend` | HTTP/HTTPS/JSON, Bearer, CA, redirects, validação de associações e prazo total de requisições. |
+| `polling` | Cadência, backoff/jitter, Retry-After e consultas sequenciais. |
+| `commands` | Contrato e processamento exclusivo de ping, claim e reenvio de resultados. |
+| `journal` | SQLite privado, exclusão e persistência; formato e vínculo com origem/credencial preservados. |
+| `parental` | Leitura malcontent; carrega GI somente ao consultar políticas. Independente de polling/comandos. |
+
+O diagnóstico de backend não mantém ciclo; `poll` executa em primeiro plano, apropriado para futura supervisão systemd; `read-policies` é diagnóstico local independente. A futura GTK continua separada. Não há serviço instalado, arquivo de configuração novo ou dependência de execução adicionada. `errors.py` evita que configuração/diário dependam do módulo HTTP; o prazo total foi centralizado porque polling e comandos duplicavam o mesmo tratamento.
+
+A partir da raiz do repositório:
+
+```bash
+cd lux-agent
+python3 -B -m lux_agent --help
+python3 -B -m lux_agent check-backend --help
+python3 -B -m lux_agent poll --help
+python3 -B -m lux_agent read-policies --help
+```
+
+O pacote pode ser executado dos fontes, sem pip. O `pyproject.toml` declara somente metadados, empacotamento por setuptools e a entrada opcional `lux-agent`; para instalar, use um ambiente virtual próprio (`python3 -m pip install .`). Essa instalação não inclui os testes ou wrappers. Para a leitura malcontent, o Python selecionado precisa enxergar os bindings GI do sistema Lux; o procedimento SSH usa diretamente esse Python e dispensa instalação.
+
+| Execução anterior, na raiz do repositório | Equivalente dentro de `lux-agent/` |
+| --- | --- |
+| `python3 lux-agent/check_backend.py ARGS` | `python3 -m lux_agent check-backend ARGS` |
+| `python3 lux-agent/poll_associations.py ARGS` | `python3 -m lux_agent poll ARGS` |
+| `python3 lux-agent/read_policies.py ARGS` | `python3 -m lux_agent read-policies ARGS` |
+
+Os exemplos com `PYTHONPATH=lux-agent` abaixo partem da raiz do repositório; os comandos SSH entram no diretório de deploy.
+
+Os três scripts antigos permanecem como wrappers para a mesma CLI; argumentos, mensagens operacionais e códigos de saída são preservados. O texto de uso do argparse passa a identificar os subcomandos. Imports internos devem usar `lux_agent.*`; `command_processor.py` e `command_journal.py` foram movidos para `commands.py` e `journal.py`, sem wrappers de biblioteca. Registros históricos abaixo mantêm os nomes usados nas provas anteriores.
+
+Configuração continua explícita nos argumentos. Credencial/CA ficam fora dos fontes; por exemplo, `~/.config/lux-agent/credential` e `~/.config/lux-agent/ca.pem`, em diretório privado. O diário deve ficar em armazenamento persistente, por exemplo `~/.local/state/lux-agent/commands`, com pai existente e confiável. Não use `~/lux-agent-poc/`, caches de build ou diretórios temporários de deploy para estado. A refatoração não move, apaga ou migra diários existentes; continue apontando `--state-dir` para o mesmo diretório, com a mesma origem e credencial.
+
 ## Diagnóstico autenticado
 
-`check_backend.py` usa somente a biblioteca padrão Python e o contrato existente `GET /agent/associations`. A credencial Bearer identifica o computador no backend por SHA-256; não é necessário enviar `deviceId`, hostname ou JWT de responsável. A consulta aceita histórico vazio e não cria vínculo, presença ou sessão de pareamento. Nenhum endpoint novo foi necessário.
+`lux_agent.backend` usa somente a biblioteca padrão Python e o contrato existente `GET /agent/associations`. A credencial Bearer identifica o computador no backend por SHA-256; não é necessário enviar `deviceId`, hostname ou JWT de responsável. A consulta aceita histórico vazio e não cria vínculo, presença ou sessão de pareamento. Nenhum endpoint novo foi necessário.
 
 Provisione pela [ferramenta administrativa existente](../docs/backend.md#provisionamento-e-invalidação-administrativa), usando `--demo` para fixtures com `NODE_ENV=development`. O arquivo contém somente a credencial aleatória, nunca seu hash. Transfira-o separadamente por SSH/SFTP, sem incluí-lo no rsync dos fontes. Mantenha-o fora do repositório e em diretório privado `0700`, pertencente à conta executora; o arquivo deve pertencer à mesma conta e ter modo `0400` ou `0600`. Não use symlink ou hardlink. O comando verifica essas propriedades do arquivo antes de enviá-lo; não corrige permissões nem instala credenciais automaticamente. Administradores/root continuam capazes de acessar o segredo; o usuário definitivo do serviço será definido posteriormente.
 
 ```bash
-python3 -B lux-agent/check_backend.py --backend-url https://api.exemplo --credential-file /caminho/privado/agent-credential
-python3 -B lux-agent/check_backend.py --backend-url http://127.0.0.1:3000 --credential-file /caminho/privado/agent-credential --allow-local-http
+PYTHONPATH=lux-agent python3 -B -m lux_agent check-backend --backend-url https://api.exemplo --credential-file /caminho/privado/agent-credential
+PYTHONPATH=lux-agent python3 -B -m lux_agent check-backend --backend-url http://127.0.0.1:3000 --credential-file /caminho/privado/agent-credential --allow-local-http
 ```
 
 Para HTTPS real no WSL2 e no Lux, siga o [procedimento temporário com CA explícita](../docs/lux-https-development.md). Os dois comandos de rede aceitam `--ca-file /caminho/ca.pem`, sem instalar confiança global ou desativar a validação TLS.
@@ -37,7 +106,7 @@ Saída de sucesso: HTTP 200 e quantidade de associações no histórico, sem nom
 Para alcançar o backend do WSL2 sem expô-lo na rede da VM, use um encaminhamento SSH temporário (somente loopback). A credencial já deve estar instalada separadamente no caminho privado indicado:
 
 ```bash
-ssh -o BatchMode=yes -o ExitOnForwardFailure=yes -R 127.0.0.1:13000:127.0.0.1:3000 lux 'python3 -B ~/lux-agent-poc/check_backend.py --backend-url http://127.0.0.1:13000 --credential-file ~/.local/state/lux-agent/credential --allow-local-http'
+ssh -o BatchMode=yes -o ExitOnForwardFailure=yes -R 127.0.0.1:13000:127.0.0.1:3000 lux 'cd ~/lux-agent-poc && python3 -B -m lux_agent check-backend --backend-url http://127.0.0.1:13000 --credential-file ~/.local/state/lux-agent/credential --allow-local-http'
 ```
 
 O Agent inicia a requisição no Lux; o backend não acessa a VM. O túnel existe somente durante o comando. Essa prova usa HTTP em loopback dentro de SSH, não valida uma implantação HTTPS real.
@@ -57,10 +126,10 @@ Referências de implementação: [urllib.request no Python 3.12](https://docs.py
 
 ## Polling somente de leitura
 
-`poll_associations.py` reutiliza a validação de URL e arquivo privado e a função `fetch_associations()` em `check_backend.py`. O diagnóstico antigo mantém seus argumentos, códigos de saída e retorno por contagem; o cliente compartilhado preserva registros apenas em memória e acrescenta categoria de erro, possibilidade de repetição, status HTTP e `Retry-After`.
+`lux_agent.polling` reutiliza as validações de `config` e `fetch_associations()` em `backend`. O diagnóstico antigo mantém seus argumentos, códigos de saída e retorno por contagem; o cliente compartilhado preserva registros apenas em memória e acrescenta categoria de erro, possibilidade de repetição, status HTTP e `Retry-After`.
 
 ```bash
-python3 -B lux-agent/poll_associations.py --backend-url https://api.exemplo --credential-file /caminho/privado/agent-credential --max-queries 3
+PYTHONPATH=lux-agent python3 -B -m lux_agent poll --backend-url https://api.exemplo --credential-file /caminho/privado/agent-credential --max-queries 3
 ```
 
 | Opção | Comportamento |
@@ -82,7 +151,7 @@ O ciclo é uma CLI Linux executada na thread principal. Usa SIGALRM/`setitimer` 
 No Lux, com a credencial já instalada separadamente, use o mesmo túnel temporário:
 
 ```bash
-ssh -o BatchMode=yes -o ExitOnForwardFailure=yes -R 127.0.0.1:13000:127.0.0.1:3000 lux 'python3 -B ~/lux-agent-poc/poll_associations.py --backend-url http://127.0.0.1:13000 --credential-file ~/.local/state/lux-agent/credential --allow-local-http --interval 1 --jitter 0 --max-queries 3'
+ssh -o BatchMode=yes -o ExitOnForwardFailure=yes -R 127.0.0.1:13000:127.0.0.1:3000 lux 'cd ~/lux-agent-poc && python3 -B -m lux_agent poll --backend-url http://127.0.0.1:13000 --credential-file ~/.local/state/lux-agent/credential --allow-local-http --interval 1 --jitter 0 --max-queries 3'
 ```
 
 ### Validação do polling — 2026-10-24
@@ -100,10 +169,10 @@ Referências: [sinais Python 3.14](https://docs.python.org/3.14/library/signal.h
 Adicione `--state-dir /caminho/privado/state` ao polling para habilitar o executor. O diretório deve ser exclusivo, `0700`, pertencente à conta executora e localizado sob pais confiáveis. Se ainda não existir, o Agent cria somente esse diretório; o pai deve existir. Em uso contínuo, preserve-o em armazenamento persistente e mantenha a mesma origem/credencial. Sem essa opção, o comportamento continua somente leitura de vínculos.
 
 ```bash
-python3 -B lux-agent/poll_associations.py --backend-url https://localhost:3443 --credential-file /caminho/privado/credential --ca-file /caminho/privado/ca.pem --state-dir /caminho/privado/state --max-queries 3
+PYTHONPATH=lux-agent python3 -B -m lux_agent poll --backend-url https://localhost:3443 --credential-file /caminho/privado/credential --ca-file /caminho/privado/ca.pem --state-dir /caminho/privado/state --max-queries 3
 ```
 
-`command_processor.py` valida o contrato, reserva antes de executar e devolve apenas `{ "reachable": true }`. `command_journal.py` usa SQLite padrão com commits duráveis, arquivos privados `0600` e exclusão por `flock`. Guarda claim antes do POST, `started` antes da execução e resultado antes do PUT. Resultado salvo é reenviado sem reexecução; `started` sem resultado permanece incerto. Não há promessa de execução exatamente uma vez. Não apague o diário para contornar um conflito.
+`lux_agent.commands` valida o contrato, reserva antes de executar e devolve apenas `{ "reachable": true }`. `lux_agent.journal` usa SQLite padrão com commits duráveis, arquivos privados `0600` e exclusão por `flock`. Guarda claim antes do POST, `started` antes da execução e resultado antes do PUT. Resultado salvo é reenviado sem reexecução; `started` sem resultado permanece incerto. Não há promessa de execução exatamente uma vez. Não apague o diário para contornar um conflito.
 
 A CLI mantém backoff, TLS, timeout por requisição e sinais. Comandos usam limite de 16 KiB por resposta. Sem rede/503, preserva pendências para o ciclo seguinte; 401/TLS/409 encerram. 404/410 de claim/resultado abandonam a autorização local. O processamento não importa malcontent, não recebe shell e não altera presença no mobile.
 
@@ -114,12 +183,24 @@ Procedimento e resultados: [validação de ping](../docs/agent-ping-validation.m
 O fonte permanece versionado neste repositório. Os testes usam `unittest` da biblioteca padrão, sem GI, D-Bus ou dependências pip. A suíte HTTPS também exige o executável OpenSSL 3 para gerar certificados temporários:
 
 ```bash
-python3 -m unittest discover -s lux-agent -v
-python3 -m compileall -q lux-agent
-python3 lux-agent/read_policies.py --help
+cd lux-agent
+python3 -B -m unittest discover -s tests -v
+python3 -B -m compileall -q lux_agent tests
+python3 -B -m lux_agent read-policies --help
 ```
 
-O diretório ainda não tem ferramentas Python de lint/typecheck configuradas. Compilação verifica sintaxe; os testes de comunicação usam um servidor HTTP local temporário e verificam Bearer, respostas, redirecionamento, falhas e proteção da credencial. Os testes da PoC verificam usuário obrigatório/inexistente, dependência ausente, flags sem interação, valores nativos, políticas desativadas e falha sem saída parcial. Esses testes isolados não comprovam permissões nem aplicação de restrições no Lux.
+Os 63 testes originais foram preservados em `tests/`; seis testes adicionais cobrem CLI/imports, wrappers e lista restrita de deploy. O comando antigo `python3 -m unittest discover -s lux-agent -v`, na raiz do repositório, continua descobrindo a suíte. O diretório ainda não tem ferramentas Python de lint/typecheck configuradas. Compilação verifica sintaxe; os testes de comunicação usam um servidor HTTP local temporário e verificam Bearer, respostas, redirecionamento, falhas e proteção da credencial. Os testes da PoC verificam usuário obrigatório/inexistente, dependência ausente, flags sem interação, valores nativos, políticas desativadas e falha sem saída parcial. Esses testes isolados não comprovam permissões nem aplicação de restrições no Lux.
+
+## Validação da reorganização — 2026-10-26
+
+- Referência anterior: 63 testes passaram antes da alteração; todos os nomes/casos foram preservados em `tests/`. Depois, 69 testes passaram no WSL2/Python 3.12.3 e Lux/Python 3.14.6. Incluem sinais, TLS real, credencial, polling, ping, respostas perdidas e diário; os seis novos casos verificam estrutura/CLI/deploy.
+- Wheel construído e instalado somente em área isolada, sem rede ou dependências de execução adicionais; entrada `lux-agent` e `python3 -m lux_agent` funcionaram fora do repositório. Compilação e checagens de links/sintaxe passaram. Não há lint/typecheck Python configurado.
+- Deploy via allowlist validado no Lux. Os sete fontes antigos foram removidos somente após comparar seus hashes com a versão anterior do repositório; os três wrappers permaneceram. Nenhuma credencial/diário existente foi migrado.
+- CLI real no Lux contra servidor HTTPS de contrato isolado no WSL2, por SSH: diagnóstico autenticado, polling/ping e reinício com o mesmo diário retornaram 0; CA/hostname inválidos retornaram 4 e credencial inválida retornou 3. Confirmação do resultado perdida retornou 4; reinício reenviou dois PUTs idênticos no total, com apenas um claim. Dados de teste ficaram fora do deploy e foram removidos ao concluir.
+- `read-policies` consultou a própria conta do Lux sem sudo e retornou JSON válido. Não houve nova leitura privilegiada, escrita parental, instalação ou alteração de serviços.
+- O relógio da VM estava aproximadamente quatro minutos atrás do host. A recusa inicial de certificado recém-emitido foi correta; a prova cruzada usou certificados de teste com validade iniciada no dia anterior. Não se alterou relógio, validação TLS ou confiança global.
+
+O backend, Prisma, banco e protocolo HTTP não foram alterados nem reiniciados. A prova NestJS/MySQL anterior continua registrada em [Validação de ping](../docs/agent-ping-validation.md); nesta refatoração, o teste cruzado usou servidor de contrato, sem repetir essa integração real. A classe `CommandJournal` foi comparada por AST e permaneceu idêntica, preservando formato e persistência.
 
 ## Sincronizar e executar no Lux
 
@@ -132,16 +213,18 @@ ssh lux 'dpkg-query -W malcontent gir1.2-malcontent-0 python3-gi; python3 -c '\'
 
 Se faltar dependência ou houver divergência, investigue antes de prosseguir. Instalação de pacotes ou alteração da configuração do Lux exige confirmação; não faz parte deste procedimento.
 
-Revise a simulação e depois execute o mesmo rsync sem `-n`:
+Revise a simulação e depois execute a cópia. A lista `deploy-files.txt` contém cada arquivo permitido, incluindo pacote, testes e wrappers; não usa diretórios ou curingas para incluir conteúdo.
 
 ```bash
-rsync -rltivn -e 'ssh -o BatchMode=yes -o ConnectTimeout=10' --include='/poll_associations.py' --include='/test_poll_associations.py' --include='/check_backend.py' --include='/test_check_backend.py' --include='/test_https_transport.py' --include='/command_journal.py' --include='/command_processor.py' --include='/test_commands.py' --include='/read_policies.py' --include='/test_read_policies.py' --include='/README.md' --exclude='*' lux-agent/ lux:lux-agent-poc/
-rsync -rltiv -e 'ssh -o BatchMode=yes -o ConnectTimeout=10' --include='/poll_associations.py' --include='/test_poll_associations.py' --include='/check_backend.py' --include='/test_check_backend.py' --include='/test_https_transport.py' --include='/command_journal.py' --include='/command_processor.py' --include='/test_commands.py' --include='/read_policies.py' --include='/test_read_policies.py' --include='/README.md' --exclude='*' lux-agent/ lux:lux-agent-poc/
-ssh lux 'python3 -B -m unittest discover -s ~/lux-agent-poc -v'
-ssh lux 'python3 -B ~/lux-agent-poc/read_policies.py --user USUARIO_ALVO'
+rsync -rltivn --files-from=lux-agent/deploy-files.txt -e 'ssh -o BatchMode=yes -o ConnectTimeout=10' lux-agent/ lux:lux-agent-poc/
+rsync -rltiv --files-from=lux-agent/deploy-files.txt -e 'ssh -o BatchMode=yes -o ConnectTimeout=10' lux-agent/ lux:lux-agent-poc/
+ssh -o BatchMode=yes lux 'cd ~/lux-agent-poc && python3 -B -m unittest discover -s tests -v'
+ssh -o BatchMode=yes lux 'cd ~/lux-agent-poc && python3 -B -m lux_agent read-policies --user USUARIO_ALVO'
 ```
 
-O destino é uma cópia executável em `~/lux-agent-poc/`, sem Git e sem edição de fonte na VM. A lista de inclusão transfere somente os onze arquivos indicados (dez Python e este README); `.env`, chaves, credenciais, caches e qualquer outro arquivo ficam excluídos. Não use `--delete` nem sincronize a raiz do repositório. Substitua `USUARIO_ALVO` pelo login da conta que deseja consultar; não há usuário implícito nem seleção automática de conta infantil.
+O destino é uma cópia executável em `~/lux-agent-poc/`, sem Git e sem edição de fonte na VM. A allowlist inclui somente fontes/metadados: `.env`, chaves, certificados, credenciais, caches e SQLite/diários não são sincronizados. Não use `--delete`, não sincronize a raiz do repositório e não copie estado junto aos fontes. Transfira credencial e CA pública separadamente pelo canal seguro e use caminhos externos ao deploy. Substitua `USUARIO_ALVO` explicitamente; não há seleção automática de conta.
+
+Na primeira atualização de uma cópia antiga, sete fontes deixam de pertencer ao deploy: os cinco `test_*.py` antigos na raiz, `command_processor.py` e `command_journal.py`. Após conferir que não possuem alterações locais, remova somente esses arquivos obsoletos; não remova credenciais, bancos ou diretórios de estado. Os três scripts executáveis antigos são atualizados como wrappers e continuam funcionando. A descoberta recomendada usa `-s tests`, evitando executar testes antigos que ainda não tenham sido removidos.
 
 Use o Python do sistema Lux com seus bindings GI e comece sem `sudo`: a PoC usa `ManagerGetValueFlags.NONE`, sem autorização interativa ou elevação automática. Permissão negada, serviço indisponível ou dados inválidos retornam erro em stderr e código 1, sem JSON parcial. Argumentos inválidos retornam 2; uma consulta completa retorna 0 e JSON em stdout.
 

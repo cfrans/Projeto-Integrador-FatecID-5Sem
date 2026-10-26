@@ -32,7 +32,7 @@ A suíte MySQL cria e remove somente suas fixtures aleatórias. Testa autentica�
 
 1. Antes de iniciar a API de teste, crie uma conta de responsável exclusiva com o seed existente, `NODE_ENV=development` e `DEV_GUARDIAN_*` apontando apenas ao banco isolado. Volte a API para `NODE_ENV=test`. Provisione uma identidade exclusiva com `--demo`, pela [ferramenta existente](backend.md#provisionamento-e-invalidação-administrativa). Não use uma credencial de outro ambiente.
 2. Inicie a API compilada nesse banco. Monte o [proxy HTTPS temporário](lux-https-development.md) na rede da API de teste, apontando para ela. Se a API estiver no host em `13001`, ajuste o upstream conforme a rede Docker; não confunda com a API persistente em `3000`. Nesta prova, Nginx resolveu `backend:3000` na rede isolada, com HTTPS publicado em `127.0.0.1:13445`.
-3. [Sincronize os fontes Python](../lux-agent/README.md#sincronizar-e-executar-no-lux), incluindo `command_journal.py`, `command_processor.py` e `test_commands.py`. Transfira por SSH, separadamente, somente a credencial e a CA pública. Nunca envie chaves da CA/servidor ao Lux.
+3. [Sincronize os fontes Python](../lux-agent/README.md#sincronizar-e-executar-no-lux), usando a lista restrita `deploy-files.txt`, que inclui o pacote e `tests/`. Transfira por SSH, separadamente, somente a credencial e a CA pública. Nunca envie chaves da CA/servidor ao Lux.
 4. Prepare um diretório privado para o diário. Para uso contínuo, escolha armazenamento persistente com pais confiáveis e preserve-o entre execuções. Use `/tmp` somente na prova descartável e remova-o após revogar a identidade.
 
 O pareamento de fixture é conduzido pelo operador de desenvolvimento através dos endpoints existentes, como nos testes MySQL. Não representa autorização administrativa local já implementada no Agent e não usa GTK/QR.
@@ -104,7 +104,7 @@ Com os caminhos privados preparados na VM, execute no host:
 ```bash
 ssh -o BatchMode=yes -o ExitOnForwardFailure=yes \
   -R 127.0.0.1:13446:127.0.0.1:13445 lux \
-  'python3 -B ~/lux-agent-poc/poll_associations.py --backend-url https://localhost:13446 --credential-file /caminho/privado/credential --ca-file /caminho/privado/ca.pem --state-dir /caminho/privado/state --interval 1 --jitter 0 --max-queries 3'
+  'cd ~/lux-agent-poc && python3 -B -m lux_agent poll --backend-url https://localhost:13446 --credential-file /caminho/privado/credential --ca-file /caminho/privado/ca.pem --state-dir /caminho/privado/state --interval 1 --jitter 0 --max-queries 3'
 ```
 
 Esperado: um resultado confirmado no primeiro ciclo, zero nos seguintes, sem nomes, tokens ou dados Linux. O túnel encaminha TLS sem terminá-lo; o certificado deve ser válido para `localhost`. Não use `--allow-local-http` nessa prova.
@@ -112,9 +112,9 @@ Esperado: um resultado confirmado no primeiro ciclo, zero nos seguintes, sem nom
 Execute `python3 /caminho/privado/ping-check.py read`: esperado `succeeded`, `{ "reachable": true }` e horário de conclusão. Repita o comando SSH com o mesmo diário; não deve executar novamente. Se o comando expirar antes do processamento, crie uma nova intenção explicitamente; não altere o relógio, prazo ou diário para ressuscitá-lo.
 
 ```bash
-python3 -B -m unittest discover -s lux-agent -v
-python3 -B -m compileall -q lux-agent
-ssh -o BatchMode=yes lux 'python3 -B -m unittest discover -s ~/lux-agent-poc -v'
+PYTHONPATH=lux-agent python3 -B -m unittest discover -s lux-agent/tests -v
+python3 -B -m compileall -q lux-agent/lux_agent lux-agent/tests
+ssh -o BatchMode=yes lux 'cd ~/lux-agent-poc && python3 -B -m unittest discover -s tests -v'
 ```
 
 ## Evidência — 2026-10-26
