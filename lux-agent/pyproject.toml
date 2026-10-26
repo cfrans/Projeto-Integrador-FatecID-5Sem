@@ -1,0 +1,15 @@
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "lux-agent"
+version = "0.1.0"
+description = "Lux Agent diagnostics, authenticated polling and ping processing"
+requires-python = ">=3.12"
+
+[project.scripts]
+lux-agent = "lux_agent.cli:main"
+
+[tool.setuptools]
+packages = ["lux_agent"]

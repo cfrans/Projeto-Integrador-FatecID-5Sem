@@ -12,7 +12,8 @@ import unittest
 from types import SimpleNamespace
 from unittest.mock import Mock, patch
 
-from read_policies import main, read_policies
+from lux_agent.cli import read_policies_main as main
+from lux_agent.parental import read_policies
 
 
 class ReadPoliciesTests(unittest.TestCase):
@@ -65,7 +66,7 @@ class ReadPoliciesTests(unittest.TestCase):
 
     def test_unknown_user_fails_without_loading_gi(self):
         with (
-            patch("read_policies.pwd.getpwnam", side_effect=KeyError),
+            patch("lux_agent.cli.pwd.getpwnam", side_effect=KeyError),
             patch.dict("sys.modules", {"gi": None}),
             contextlib.redirect_stderr(io.StringIO()) as stderr,
         ):
@@ -74,7 +75,7 @@ class ReadPoliciesTests(unittest.TestCase):
 
     def test_missing_bindings_are_actionable(self):
         with (
-            patch("read_policies.pwd.getpwnam", return_value=self.user),
+            patch("lux_agent.cli.pwd.getpwnam", return_value=self.user),
             patch.dict("sys.modules", {"gi": None}),
             contextlib.redirect_stderr(io.StringIO()) as stderr,
         ):
@@ -96,7 +97,7 @@ class ReadPoliciesTests(unittest.TestCase):
     def test_cli_uses_system_bus_and_noninteractive_flags(self):
         with (
             self.run_cli(),
-            patch("read_policies.pwd.getpwnam", return_value=self.user),
+            patch("lux_agent.cli.pwd.getpwnam", return_value=self.user),
             contextlib.redirect_stdout(io.StringIO()) as stdout,
         ):
             self.assertEqual(main(["--user", "teste"]), 0)
@@ -111,7 +112,7 @@ class ReadPoliciesTests(unittest.TestCase):
         self.manager.get_session_limits.side_effect = PermissionError("consulta negada")
         with (
             self.run_cli(),
-            patch("read_policies.pwd.getpwnam", return_value=self.user),
+            patch("lux_agent.cli.pwd.getpwnam", return_value=self.user),
             contextlib.redirect_stdout(io.StringIO()) as stdout,
             contextlib.redirect_stderr(io.StringIO()) as stderr,
         ):

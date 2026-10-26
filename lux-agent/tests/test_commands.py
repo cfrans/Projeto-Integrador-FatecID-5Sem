@@ -14,10 +14,11 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from unittest.mock import patch
 
-from check_backend import DiagnosticError
-from command_journal import CommandJournal
-from command_processor import CommandProcessor
-from poll_associations import main, poll_associations
+from lux_agent.errors import DiagnosticError
+from lux_agent.journal import CommandJournal
+from lux_agent.commands import CommandProcessor
+from lux_agent.cli import poll_main as main
+from lux_agent.polling import poll_associations
 
 
 def date(offset=0):
@@ -111,7 +112,7 @@ class CommandTests(unittest.TestCase):
         self.processor = CommandProcessor(self.origin + '/agent/commands', self.credential, self.journal, timeout=2)
 
     def test_ping_roundtrip_and_repeated_poll_never_reexecutes(self):
-        with patch('command_processor.execute_ping', return_value={'reachable': True}) as execute:
+        with patch('lux_agent.commands.execute_ping', return_value={'reachable': True}) as execute:
             self.assertEqual(self.processor.run_once(), 1)
             self.assertEqual(self.processor.run_once(), 0)
             self.restart()
@@ -124,7 +125,7 @@ class CommandTests(unittest.TestCase):
 
     def test_lost_claim_response_reuses_persisted_uuid_after_restart(self):
         self.drop_claim = True
-        with patch('command_processor.execute_ping', return_value={'reachable': True}) as execute:
+        with patch('lux_agent.commands.execute_ping', return_value={'reachable': True}) as execute:
             with self.assertRaises(DiagnosticError) as raised:
                 self.processor.run_once()
             self.assertTrue(raised.exception.retryable)
@@ -139,7 +140,7 @@ class CommandTests(unittest.TestCase):
 
     def test_lost_result_ack_replays_identical_result_without_execution(self):
         self.drop_result = True
-        with patch('command_processor.execute_ping', return_value={'reachable': True}) as execute:
+        with patch('lux_agent.commands.execute_ping', return_value={'reachable': True}) as execute:
             with self.assertRaises(DiagnosticError):
                 self.processor.run_once()
             self.assertEqual(self.journal.get(self.command['id'])[2], 'result')
@@ -154,12 +155,12 @@ class CommandTests(unittest.TestCase):
         def crash():
             raise KeyboardInterrupt
 
-        with patch('command_processor.execute_ping', side_effect=crash):
+        with patch('lux_agent.commands.execute_ping', side_effect=crash):
             with self.assertRaises(KeyboardInterrupt):
                 self.processor.run_once()
         self.assertEqual(self.journal.get(self.command['id'])[2], 'started')
         self.restart()
-        with patch('command_processor.execute_ping') as execute:
+        with patch('lux_agent.commands.execute_ping') as execute:
             self.assertEqual(self.processor.run_once(), 0)
             execute.assert_not_called()
         self.assertIsNone(self.result)
@@ -172,20 +173,20 @@ class CommandTests(unittest.TestCase):
                 raise DiagnosticError('disk unavailable', 2)
             return original(command_id, state, result)
 
-        with patch.object(self.journal, 'record', side_effect=record), patch('command_processor.execute_ping') as execute:
+        with patch.object(self.journal, 'record', side_effect=record), patch('lux_agent.commands.execute_ping') as execute:
             with self.assertRaises(DiagnosticError):
                 self.processor.run_once()
             execute.assert_not_called()
 
     def test_revoked_claim_or_result_is_abandoned_without_reexecution(self):
         self.statuses['POST'] = 410
-        with patch('command_processor.execute_ping') as execute:
+        with patch('lux_agent.commands.execute_ping') as execute:
             self.processor.run_once()
             execute.assert_not_called()
         self.assertEqual(self.journal.get(self.command['id'])[2], 'abandoned')
         self.command = command()
         self.statuses = {'PUT': 410}
-        with patch('command_processor.execute_ping', return_value={'reachable': True}) as execute:
+        with patch('lux_agent.commands.execute_ping', return_value={'reachable': True}) as execute:
             self.processor.run_once()
             self.processor.run_once()
             execute.assert_called_once()
@@ -198,19 +199,19 @@ class CommandTests(unittest.TestCase):
             saved.update(status=status, claimId=str(uuid.uuid4()), executionDeadlineAt=date(-5))
             self.journal.prepare(saved['id'], saved['claimId'])
             self.claim_override = {'protocolVersion': 1, 'serverTime': date(), 'command': saved}
-            with patch('command_processor.execute_ping') as execute:
+            with patch('lux_agent.commands.execute_ping') as execute:
                 self.processor.process(self.journal.get(saved['id']))
                 execute.assert_not_called()
 
     def test_expired_running_budget_and_slow_claim_response_prevent_execution(self):
         self.command.update(status='running', claimId=str(uuid.uuid4()), executionDeadlineAt=date(-1))
         self.journal.prepare(self.command['id'], self.command['claimId'])
-        with patch('command_processor.execute_ping') as execute:
+        with patch('lux_agent.commands.execute_ping') as execute:
             self.processor.process(self.journal.get(self.command['id']))
             execute.assert_not_called()
         self.assertEqual(self.journal.get(self.command['id'])[2], 'uncertain')
         self.command = command()
-        with patch('command_processor.time.monotonic', side_effect=[0, 40]), patch('command_processor.execute_ping') as execute:
+        with patch('lux_agent.commands.time.monotonic', side_effect=[0, 40]), patch('lux_agent.commands.execute_ping') as execute:
             self.processor.run_once()
             execute.assert_not_called()
 
@@ -219,7 +220,7 @@ class CommandTests(unittest.TestCase):
             self.command = command()
             self.command.update(change)
             self.requests.clear()
-            with self.assertRaises(DiagnosticError), patch('command_processor.execute_ping') as execute:
+            with self.assertRaises(DiagnosticError), patch('lux_agent.commands.execute_ping') as execute:
                 self.processor.run_once()
             self.assertEqual([item[0] for item in self.requests], ['GET'])
             execute.assert_not_called()
@@ -231,7 +232,7 @@ class CommandTests(unittest.TestCase):
         for status in (401, 409):
             self.command = command()
             self.statuses = {'POST': status}
-            with self.assertRaises(DiagnosticError) as raised, patch('command_processor.execute_ping') as execute:
+            with self.assertRaises(DiagnosticError) as raised, patch('lux_agent.commands.execute_ping') as execute:
                 self.processor.run_once()
             self.assertFalse(raised.exception.retryable)
             execute.assert_not_called()
@@ -245,7 +246,7 @@ class CommandTests(unittest.TestCase):
         self.assertEqual(code, 5)
         self.assertEqual(self.journal.get(self.command['id'])[2], 'result')
         self.statuses.clear()
-        with patch('command_processor.execute_ping') as execute:
+        with patch('lux_agent.commands.execute_ping') as execute:
             self.assertEqual(self.processor.run_once(), 1)
             execute.assert_not_called()
 

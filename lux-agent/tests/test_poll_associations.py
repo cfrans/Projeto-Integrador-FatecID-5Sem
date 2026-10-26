@@ -17,8 +17,9 @@ from urllib.error import URLError
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from unittest.mock import patch
 
-from check_backend import DiagnosticError
-from poll_associations import main, poll_associations, query_associations
+from lux_agent.errors import DiagnosticError
+from lux_agent.cli import poll_main as main
+from lux_agent.polling import poll_associations, query_associations
 
 
 class FakeClock:
@@ -47,10 +48,10 @@ class PollingTests(unittest.TestCase):
 
         stdout, stderr = io.StringIO(), io.StringIO()
         with (
-            patch("poll_associations.query_associations", side_effect=query) as request,
-            patch("poll_associations.time.monotonic", side_effect=lambda: clock.now),
-            patch("poll_associations.time.sleep", side_effect=clock.sleep),
-            patch("poll_associations.random.uniform", side_effect=factors, return_value=1),
+            patch("lux_agent.polling.query_associations", side_effect=query) as request,
+            patch("lux_agent.polling.time.monotonic", side_effect=lambda: clock.now),
+            patch("lux_agent.polling.time.sleep", side_effect=clock.sleep),
+            patch("lux_agent.polling.random.uniform", side_effect=factors, return_value=1),
             contextlib.redirect_stdout(stdout),
             contextlib.redirect_stderr(stderr),
         ):
@@ -118,7 +119,7 @@ class PollingTests(unittest.TestCase):
 
     def test_deadline_disarms_alarm_and_restores_handler(self):
         previous = signal.getsignal(signal.SIGALRM)
-        with patch("poll_associations.fetch_associations", side_effect=TimeoutError):
+        with patch("lux_agent.polling.fetch_associations", side_effect=TimeoutError):
             with self.assertRaises(DiagnosticError) as raised:
                 query_associations("https://api.example", "private", 1)
         self.assertEqual(raised.exception.category, "connection")
@@ -131,7 +132,7 @@ class PollingTests(unittest.TestCase):
             time.sleep(2)
             return []
 
-        with patch("poll_associations.fetch_associations", side_effect=slow_request):
+        with patch("lux_agent.polling.fetch_associations", side_effect=slow_request):
             with self.assertRaises(DiagnosticError) as raised:
                 query_associations("https://api.example", "private", 0.05)
         self.assertEqual(raised.exception.code, 4)
@@ -140,7 +141,7 @@ class PollingTests(unittest.TestCase):
 
     def test_invalid_options_stop_before_loading_credential(self):
         for option in (['--interval', '0'], ['--interval', 'nan'], ['--interval', 'inf'], ['--max-backoff', '1'], ['--jitter', '1'], ['--jitter', '-0.1'], ['--timeout', '121'], ['--max-queries', '0']):
-            with self.subTest(option=option), patch("poll_associations.load_credential") as load, contextlib.redirect_stderr(io.StringIO()):
+            with self.subTest(option=option), patch("lux_agent.cli.load_credential") as load, contextlib.redirect_stderr(io.StringIO()):
                 code = main(['--backend-url', 'https://api.example', '--credential-file', '/missing', *option])
             self.assertEqual(code, 2)
             load.assert_not_called()
@@ -148,7 +149,7 @@ class PollingTests(unittest.TestCase):
     def test_main_restores_handlers_on_error_and_keyboard_interrupt(self):
         before = {sig: signal.getsignal(sig) for sig in (signal.SIGINT, signal.SIGTERM)}
         for error, expected in ((KeyboardInterrupt(), 0), (DiagnosticError("Arquivo inválido.", 2), 2)):
-            with patch("poll_associations.load_credential", side_effect=error), contextlib.redirect_stderr(io.StringIO()):
+            with patch("lux_agent.cli.load_credential", side_effect=error), contextlib.redirect_stderr(io.StringIO()):
                 self.assertEqual(main(['--backend-url', 'https://api.example', '--credential-file', '/missing']), expected)
             self.assertEqual({sig: signal.getsignal(sig) for sig in before}, before)
 
@@ -209,7 +210,7 @@ class PollingHTTPTests(unittest.TestCase):
         self.args = ['--backend-url', self.url, '--credential-file', str(self.path), '--allow-local-http', '--max-queries', '2', '--interval', '1', '--jitter', '0']
 
     def test_cli_calls_only_get_associations_with_bearer(self):
-        with patch('poll_associations.wait_delay') as wait, contextlib.redirect_stdout(io.StringIO()):
+        with patch('lux_agent.polling.wait_delay') as wait, contextlib.redirect_stdout(io.StringIO()):
             self.assertEqual(main(self.args), 0)
         self.assertEqual(self.received, [('/agent/associations', f'Bearer {self.credential}')] * 2)
         wait.assert_called_once_with(1)
@@ -219,7 +220,7 @@ class PollingHTTPTests(unittest.TestCase):
             type(self).status, type(self).body = status, body
             self.received.clear()
             stdout, stderr = io.StringIO(), io.StringIO()
-            with patch('poll_associations.wait_delay') as wait, contextlib.redirect_stdout(stdout), contextlib.redirect_stderr(stderr):
+            with patch('lux_agent.polling.wait_delay') as wait, contextlib.redirect_stdout(stdout), contextlib.redirect_stderr(stderr):
                 self.assertEqual(main(self.args), expected)
             wait.assert_not_called()
             self.assertEqual(len(self.received), 1)
@@ -229,15 +230,15 @@ class PollingHTTPTests(unittest.TestCase):
         for status in (429, 503):
             type(self).status = status
             type(self).headers = {'Retry-After': '900'}
-            with patch('poll_associations.wait_delay') as wait, contextlib.redirect_stderr(io.StringIO()):
+            with patch('lux_agent.polling.wait_delay') as wait, contextlib.redirect_stderr(io.StringIO()):
                 self.assertEqual(main(self.args), 5)
             wait.assert_called_once_with(900)
 
     def test_tls_certificate_failure_stops_before_wait_or_fallback(self):
         stdout, stderr = io.StringIO(), io.StringIO()
         with (
-            patch('check_backend.build_opener') as factory,
-            patch('poll_associations.wait_delay') as wait,
+            patch('lux_agent.backend.build_opener') as factory,
+            patch('lux_agent.polling.wait_delay') as wait,
             contextlib.redirect_stdout(stdout),
             contextlib.redirect_stderr(stderr),
         ):
@@ -251,22 +252,23 @@ class PollingHTTPTests(unittest.TestCase):
     def test_cli_uses_existing_configuration_and_file_security(self):
         for args, mode in ((self.args, 0o644), ([*self.args, '--backend-url', 'http://remote.example'], 0o600)):
             self.path.chmod(mode)
-            with patch('poll_associations.query_associations') as request, contextlib.redirect_stderr(io.StringIO()):
+            with patch('lux_agent.polling.query_associations') as request, contextlib.redirect_stderr(io.StringIO()):
                 self.assertEqual(main(args), 2)
             request.assert_not_called()
 
     def test_successful_history_is_not_written_to_logs(self):
         type(self).body = json.dumps([{'id': 'association', 'createdAt': 'date', 'revokedAt': None, 'guardian': {'id': 'guardian', 'name': self.credential}}]).encode()
         stdout, stderr = io.StringIO(), io.StringIO()
-        with patch('poll_associations.wait_delay'), contextlib.redirect_stdout(stdout), contextlib.redirect_stderr(stderr):
+        with patch('lux_agent.polling.wait_delay'), contextlib.redirect_stdout(stdout), contextlib.redirect_stderr(stderr):
             self.assertEqual(main(self.args), 0)
         self.assertNotIn(self.credential, stdout.getvalue() + stderr.getvalue())
 
     def test_sigterm_interrupts_in_flight_http_request(self):
         type(self).blocked = True
         process = subprocess.Popen(
-            [sys.executable, '-B', str(Path(__file__).with_name('poll_associations.py')), *self.args],
+            [sys.executable, '-B', '-m', 'lux_agent', 'poll', *self.args],
             stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True,
+            cwd=Path(__file__).resolve().parents[1],
         )
         try:
             self.assertTrue(self.started.wait(5))
@@ -286,8 +288,9 @@ class PollingHTTPTests(unittest.TestCase):
     def test_sigint_and_sigterm_exit_cleanly_during_wait(self):
         for signum in (signal.SIGINT, signal.SIGTERM):
             process = subprocess.Popen(
-                [sys.executable, '-B', str(Path(__file__).with_name('poll_associations.py')), *self.args, '--interval', '60'],
+                [sys.executable, '-B', '-m', 'lux_agent', 'poll', *self.args, '--interval', '60'],
                 stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True,
+                cwd=Path(__file__).resolve().parents[1],
             )
             try:
                 ready, _, _ = select.select([process.stdout], [], [], 5)

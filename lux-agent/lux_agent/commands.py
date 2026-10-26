@@ -1,10 +1,10 @@
 import json
-import signal
 import time
 import uuid
 from datetime import datetime, timezone
 
-from check_backend import DiagnosticError, request_json
+from .backend import network_deadline, request_json
+from .errors import DiagnosticError
 
 
 def invalid_response():
@@ -63,19 +63,9 @@ class CommandProcessor:
         self.ca_file = ca_file
 
     def request(self, suffix='', method='GET', payload=None):
-        def timeout_handler(signum, frame):
-            raise TimeoutError
-
-        previous = signal.signal(signal.SIGALRM, timeout_handler)
-        try:
-            signal.setitimer(signal.ITIMER_REAL, self.timeout)
+        with network_deadline(self.timeout):
             return request_json(self.endpoint + suffix, self.credential, self.timeout, self.ca_file,
                                 method=method, payload=payload, max_bytes=16 * 1024)
-        except TimeoutError:
-            raise DiagnosticError('Prazo total da consulta excedido.', 4, category='connection', retryable=True) from None
-        finally:
-            signal.setitimer(signal.ITIMER_REAL, 0)
-            signal.signal(signal.SIGALRM, previous)
 
     def envelope(self, response):
         if not isinstance(response, dict) or type(response.get('protocolVersion')) is not int or response['protocolVersion'] != 1:

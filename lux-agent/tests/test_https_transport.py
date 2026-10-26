@@ -9,8 +9,10 @@ import unittest
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
-from check_backend import DiagnosticError, fetch_associations, main as check_main
-from poll_associations import main as poll_main
+from lux_agent.errors import DiagnosticError
+from lux_agent.backend import fetch_associations
+from lux_agent.cli import check_backend_main as check_main
+from lux_agent.cli import poll_main
 
 
 class HttpsTransportTests(unittest.TestCase):

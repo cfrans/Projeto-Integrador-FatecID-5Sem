@@ -13,7 +13,10 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from unittest.mock import patch
 from urllib.error import URLError
 
-from check_backend import DiagnosticError, backend_endpoint, check_backend, fetch_associations, load_credential, main, parse_retry_after
+from lux_agent.errors import DiagnosticError
+from lux_agent.config import backend_endpoint, load_credential
+from lux_agent.backend import check_backend, fetch_associations, parse_retry_after
+from lux_agent.cli import check_backend_main as main
 
 
 class CredentialTests(unittest.TestCase):
@@ -40,7 +43,7 @@ class CredentialTests(unittest.TestCase):
             with self.assertRaises(DiagnosticError):
                 load_credential(str(path))
             link.unlink()
-            with patch("check_backend.os.geteuid", return_value=os.geteuid() + 1):
+            with patch("lux_agent.config.os.geteuid", return_value=os.geteuid() + 1):
                 with self.assertRaises(DiagnosticError):
                     load_credential(str(path))
             for raw in ("", "a" * 42, "a" * 44, credential + "\nextra", "é" * 43):
@@ -127,7 +130,7 @@ class CommunicationTests(unittest.TestCase):
 
     def test_connection_and_timeout_failures(self):
         for error in (URLError("private detail"), TimeoutError("private detail")):
-            with patch("check_backend.build_opener") as factory:
+            with patch("lux_agent.backend.build_opener") as factory:
                 factory.return_value.open.side_effect = error
                 with self.assertRaises(DiagnosticError) as raised:
                     check_backend(self.endpoint, self.credential, 0.1)
@@ -139,7 +142,7 @@ class CommunicationTests(unittest.TestCase):
     def test_tls_is_permanent_and_keeps_legacy_exit_code(self):
         for reason in (ssl.SSLCertVerificationError("private detail"), ssl.SSLError("private detail")):
             for error in (reason, URLError(reason)):
-                with self.subTest(error=type(error)), patch("check_backend.build_opener") as factory:
+                with self.subTest(error=type(error)), patch("lux_agent.backend.build_opener") as factory:
                     factory.return_value.open.side_effect = error
                     with self.assertRaises(DiagnosticError) as raised:
                         fetch_associations(self.endpoint, self.credential, 1)
@@ -170,7 +173,7 @@ class CommunicationTests(unittest.TestCase):
             self.assertEqual(raised.exception.http_status, status)
 
     def test_http_protocol_error_is_not_retried(self):
-        with patch("check_backend.build_opener") as factory:
+        with patch("lux_agent.backend.build_opener") as factory:
             factory.return_value.open.side_effect = http.client.BadStatusLine("private detail")
             with self.assertRaises(DiagnosticError) as raised:
                 fetch_associations(self.endpoint, self.credential, 1)
@@ -207,7 +210,7 @@ class RetryAfterTests(unittest.TestCase):
 
         self.assertEqual(parse_retry_after(" 900 "), 900)
         self.assertEqual(parse_retry_after("0"), 0)
-        with patch("check_backend.time.time", return_value=1000):
+        with patch("lux_agent.backend.time.time", return_value=1000):
             self.assertEqual(parse_retry_after(formatdate(1060, usegmt=True)), 60)
             self.assertEqual(parse_retry_after(formatdate(900, usegmt=True)), 0)
 

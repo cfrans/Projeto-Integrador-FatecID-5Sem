@@ -6,7 +6,7 @@ import sqlite3
 import stat
 from pathlib import Path
 
-from check_backend import DiagnosticError
+from .errors import DiagnosticError
 
 
 class CommandJournal:
