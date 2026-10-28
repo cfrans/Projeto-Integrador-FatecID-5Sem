@@ -1,6 +1,6 @@
 import { router } from 'expo-router';
 import { useState } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Pressable, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
 import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { radius, spacing, typography, type ColorPalette } from '@/theme';
@@ -20,6 +20,8 @@ export function DeviceCard({ computer, onRemove, removing = false }: DeviceCardP
   const { language, t } = useLanguage();
   const styles = useThemedStyles(createStyles);
   const [pickingIcon, setPickingIcon] = useState(false);
+  const { fontScale, width } = useWindowDimensions();
+  const stacked = fontScale > 1.3 || width < 360;
   const online = computer.status === 'online';
   const unverified = computer.status === 'unverified';
   const lastSeen = computer.lastSeen
@@ -33,19 +35,19 @@ export function DeviceCard({ computer, onRemove, removing = false }: DeviceCardP
 
   return (
     <Card style={styles.card}>
-      <View style={styles.row}>
-        <Pressable accessibilityRole="button" accessibilityLabel={t('device.changeIcon', { name: computer.name })} disabled={removing} onPress={() => setPickingIcon(true)} style={styles.iconButton}>
+      <View style={[styles.row, stacked && styles.stackedRow]}>
+        <Pressable accessibilityRole="button" accessibilityLabel={t('device.changeIcon', { name: computer.name })} accessibilityState={{ disabled: removing }} disabled={removing} onPress={() => setPickingIcon(true)} style={styles.iconButton}>
           <ComputerIcon deviceId={computer.id} selected={online} />
-          <View style={styles.editBadge}><Text style={styles.editMark}>✎</Text></View>
+          <View accessibilityElementsHidden importantForAccessibility="no-hide-descendants" style={styles.editBadge}><Text style={styles.editMark}>✎</Text></View>
         </Pressable>
-        <View style={styles.details}>
+        <View style={[styles.details, stacked && styles.stackedDetails]}>
           <Text style={styles.name}>{computer.name}</Text>
           <Text style={styles.managedUser}>
             {t('device.managed')}: {computer.managedUser ?? t('common.notProvided')}
           </Text>
           {computer.isDemo ? <Text style={styles.demoLabel}>{t('device.demo')}</Text> : null}
         </View>
-        <View style={styles.statusBlock}>
+        <View style={[styles.statusBlock, stacked && styles.stackedStatus]}>
           <Text style={[styles.status, online ? styles.online : styles.offline]}>
             {unverified ? t('device.unverified') : t(online ? 'device.online' : 'device.offline')}
           </Text>
@@ -84,17 +86,20 @@ const createStyles = (colors: ColorPalette) => StyleSheet.create({
     flexDirection: 'row',
     gap: spacing.md,
   },
+  stackedRow: { flexWrap: 'wrap', alignItems: 'flex-start' },
+  stackedDetails: { flexBasis: '70%' },
+  stackedStatus: { maxWidth: '100%', alignItems: 'flex-start', width: '100%' },
   iconButton: { minWidth: 44, minHeight: 44, justifyContent: 'center', alignItems: 'center' },
   editBadge: { position: 'absolute', bottom: -2, right: -3, height: 18, width: 18, borderRadius: radius.pill, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.surface, alignItems: 'center', justifyContent: 'center' },
   editMark: { color: colors.accentText, fontSize: 12 },
   details: { flex: 1, gap: spacing.xs },
   name: { color: colors.textPrimary, fontSize: typography.body, fontWeight: '600' },
   managedUser: { color: colors.textSecondary, fontSize: typography.label },
-  demoLabel: { color: colors.textMuted, fontSize: typography.label },
+  demoLabel: { color: colors.textSecondary, fontSize: typography.label },
   statusBlock: { alignItems: 'flex-end', gap: spacing.xs, maxWidth: 112 },
   status: { fontSize: typography.label, fontWeight: '600' },
   online: { color: colors.success },
   offline: { color: colors.textSecondary },
-  lastSeen: { color: colors.textMuted, fontSize: typography.label },
+  lastSeen: { color: colors.textSecondary, fontSize: typography.label },
   removeButton: { alignSelf: 'flex-end', minHeight: 44, paddingVertical: spacing.xs },
 });

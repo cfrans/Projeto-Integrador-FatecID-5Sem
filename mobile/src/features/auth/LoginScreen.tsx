@@ -194,6 +194,7 @@ export default function LoginScreen() {
               <Button
                 label={busy ? t('auth.signingIn') : t('auth.signIn')}
                 variant="solid"
+                loading={busy}
                 disabled={busy}
                 onPress={submit}
                 style={styles.submitButton}

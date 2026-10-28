@@ -1,7 +1,8 @@
-import { useCallback, useState } from 'react';
-import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { useCallback, useRef, useState } from 'react';
+import { ActivityIndicator, Keyboard, Modal, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { useFocusEffect } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { Button } from '@/components/ui/Button';
 import type { PairedComputer } from '@/features/devices/services/devices';
 import { useLanguage } from '@/features/i18n/LanguageProvider';
 import {
@@ -26,38 +27,38 @@ export function ApplicationsRestrictionScreen({ computer }: { computer: PairedCo
   const [loadState, setLoadState] = useState<LoadState>('loading');
   const [errorMessage, setErrorMessage] = useState('');
   const [query, setQuery] = useState('');
+  const loadRequest = useRef(0);
+  const [confirmationOpen, setConfirmationOpen] = useState(false);
   const { t, localize } = useLanguage();
   const { colors } = useTheme();
   const styles = useThemedStyles(createStyles);
-  const { snapshot, save } = useSimulation();
+  const { snapshot, save, busy } = useSimulation();
 
-  useFocusEffect(
-    useCallback(() => {
-      if (!snapshot.appliedAt) {
-        setLoadState('loading');
-        return;
-      }
-      let active = true;
-      setLoadState('loading');
-      setErrorMessage('');
+  useFocusEffect(useCallback(() => {
+    return () => { setConfirmationOpen(false); };
+  }, []));
 
-      listInstalledApplications(computer.id)
-        .then((installedApplications) => {
-          if (!active) return;
-          setApplications(installedApplications);
-          setLoadState('ready');
-        })
-        .catch((error: unknown) => {
-          if (!active) return;
-          setErrorMessage(applicationsErrorMessage(error));
-          setLoadState('error');
-        });
+  const loadApplications = useCallback(async () => {
+    const request = ++loadRequest.current;
+    setLoadState('loading');
+    setErrorMessage('');
+    if (!snapshot.appliedAt) return;
+    try {
+      const installedApplications = await listInstalledApplications(computer.id);
+      if (request !== loadRequest.current) return;
+      setApplications(installedApplications);
+      setLoadState('ready');
+    } catch (error: unknown) {
+      if (request !== loadRequest.current) return;
+      setErrorMessage(applicationsErrorMessage(error));
+      setLoadState('error');
+    }
+  }, [computer.id, snapshot.appliedAt]);
 
-      return () => {
-        active = false;
-      };
-    }, [computer.id, snapshot.appliedAt]),
-  );
+  useFocusEffect(useCallback(() => {
+    void loadApplications();
+    return () => { loadRequest.current += 1; };
+  }, [loadApplications]));
 
   const configuredApplications = applications.map((application) => ({ ...application, allowed: snapshot.settings.applicationRules[application.id] ?? application.allowed }));
   const visibleApplications = configuredApplications.filter((application) =>
@@ -71,13 +72,21 @@ export function ApplicationsRestrictionScreen({ computer }: { computer: PairedCo
   }
 
   function restrictAll() {
-    if (applications.length) void save({ applicationRules: Object.fromEntries(applications.map((application) => [application.id, false])) });
+    if (!allowedCount || busy || confirmationOpen) return;
+    Keyboard.dismiss();
+    setConfirmationOpen(true);
+  }
+
+  function confirmRestrictAll() {
+    if (!confirmationOpen || busy || !allowedCount) return;
+    setConfirmationOpen(false);
+    void save({ applicationRules: Object.fromEntries(applications.map((application) => [application.id, false])) });
   }
 
   return (
     <SafeAreaView edges={['left', 'right']} style={styles.safeArea}>
-      <View style={styles.container}>
-        <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+      <View style={styles.container} accessibilityElementsHidden={confirmationOpen} importantForAccessibility={confirmationOpen ? 'no-hide-descendants' : 'auto'}>
+        <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled" keyboardDismissMode="on-drag">
           <Text accessibilityRole="header" style={styles.screenTitle}>{t('nav.apps')}</Text>
 
           {loadState === 'loading' ? (
@@ -90,28 +99,34 @@ export function ApplicationsRestrictionScreen({ computer }: { computer: PairedCo
           {loadState === 'error' ? (
             <View style={styles.emptyState}>
               <Text style={styles.emptyTitle}>{t('restriction.appsUnavailable')}</Text>
-              <Text style={styles.stateText}>{localize(errorMessage)}</Text>
+              <Text accessibilityRole="alert" style={styles.stateText}>{localize(errorMessage)}</Text>
+              <Button label={t('common.retry')} onPress={() => void loadApplications()} />
             </View>
           ) : null}
 
           {loadState === 'ready' ? (
             <>
               <View style={styles.searchBox}>
-                <Text style={styles.searchIcon}>⌕</Text>
+                <Text accessible={false} importantForAccessibility="no" style={styles.searchIcon}>⌕</Text>
                 <TextInput
                   accessibilityLabel={t('restriction.searchApp')}
                   autoCapitalize="none"
+                  autoCorrect={false}
+                  returnKeyType="search"
                   onChangeText={setQuery}
                   placeholder={t('restriction.searchApp')}
-                  placeholderTextColor={colors.textMuted}
+                  placeholderTextColor={colors.textSecondary}
                   style={styles.searchInput}
                   value={query}
                 />
+                {query.length > 0 ? <Pressable accessibilityRole="button" accessibilityLabel={t('restriction.clearSearch')} onPress={() => setQuery('')} style={styles.clearSearch}>
+                  <Text style={styles.clearText}>×</Text>
+                </Pressable> : null}
               </View>
 
               <View style={styles.summaryRow}>
                 <Text style={styles.summaryText}>{t('restriction.allowedApps', { allowed: allowedCount, total: applications.length })}</Text>
-                <Pressable accessibilityRole="button" onPress={restrictAll}>
+                <Pressable accessibilityRole="button" accessibilityState={{ disabled: busy || allowedCount === 0 }} disabled={busy || allowedCount === 0} onPress={restrictAll} style={[styles.restrictButton, (busy || allowedCount === 0) && styles.disabled]}>
                   <Text style={styles.restrictText}>{t('restriction.restrictAll')}</Text>
                 </Pressable>
               </View>
@@ -123,7 +138,8 @@ export function ApplicationsRestrictionScreen({ computer }: { computer: PairedCo
                       key={application.id}
                       accessibilityLabel={`${application.name}, ${t(application.allowed ? 'restriction.allowed' : 'restriction.restricted')}`}
                       accessibilityRole="switch"
-                      accessibilityState={{ checked: application.allowed }}
+                      accessibilityState={{ checked: application.allowed, disabled: busy }}
+                      disabled={busy}
                       onPress={() => toggleApplication(application.id)}
                       style={({ pressed }) => [styles.applicationRow, pressed && styles.pressed]}
                     >
@@ -143,6 +159,22 @@ export function ApplicationsRestrictionScreen({ computer }: { computer: PairedCo
           ) : null}
         </ScrollView>
       </View>
+      <Modal visible={confirmationOpen} transparent animationType="fade" onRequestClose={() => setConfirmationOpen(false)}>
+        <SafeAreaView style={styles.modalOverlay}>
+          <Pressable accessible={false} importantForAccessibility="no" style={styles.modalBackdrop} onPress={() => setConfirmationOpen(false)} />
+          <View accessibilityViewIsModal style={styles.dialog}>
+            <ScrollView contentContainerStyle={styles.dialogContent} bounces={false}>
+              <View style={styles.dialogAccent} />
+              <Text accessibilityRole="header" style={styles.dialogTitle}>{t('restriction.restrictAll')}</Text>
+              <Text style={styles.dialogDescription}>{t('restriction.restrictAllDescription', { count: applications.length, name: computer.name })}</Text>
+              <View style={styles.dialogActions}>
+                <Button label={t('common.cancel')} onPress={() => setConfirmationOpen(false)} />
+                <Button label={t('restriction.restrictAll')} disabled={busy || !allowedCount} onPress={confirmRestrictAll} style={styles.dialogConfirm} />
+              </View>
+            </ScrollView>
+          </View>
+        </SafeAreaView>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -167,13 +199,22 @@ function SwitchControl({ value, onPress }: SwitchProps) {
       {thumb}
     </Pressable>
   ) : (
-    <View accessibilityRole="switch" accessibilityState={{ checked: value }} style={style}>
+    <View accessible={false} accessibilityElementsHidden importantForAccessibility="no-hide-descendants" style={style}>
       {thumb}
     </View>
   );
 }
 
 const createStyles = (colors: ColorPalette) => StyleSheet.create({
+  modalOverlay: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: spacing.xl, backgroundColor: 'rgba(0, 0, 0, 0.65)' },
+  modalBackdrop: { position: 'absolute', top: 0, bottom: 0, left: 0, right: 0 },
+  dialog: { width: '100%', maxWidth: 420, maxHeight: '90%', backgroundColor: colors.surface, borderColor: colors.border, borderWidth: 1, borderRadius: radius.lg, overflow: 'hidden' },
+  dialogContent: { padding: spacing.xl, gap: spacing.lg },
+  dialogAccent: { width: 36, height: 4, borderRadius: radius.pill, backgroundColor: colors.accent },
+  dialogTitle: { color: colors.textPrimary, fontSize: 22, fontWeight: '700' },
+  dialogDescription: { color: colors.textSecondary, fontSize: typography.body, lineHeight: 22 },
+  dialogActions: { gap: spacing.sm },
+  dialogConfirm: { backgroundColor: colors.accentSoft },
   safeArea: { backgroundColor: colors.background, flex: 1 },
   container: { flex: 1 },
   content: { padding: spacing.lg, paddingBottom: spacing.xxl },
@@ -182,14 +223,18 @@ const createStyles = (colors: ColorPalette) => StyleSheet.create({
   emptyState: { backgroundColor: colors.surface, borderColor: colors.border, borderRadius: radius.md, borderWidth: 1, gap: spacing.sm, padding: spacing.lg },
   emptyTitle: { color: colors.textPrimary, fontSize: typography.body, fontWeight: '600' },
   stateText: { color: colors.textSecondary, fontSize: typography.label, lineHeight: 18 },
-  searchBox: { alignItems: 'center', backgroundColor: colors.surface, borderColor: colors.border, borderRadius: radius.md, borderWidth: 1, flexDirection: 'row', height: 52, paddingHorizontal: spacing.md },
+  searchBox: { alignItems: 'center', backgroundColor: colors.surface, borderColor: colors.border, borderRadius: radius.md, borderWidth: 1, flexDirection: 'row', minHeight: 52, paddingHorizontal: spacing.md },
   searchIcon: { color: colors.textSecondary, fontSize: 27, width: 34 },
-  searchInput: { color: colors.textPrimary, flex: 1, fontSize: typography.body },
-  summaryRow: { alignItems: 'center', flexDirection: 'row', justifyContent: 'space-between', marginVertical: spacing.md },
+  searchInput: { color: colors.textPrimary, flex: 1, fontSize: typography.body, paddingVertical: spacing.md, minWidth: 0 },
+  clearSearch: { minWidth: 44, minHeight: 44, alignItems: 'center', justifyContent: 'center' },
+  clearText: { color: colors.textSecondary, fontSize: 26 },
+  restrictButton: { minHeight: 44, justifyContent: 'center', paddingHorizontal: spacing.sm },
+  disabled: { opacity: 0.5 },
+  summaryRow: { alignItems: 'center', flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm, justifyContent: 'space-between', marginVertical: spacing.md },
   summaryText: { color: colors.textSecondary, fontSize: typography.body },
   restrictText: { color: colors.accentText, fontSize: typography.body },
   applicationList: { backgroundColor: colors.surface, borderColor: colors.border, borderRadius: radius.md, borderWidth: 1, overflow: 'hidden' },
-  applicationRow: { alignItems: 'center', borderBottomColor: colors.border, borderBottomWidth: 1, flexDirection: 'row', gap: spacing.md, minHeight: 72, paddingHorizontal: spacing.md },
+  applicationRow: { alignItems: 'center', borderBottomColor: colors.border, borderBottomWidth: 1, flexDirection: 'row', gap: spacing.md, minHeight: 72, paddingHorizontal: spacing.md, paddingVertical: spacing.md },
   applicationCopy: { flex: 1, gap: 2 },
   applicationName: { color: colors.textPrimary, fontSize: typography.body, fontWeight: '600' },
   applicationCategory: { color: colors.textSecondary, fontSize: typography.label },
