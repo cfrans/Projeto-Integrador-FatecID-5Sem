@@ -4,6 +4,10 @@ export type Language = 'pt-BR' | 'en' | 'es';
 
 export const translations: Record<Language, Record<TranslationKey, string>> = {
   'pt-BR': {
+    "device.refresh": "Atualizar computadores",
+    "device.staleList": "Não foi possível atualizar. Os dados exibidos são da última consulta e podem estar desatualizados.",
+    "restriction.clearSearch": "Limpar busca",
+    "restriction.restrictAllDescription": "Restringir todos os {count} aplicativos de {name}, incluindo os que estão fora da busca atual? A alteração será enviada ao client simulado.",
     "device.changeIcon": "Alterar ícone de {name}",
     "device.iconTitle": "Ícone do computador",
     "device.icon.desktop": "Computador",
@@ -65,6 +69,10 @@ export const translations: Record<Language, Record<TranslationKey, string>> = {
     'pairing.eyebrow': 'PAREAMENTO SEGURO', 'pairing.title': 'Adicionar computador', 'pairing.description': 'Leia o QR Code temporário exibido no computador. Confira os dados antes de criar o vínculo.', 'pairing.demoCreated': 'Vínculo de demonstração criado', 'pairing.computerAssociated': 'Computador associado', 'pairing.demoNote': 'Este computador é uma simulação. A integração real com o Lux ainda não foi validada.', 'pairing.activeNote': 'O vínculo está ativo. A conexão com o Lux ainda não foi validada.', 'pairing.viewComputers': 'Ver computadores', 'pairing.confirm': 'Confirme este computador', 'pairing.managedAccount': 'Conta gerenciada: {name}', 'pairing.demoConfirm': 'Demonstração: confirmar cria somente um vínculo de demonstração; não comprova integração com o Lux.', 'pairing.qrValid': 'QR válido até {time}', 'pairing.creating': 'Criando vínculo…', 'pairing.confirmLink': 'Confirmar vínculo', 'common.cancel': 'Cancelar', 'pairing.validating': 'Validando QR Code…', 'pairing.readAnother': 'Ler outro QR Code', 'pairing.cameraNeeded': 'A câmera é necessária', 'pairing.cameraDescription': 'O acesso é usado para ler QR Codes de pareamento.', 'pairing.requestAccess': 'Solicitando acesso…', 'pairing.enableCamera': 'Ativar câmera', 'pairing.openSettings': 'Abrir configurações', 'pairing.qrNote': 'QR temporário de uso único. Não compartilhe o código; ele não é salvo no aparelho.',
   },
   en: {
+    "device.refresh": "Refresh computers",
+    "device.staleList": "Could not refresh. Displayed data is from the last query and may be outdated.",
+    "restriction.clearSearch": "Clear search",
+    "restriction.restrictAllDescription": "Restrict all {count} applications on {name}, including those outside the current search? The change will be sent to the simulated client.",
     "device.changeIcon": "Change icon for {name}",
     "device.iconTitle": "Computer icon",
     "device.icon.desktop": "Desktop",
@@ -119,6 +127,10 @@ export const translations: Record<Language, Record<TranslationKey, string>> = {
     'pairing.eyebrow': 'SECURE PAIRING', 'pairing.title': 'Add computer', 'pairing.description': 'Scan the temporary QR Code shown on the computer. Check the details before creating the link.', 'pairing.demoCreated': 'Demo link created', 'pairing.computerAssociated': 'Computer associated', 'pairing.demoNote': 'This computer is a simulation. Real integration with Lux has not been validated yet.', 'pairing.activeNote': 'The link is active. Connection to Lux has not been validated yet.', 'pairing.viewComputers': 'View computers', 'pairing.confirm': 'Confirm this computer', 'pairing.managedAccount': 'Managed account: {name}', 'pairing.demoConfirm': 'Demo: confirming creates only a demo link; it does not prove Lux integration.', 'pairing.qrValid': 'QR valid until {time}', 'pairing.creating': 'Creating link…', 'pairing.confirmLink': 'Confirm link', 'common.cancel': 'Cancel', 'pairing.validating': 'Validating QR Code…', 'pairing.readAnother': 'Scan another QR Code', 'pairing.cameraNeeded': 'Camera required', 'pairing.cameraDescription': 'Access is used to scan pairing QR Codes.', 'pairing.requestAccess': 'Requesting access…', 'pairing.enableCamera': 'Enable camera', 'pairing.openSettings': 'Open settings', 'pairing.qrNote': 'One-time QR Code. Do not share it; it is not saved on the device.',
   },
   es: {
+    "device.refresh": "Actualizar computadoras",
+    "device.staleList": "No se pudo actualizar. Los datos mostrados son de la última consulta y pueden estar desactualizados.",
+    "restriction.clearSearch": "Limpiar búsqueda",
+    "restriction.restrictAllDescription": "¿Restringir las {count} aplicaciones de {name}, incluidas las que están fuera de la búsqueda actual? El cambio se enviará al cliente simulado.",
     "device.changeIcon": "Cambiar icono de {name}",
     "device.iconTitle": "Icono del ordenador",
     "device.icon.desktop": "Ordenador",

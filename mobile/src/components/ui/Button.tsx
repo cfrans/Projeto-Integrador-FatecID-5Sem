@@ -1,17 +1,20 @@
-import { Pressable, StyleSheet, Text, type PressableProps, type StyleProp, type ViewStyle } from 'react-native';
+import { ActivityIndicator, Pressable, StyleSheet, Text, type PressableProps, type StyleProp, type ViewStyle } from 'react-native';
 import { radius, spacing, typography, type ColorPalette } from '@/theme';
-import { useThemedStyles } from '@/features/theme/ThemeProvider';
+import { useTheme, useThemedStyles } from '@/features/theme/ThemeProvider';
 
 type ButtonProps = Omit<PressableProps, 'children'> & {
   label: string;
+  loading?: boolean;
   variant?: 'outline' | 'solid';
   palette?: ColorPalette;
   style?: StyleProp<ViewStyle>;
 };
 
-export function Button({ label, palette, style, variant = 'outline', disabled = false, accessibilityState, ...props }: ButtonProps) {
-  const isDisabled = disabled || Boolean(accessibilityState?.disabled);
+export function Button({ label, loading = false, palette, style, variant = 'outline', disabled = false, accessibilityState, ...props }: ButtonProps) {
+  const isDisabled = loading || disabled || Boolean(accessibilityState?.disabled);
   const styles = useThemedStyles(createStyles);
+  const { colors } = useTheme();
+  const activePalette = palette ?? colors;
   const paletteStyle = palette
     ? {
         backgroundColor: variant === 'solid' ? palette.accent : 'transparent',
@@ -25,11 +28,12 @@ export function Button({ label, palette, style, variant = 'outline', disabled = 
   return (
     <Pressable
       accessibilityRole="button"
-      accessibilityState={{ ...accessibilityState, disabled: isDisabled }}
+      accessibilityState={{ ...accessibilityState, disabled: isDisabled, busy: loading || accessibilityState?.busy }}
       disabled={isDisabled}
-      style={({ pressed }) => [styles.button, variant === 'solid' && styles.solid, paletteStyle, pressed && styles.pressed, style, isDisabled && styles.disabled]}
+      style={({ pressed }) => [styles.button, variant === 'solid' && styles.solid, paletteStyle, pressed && styles.pressed, style, isDisabled && !loading && styles.disabled]}
       {...props}
     >
+      {loading ? <ActivityIndicator accessible={false} importantForAccessibility="no" size="small" color={variant === 'solid' ? activePalette.textPrimary : activePalette.accentText} /> : null}
       <Text style={[styles.label, variant === 'solid' && styles.solidLabel, paletteLabelStyle]}>{label}</Text>
     </Pressable>
   );
@@ -38,6 +42,8 @@ export function Button({ label, palette, style, variant = 'outline', disabled = 
 const createStyles = (colors: ColorPalette) => StyleSheet.create({
   button: {
     minHeight: 48,
+    flexDirection: 'row',
+    gap: spacing.sm,
     alignItems: 'center',
     justifyContent: 'center',
     paddingHorizontal: spacing.lg,
@@ -50,6 +56,6 @@ const createStyles = (colors: ColorPalette) => StyleSheet.create({
   solid: { backgroundColor: colors.accent },
   pressed: { opacity: 0.72 },
   disabled: { opacity: 0.5 },
-  label: { color: colors.accentText, fontSize: typography.button, fontWeight: '500' },
+  label: { color: colors.accentText, fontSize: typography.button, fontWeight: '500', textAlign: 'center', flexShrink: 1 },
   solidLabel: { color: colors.textPrimary },
 });

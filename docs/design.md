@@ -100,3 +100,13 @@ Navegadores usam [logos locais das fontes oficiais](../mobile/assets/browsers/RE
 `ApplicationIcon` compartilha logos locais entre navegadores, inventário e pedidos de instalação; nomes conhecidos e IDs Linux têm aliases explícitos, e desconhecidos mantêm a inicial. [Fontes dos aplicativos](../mobile/assets/applications/README.md).
 
 Computadores usam monitor por padrão, com opções Notebook, PC gamer e Servidor. Toque no ícone com o indicador de edição no cartão da Home ou da lista para personalizar; o seletor das restrições usa a mesma escolha. A preferência é local, separada por responsável e UUID do computador; não altera hardware, presença ou dados no backend. [Assets e licença](../mobile/assets/computers/README.md).
+
+## Melhorias de usabilidade no mobile
+
+Aplicativos oferece limpeza de busca, nova tentativa de carregamento e confirmação de restrição em lote em modal local com paleta ativa, fundo escurecido e ações de cancelar/confirmar, explicitando computador e alcance sobre toda a lista, inclusive fora do filtro. A busca cresce com a fonte do sistema; ações têm área mínima de 44 e a chave visual não duplica o anúncio da linha pelo leitor de tela.
+
+Computadores permite puxar para atualizar. Falhas transitórias preservam a última lista com aviso de dados possivelmente desatualizados; erros de autorização ou resposta inválida retiram a lista. Nova consulta bem-sucedida remove o aviso. Os cartões acomodam status em outra linha em telas estreitas ou com fonte ampliada e usam texto secundário para demonstração/último contato. Rótulos dos botões compartilhados podem quebrar linha com alinhamento central.
+
+Contraste, fonte ampliada, gesto de atualização e navegação com TalkBack/VoiceOver ainda exigem conferência em aparelho; estas mudanças não certificam acessibilidade de todo o app.
+
+O botão de login exibe indicador circular junto de “Entrando…” durante a autenticação. O carregamento mantém o botão bloqueado e sinaliza estado ocupado para tecnologias assistivas, sem atraso artificial.

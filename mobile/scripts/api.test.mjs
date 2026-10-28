@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import { afterEach, test } from 'node:test';
 import { ApiError, api, apiErrorMessage } from '../src/lib/api.ts';
 import './devices.test.mjs';
+import './computer-list-state.test.mjs';
 import './pairing.test.mjs';
 import './device-selection.test.mjs';
 import './preferences.test.mjs';
