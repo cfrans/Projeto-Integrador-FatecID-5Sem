@@ -21,7 +21,43 @@ export function LockIcon({ color }: { color: string }) {
   );
 }
 
+export function UserIcon({ color }: { color: string }) {
+  return (
+    <View accessible={false} style={styles.user}>
+      <View style={[styles.userHead, { borderColor: color }]} />
+      <View style={[styles.userBody, { borderColor: color }]} />
+    </View>
+  );
+}
+
+export function CheckIcon({ color }: { color: string }) {
+  return (
+    <View accessible={false} style={styles.check}>
+      <View style={[styles.checkMark, { borderColor: color }]} />
+    </View>
+  );
+}
+
 const styles = StyleSheet.create({
+  user: { width: 16, height: 18, alignItems: 'center', justifyContent: 'space-between' },
+  userHead: { width: 8, height: 8, borderWidth: STROKE, borderRadius: 4 },
+  userBody: {
+    width: 16,
+    height: 7,
+    borderWidth: STROKE,
+    borderBottomWidth: 0,
+    borderTopLeftRadius: 8,
+    borderTopRightRadius: 8,
+  },
+  check: { width: 18, height: 18, alignItems: 'center', justifyContent: 'center' },
+  checkMark: {
+    width: 6,
+    height: 11,
+    marginTop: -2,
+    borderRightWidth: STROKE + 0.2,
+    borderBottomWidth: STROKE + 0.2,
+    transform: [{ rotate: '45deg' }],
+  },
   mail: { width: 18, height: 14, borderWidth: STROKE, borderRadius: 3, overflow: 'hidden' },
   mailFlap: {
     position: 'absolute',

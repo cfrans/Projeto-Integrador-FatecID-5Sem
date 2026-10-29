@@ -56,7 +56,7 @@ export const translations: Record<Language, Record<TranslationKey, string>> = {
     'auth.validEmail': 'Informe um e-mail válido.', 'auth.requiredPassword': 'Informe sua senha.', 'common.show': 'Mostrar', 'common.hide': 'Ocultar',
     'auth.signingIn': 'Entrando…', 'auth.signIn': 'Entrar', 'auth.retryConnection': 'Tentar conexão novamente',
     'auth.registerPrompt': 'Não tem conta? Cadastre-se', 'auth.forgot': 'Esqueci minha senha', 'auth.forgotUnavailable': 'Recuperação de senha indisponível no momento.',
-    'auth.createAccount': 'Criar conta', 'auth.registerDescription': 'Cadastre-se como responsável para gerenciar os computadores da família.', 'common.name': 'Nome',
+    'auth.createAccount': 'Criar conta', 'auth.registerDescription': 'Leva menos de um minuto para começar.', 'common.name': 'Nome',
     'auth.namePlaceholder': 'Seu nome', 'auth.createPassword': 'Crie uma senha', 'auth.confirmPassword': 'Confirmar senha',
     'auth.confirmPlaceholder': 'Repita a senha', 'auth.passwordMin': 'A senha deve ter ao menos {count} caracteres.', 'auth.passwordMismatch': 'As senhas não coincidem.',
     'auth.completed': 'Cadastro concluído', 'auth.completedDescription': 'Conta simulada: nenhum dado foi salvo ou enviado. O cadastro pela API ainda não está disponível.',
@@ -119,7 +119,7 @@ export const translations: Record<Language, Record<TranslationKey, string>> = {
     'common.password': 'Password', 'auth.emailPlaceholder': 'guardian@email.com', 'auth.passwordPlaceholder': 'Enter your password', 'auth.validEmail': 'Enter a valid email.',
     'auth.requiredPassword': 'Enter your password.', 'common.show': 'Show', 'common.hide': 'Hide', 'auth.signingIn': 'Signing in…', 'auth.signIn': 'Sign in',
     'auth.retryConnection': 'Try connection again', 'auth.registerPrompt': 'No account? Sign up', 'auth.forgot': 'Forgot my password', 'auth.forgotUnavailable': 'Password recovery is unavailable right now.',
-    'auth.createAccount': 'Create account', 'auth.registerDescription': 'Sign up as a guardian to manage your family computers.', 'common.name': 'Name', 'auth.namePlaceholder': 'Your name',
+    'auth.createAccount': 'Create account', 'auth.registerDescription': 'It takes less than a minute to get started.', 'common.name': 'Name', 'auth.namePlaceholder': 'Your name',
     'auth.createPassword': 'Create a password', 'auth.confirmPassword': 'Confirm password', 'auth.confirmPlaceholder': 'Repeat your password', 'auth.passwordMin': 'Password must have at least {count} characters.',
     'auth.passwordMismatch': 'Passwords do not match.', 'auth.completed': 'Registration complete', 'auth.completedDescription': 'Demo account: no data was saved or sent. Registration through the API is not available yet.',
     'auth.goLogin': 'Go to login', 'auth.haveAccount': 'I already have an account',
@@ -175,7 +175,7 @@ export const translations: Record<Language, Record<TranslationKey, string>> = {
     'common.email': 'Correo electrónico', 'common.password': 'Contraseña', 'auth.emailPlaceholder': 'responsable@email.com', 'auth.passwordPlaceholder': 'Escribe tu contraseña', 'auth.validEmail': 'Introduce un correo válido.',
     'auth.requiredPassword': 'Introduce tu contraseña.', 'common.show': 'Mostrar', 'common.hide': 'Ocultar', 'auth.signingIn': 'Entrando…', 'auth.signIn': 'Entrar', 'auth.retryConnection': 'Intentar conexión de nuevo',
     'auth.registerPrompt': '¿No tienes cuenta? Regístrate', 'auth.forgot': 'Olvidé mi contraseña', 'auth.forgotUnavailable': 'La recuperación de contraseña no está disponible ahora.', 'auth.createAccount': 'Crear cuenta',
-    'auth.registerDescription': 'Regístrate como responsable para gestionar los ordenadores de la familia.', 'common.name': 'Nombre', 'auth.namePlaceholder': 'Tu nombre', 'auth.createPassword': 'Crea una contraseña',
+    'auth.registerDescription': 'Lleva menos de un minuto empezar.', 'common.name': 'Nombre', 'auth.namePlaceholder': 'Tu nombre', 'auth.createPassword': 'Crea una contraseña',
     'auth.confirmPassword': 'Confirmar contraseña', 'auth.confirmPlaceholder': 'Repite la contraseña', 'auth.passwordMin': 'La contraseña debe tener al menos {count} caracteres.', 'auth.passwordMismatch': 'Las contraseñas no coinciden.',
     'auth.completed': 'Registro completado', 'auth.completedDescription': 'Cuenta simulada: no se guardó ni envió ningún dato. El registro mediante la API aún no está disponible.', 'auth.goLogin': 'Ir al inicio de sesión', 'auth.haveAccount': 'Ya tengo una cuenta',
     'restriction.sync': 'Sincronizado', 'restriction.syncing': 'Sincronizando', 'restriction.loadingComputer': 'Cargando ordenador…', 'restriction.noComputer': 'Ningún ordenador conectado', 'restriction.pairToContinue': 'Vincula un ordenador para continuar.', 'restriction.blockBrowsers': 'Bloquear navegadores', 'restriction.blockBrowsersDescription': 'Impide abrir cualquier navegador en la cuenta del niño.', 'restriction.allowedExceptions': 'EXCEPCIONES PERMITIDAS', 'restriction.browserFooter': 'Con el bloqueo general activo, solo los navegadores marcados siguen disponibles.', 'restriction.searchApp': 'Buscar aplicación', 'restriction.allowedApps': '{allowed} de {total} aplicaciones permitidas', 'restriction.restrictAll': 'Restringir todas', 'restriction.noAppMatch': 'Ninguna aplicación coincide con la búsqueda.', 'restriction.appsUnavailable': 'Aplicaciones no disponibles', 'restriction.installUnavailable': 'Solicitudes no disponibles', 'restriction.blockInstall': 'Bloquear instalación', 'restriction.blockInstallDescription': 'Las aplicaciones nuevas solo se pueden instalar con tu aprobación.', 'restriction.pendingRequests': 'SOLICITUDES PENDIENTES', 'restriction.noPendingRequests': 'Ninguna solicitud pendiente', 'restriction.newRequests': 'Las nuevas solicitudes enviadas por el ordenador aparecerán aquí.', 'restriction.allow': 'Permitir', 'restriction.deny': 'Rechazar', 'restriction.requestBy': 'Solicitado por {name} · {time}', 'restriction.ageAdjustment': 'Adecuación por edad', 'restriction.account': 'cuenta {name}', 'restriction.loadingAccountComputers': 'Cargando ordenadores de la cuenta…', 'restriction.computer': 'ORDENADOR', 'restriction.free': 'Libre', 'restriction.noAgeRestriction': 'Sin restricción de edad', 'restriction.age10': '10 años', 'restriction.age12': '12 años', 'restriction.age16': '16 años', 'restriction.age18': '18 años', 'restriction.contentLight': 'Contenido ligero, sin violencia', 'restriction.violenceLight': 'Violencia leve, lenguaje moderado', 'restriction.moderateAdult': 'Contenido adulto moderado', 'restriction.noRatingFilter': 'Sin filtro de clasificación',
@@ -629,6 +629,14 @@ Object.assign(translations.es, { 'auth.eyebrow': 'ÁREA DEL RESPONSABLE' });
 Object.assign(translations['pt-BR'], { 'auth.registerQuestion': 'Não tem conta?', 'auth.registerAction': 'Cadastre-se' });
 Object.assign(translations.en, { 'auth.registerQuestion': 'No account?', 'auth.registerAction': 'Sign up' });
 Object.assign(translations.es, { 'auth.registerQuestion': '¿No tienes cuenta?', 'auth.registerAction': 'Regístrate' });
+
+Object.assign(translations['pt-BR'], { 'auth.registerEyebrow': 'NOVA CONTA DE RESPONSÁVEL', 'auth.registerTitle': 'Criar conta.', 'auth.back': 'Voltar', 'auth.passwordHint': 'Mínimo de {count} caracteres' });
+Object.assign(translations.en, { 'auth.registerEyebrow': 'NEW GUARDIAN ACCOUNT', 'auth.registerTitle': 'Create account.', 'auth.back': 'Back', 'auth.passwordHint': 'At least {count} characters' });
+Object.assign(translations.es, { 'auth.registerEyebrow': 'NUEVA CUENTA DE RESPONSABLE', 'auth.registerTitle': 'Crear cuenta.', 'auth.back': 'Volver', 'auth.passwordHint': 'Mínimo {count} caracteres' });
+
+Object.assign(translations['pt-BR'], { 'auth.haveAccountQuestion': 'Já tem uma conta?' });
+Object.assign(translations.en, { 'auth.haveAccountQuestion': 'Already have an account?' });
+Object.assign(translations.es, { 'auth.haveAccountQuestion': '¿Ya tienes una cuenta?' });
 
 export function deviceLanguage(languageTag: string): Language {
   const tag = languageTag.toLowerCase();
