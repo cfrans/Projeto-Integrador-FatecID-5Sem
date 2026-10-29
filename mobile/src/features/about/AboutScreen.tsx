@@ -1,9 +1,9 @@
 import { useEffect, useState } from 'react';
 import { Image, Linking, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useLanguage, type Language } from '@/features/i18n/LanguageProvider';
+import { useLanguage } from '@/features/i18n/LanguageProvider';
 import { radius, spacing, typography, type ColorPalette } from '@/theme';
-import { useTheme, useThemedStyles, type ThemePreference } from '@/features/theme/ThemeProvider';
+import { useTheme, useThemedStyles } from '@/features/theme/ThemeProvider';
 
 type TeamMember = {
   initials: string;
@@ -139,8 +139,8 @@ function GitHubLogo({ size = 18, color }: { size?: number; color?: string }) {
 
 export function AboutScreen() {
   const [failedAvatars, setFailedAvatars] = useState<Record<string, boolean>>({});
-  const { language, setLanguage, t } = useLanguage();
-  const { colors, preference, setPreference } = useTheme();
+  const { t } = useLanguage();
+  const { colors } = useTheme();
   const styles = useThemedStyles(createStyles);
 
   useEffect(() => {
@@ -159,53 +159,6 @@ export function AboutScreen() {
             <Text style={styles.eyebrow}>{t('about.eyebrow')}</Text>
             <Text style={styles.title}>{t('about.title')}</Text>
             <Text style={styles.description}>{t('about.description')}</Text>
-          </View>
-
-          <View style={styles.languageSection}>
-            <Text style={styles.sectionHeader}>{t('language.title')}</Text>
-            <View style={styles.languageOptions}>
-              {(['pt-BR', 'en', 'es'] as const).map((option: Language) => (
-                <Pressable
-                  key={option}
-                  accessibilityRole="radio"
-                  accessibilityState={{ checked: language === option }}
-                  onPress={() => setLanguage(option)}
-                  style={[styles.languageOption, language === option && styles.languageOptionSelected]}
-                >
-                  <Text style={[styles.languageOptionText, language === option && styles.languageOptionTextSelected]}>
-                    {option === 'pt-BR' ? t('language.portuguese') : option === 'en' ? t('language.english') : t('language.spanish')}
-                  </Text>
-                </Pressable>
-              ))}
-            </View>
-          </View>
-
-          <View style={styles.themeSection}>
-            <Text style={styles.sectionHeader}>{t('about.theme.title')}</Text>
-            <View style={styles.themeOptions}>
-              {(['system', 'light', 'dark'] as const).map((option: ThemePreference) => (
-                <Pressable
-                  key={option}
-                  accessibilityRole="radio"
-                  accessibilityState={{ checked: preference === option }}
-                  onPress={() => setPreference(option)}
-                  style={[
-                    styles.languageOption,
-                    styles.themeOption,
-                    preference === option && styles.languageOptionSelected,
-                  ]}
-                >
-                  <Text
-                    style={[
-                      styles.languageOptionText,
-                      preference === option && styles.languageOptionTextSelected,
-                    ]}
-                  >
-                    {t(`about.theme.${option}`)}
-                  </Text>
-                </Pressable>
-              ))}
-            </View>
           </View>
 
           <View style={styles.membersList}>
@@ -300,44 +253,6 @@ const createStyles = (colors: ColorPalette) => StyleSheet.create({
   },
   intro: {
     gap: spacing.sm,
-  },
-  languageSection: {
-    gap: spacing.sm,
-  },
-  languageOptions: {
-    flexDirection: 'row',
-    gap: spacing.sm,
-  },
-  themeSection: {
-    gap: spacing.sm,
-  },
-  themeOptions: {
-    flexDirection: 'row',
-    gap: spacing.sm,
-  },
-  themeOption: {
-    alignItems: 'center',
-    flex: 1,
-    paddingHorizontal: spacing.xs,
-  },
-  languageOption: {
-    borderColor: colors.border,
-    borderRadius: radius.pill,
-    borderWidth: 1,
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
-  },
-  languageOptionSelected: {
-    backgroundColor: colors.accentSoft,
-    borderColor: colors.accent,
-  },
-  languageOptionText: {
-    color: colors.textSecondary,
-    fontSize: typography.label,
-  },
-  languageOptionTextSelected: {
-    color: colors.accentText,
-    fontWeight: '600',
   },
   eyebrow: {
     color: colors.accentText,
