@@ -50,8 +50,8 @@ export const translations: Record<Language, Record<TranslationKey, string>> = {
     'common.retry': 'Tentar novamente', 'home.noneTitle': 'Nenhum computador associado', 'home.noneDescription': 'Leia o QR Code temporário exibido no computador para criar um vínculo.',
     'home.shortcuts': 'ATALHOS DE RESTRIÇÃO', 'home.browsers': 'Navegadores', 'home.blocked': 'Bloqueados', 'home.apps': 'Aplicativos',
     'home.installed': 'Ver instalados', 'home.installation': 'Instalação', 'home.age': 'Faixa etária', 'home.upTo12': 'Até 12 anos',
-    'auth.tagline': 'Parental Insight Platform for Lux User Protection', 'auth.welcome': 'Bem-vindo de volta',
-    'auth.loginDescription': 'Entre com sua conta de responsável para gerenciar os computadores da família.', 'common.email': 'E-mail',
+    'auth.tagline': 'Parental Insight Platform for Lux User Protection', 'auth.welcome': 'Bem-vindo\nde volta.',
+    'auth.loginDescription': 'Acompanhe e gerencie os computadores da família em um só lugar.', 'common.email': 'E-mail',
     'common.password': 'Senha', 'auth.emailPlaceholder': 'responsavel@email.com', 'auth.passwordPlaceholder': 'Digite sua senha',
     'auth.validEmail': 'Informe um e-mail válido.', 'auth.requiredPassword': 'Informe sua senha.', 'common.show': 'Mostrar', 'common.hide': 'Ocultar',
     'auth.signingIn': 'Entrando…', 'auth.signIn': 'Entrar', 'auth.retryConnection': 'Tentar conexão novamente',
@@ -115,7 +115,7 @@ export const translations: Record<Language, Record<TranslationKey, string>> = {
     'home.noneTitle': 'No computer associated', 'home.noneDescription': 'Scan the temporary QR Code shown on the computer to create a link.',
     'home.shortcuts': 'RESTRICTION SHORTCUTS', 'home.browsers': 'Browsers', 'home.blocked': 'Blocked', 'home.apps': 'Apps', 'home.installed': 'View installed',
     'home.installation': 'Installation', 'home.age': 'Age rating', 'home.upTo12': 'Up to 12 years', 'auth.tagline': 'Parental Insight Platform for Lux User Protection',
-    'auth.welcome': 'Welcome back', 'auth.loginDescription': 'Sign in with your guardian account to manage your family computers.', 'common.email': 'Email',
+    'auth.welcome': 'Welcome\nback.', 'auth.loginDescription': 'Keep track of and manage your family computers in one place.', 'common.email': 'Email',
     'common.password': 'Password', 'auth.emailPlaceholder': 'guardian@email.com', 'auth.passwordPlaceholder': 'Enter your password', 'auth.validEmail': 'Enter a valid email.',
     'auth.requiredPassword': 'Enter your password.', 'common.show': 'Show', 'common.hide': 'Hide', 'auth.signingIn': 'Signing in…', 'auth.signIn': 'Sign in',
     'auth.retryConnection': 'Try connection again', 'auth.registerPrompt': 'No account? Sign up', 'auth.forgot': 'Forgot my password', 'auth.forgotUnavailable': 'Password recovery is unavailable right now.',
@@ -171,7 +171,7 @@ export const translations: Record<Language, Record<TranslationKey, string>> = {
     'common.computers': 'Ordenadores', 'common.viewAll': 'Ver todos', 'common.loadingComputers': 'Cargando ordenadores…', 'common.loadError': 'No se pudo cargar', 'common.retry': 'Intentar de nuevo',
     'home.noneTitle': 'Ningún ordenador asociado', 'home.noneDescription': 'Lee el código QR temporal mostrado en el ordenador para crear un vínculo.', 'home.shortcuts': 'ATAJOS DE RESTRICCIÓN',
     'home.browsers': 'Navegadores', 'home.blocked': 'Bloqueados', 'home.apps': 'Aplicaciones', 'home.installed': 'Ver instaladas', 'home.installation': 'Instalación', 'home.age': 'Edad', 'home.upTo12': 'Hasta 12 años',
-    'auth.tagline': 'Parental Insight Platform for Lux User Protection', 'auth.welcome': 'Bienvenido de nuevo', 'auth.loginDescription': 'Entra con tu cuenta de responsable para gestionar los ordenadores de la familia.',
+    'auth.tagline': 'Parental Insight Platform for Lux User Protection', 'auth.welcome': 'Bienvenido\nde nuevo.', 'auth.loginDescription': 'Acompaña y gestiona los ordenadores de la familia en un solo lugar.',
     'common.email': 'Correo electrónico', 'common.password': 'Contraseña', 'auth.emailPlaceholder': 'responsable@email.com', 'auth.passwordPlaceholder': 'Escribe tu contraseña', 'auth.validEmail': 'Introduce un correo válido.',
     'auth.requiredPassword': 'Introduce tu contraseña.', 'common.show': 'Mostrar', 'common.hide': 'Ocultar', 'auth.signingIn': 'Entrando…', 'auth.signIn': 'Entrar', 'auth.retryConnection': 'Intentar conexión de nuevo',
     'auth.registerPrompt': '¿No tienes cuenta? Regístrate', 'auth.forgot': 'Olvidé mi contraseña', 'auth.forgotUnavailable': 'La recuperación de contraseña no está disponible ahora.', 'auth.createAccount': 'Crear cuenta',
@@ -621,6 +621,14 @@ Object.assign(translations.es, {
   'settings.changePassword': 'Cambiar contraseña', 'settings.currentPassword': 'Contraseña actual', 'settings.newPassword': 'Nueva contraseña', 'settings.savePassword': 'Guardar contraseña',
   'settings.notSaved': 'Datos validados, pero aún no enviados: el cambio de cuenta depende del backend.',
 });
+
+Object.assign(translations['pt-BR'], { 'auth.eyebrow': 'ÁREA DO RESPONSÁVEL' });
+Object.assign(translations.en, { 'auth.eyebrow': 'GUARDIAN AREA' });
+Object.assign(translations.es, { 'auth.eyebrow': 'ÁREA DEL RESPONSABLE' });
+
+Object.assign(translations['pt-BR'], { 'auth.registerQuestion': 'Não tem conta?', 'auth.registerAction': 'Cadastre-se' });
+Object.assign(translations.en, { 'auth.registerQuestion': 'No account?', 'auth.registerAction': 'Sign up' });
+Object.assign(translations.es, { 'auth.registerQuestion': '¿No tienes cuenta?', 'auth.registerAction': 'Regístrate' });
 
 export function deviceLanguage(languageTag: string): Language {
   const tag = languageTag.toLowerCase();
