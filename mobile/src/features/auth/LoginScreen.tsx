@@ -9,10 +9,10 @@ import {
   View,
   type TextInput as TextInputType,
 } from 'react-native';
-import { Baloo2_800ExtraBold, useFonts } from '@expo-google-fonts/baloo-2';
 import { router } from 'expo-router';
 import { Button } from '@/components/ui/Button';
 import { EyeIcon } from '@/components/ui/EyeIcon';
+import { LockIcon, MailIcon } from '@/components/ui/FieldIcons';
 import { Input } from '@/components/ui/Input';
 import { AuthBackground } from '@/components/ui/AuthBackground';
 import { PenguinLogo } from '@/components/ui/PenguinLogo';
@@ -34,7 +34,6 @@ export default function LoginScreen() {
   const [showPassword, setShowPassword] = useState(false);
   const [errors, setErrors] = useState<FieldErrors>({});
   const [notice, setNotice] = useState('');
-  const [fontsLoaded] = useFonts({ Baloo2_800ExtraBold });
   const { busy, canRetryRestore, clearError, error, retryRestore, signIn } = useSession();
   const { t, localize } = useLanguage();
   const { colors } = useTheme();
@@ -87,6 +86,7 @@ export default function LoginScreen() {
 
   return (
     <AuthBackground>
+      <View style={styles.topBar} />
       <KeyboardAvoidingView
         style={styles.keyboardView}
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
@@ -101,20 +101,25 @@ export default function LoginScreen() {
               <View style={styles.brand}>
                 <PenguinLogo size={58} />
                 <View style={styles.brandText}>
-                  <Text style={[styles.brandName, fontsLoaded && styles.brandNameRounded]}>piplup</Text>
-                  <View style={styles.brandUnderline} />
+                  <Text style={styles.brandName}>PIPLUP</Text>
                   <Text style={styles.tagline}>{t('auth.tagline')}</Text>
                 </View>
               </View>
 
+              <Text style={styles.eyebrow}>{t('auth.eyebrow')}</Text>
               <Text style={styles.title}>{t('auth.welcome')}</Text>
               <Text style={styles.description}>{t('auth.loginDescription')}</Text>
 
               <View style={styles.form}>
                 <View style={styles.field}>
                   <Text style={styles.label}>{t('common.email')}</Text>
+                  <View style={styles.passwordRow}>
+                  <View pointerEvents="none" style={styles.fieldIcon}>
+                    <MailIcon color={colors.textSecondary} />
+                  </View>
                   <Input
                     ref={emailInput}
+                    style={styles.iconInput}
                     accessibilityLabel={t('common.email')}
                     accessibilityHint={errors.email ? localize(errors.email) : undefined}
                     autoCapitalize="none"
@@ -131,6 +136,7 @@ export default function LoginScreen() {
                     textContentType="emailAddress"
                     value={email}
                   />
+                  </View>
                   {errors.email ? (
                     <Text accessibilityLiveRegion="polite" style={styles.error}>
                       {localize(errors.email)}
@@ -141,6 +147,9 @@ export default function LoginScreen() {
                 <View style={styles.field}>
                   <Text style={styles.label}>{t('common.password')}</Text>
                   <View style={styles.passwordRow}>
+                    <View pointerEvents="none" style={styles.fieldIcon}>
+                      <LockIcon color={colors.textSecondary} />
+                    </View>
                     <Input
                       ref={passwordInput}
                       accessibilityLabel={t('common.password')}
@@ -212,7 +221,9 @@ export default function LoginScreen() {
                 onPress={() => router.push('/register')}
                 style={[styles.linkButton, styles.registerButton]}
               >
-                <Text style={styles.registerText}>{t('auth.registerPrompt')}</Text>
+                <Text style={styles.registerQuestion}>
+                  {t('auth.registerQuestion')} <Text style={styles.registerText}>{t('auth.registerAction')}</Text>
+                </Text>
               </Pressable>
 
               <Pressable
@@ -221,7 +232,7 @@ export default function LoginScreen() {
                 disabled={busy}
                 hitSlop={12}
                 onPress={() => setNotice(t('auth.forgotUnavailable'))}
-                style={styles.linkButton}
+                style={[styles.linkButton, styles.forgotButton]}
               >
                 <Text style={styles.forgotText}>{t('auth.forgot')}</Text>
               </Pressable>
@@ -235,6 +246,7 @@ export default function LoginScreen() {
 }
 
 const createStyles = (colors: ColorPalette) => StyleSheet.create({
+  topBar: { height: 4, backgroundColor: colors.accent },
   keyboardView: { flex: 1 },
   scrollContent: { flexGrow: 1 },
   page: {
@@ -247,45 +259,40 @@ const createStyles = (colors: ColorPalette) => StyleSheet.create({
   content: { width: '100%', maxWidth: 420, alignSelf: 'center' },
   brand: { flexDirection: 'row', alignItems: 'center', gap: spacing.md },
   brandText: { flexShrink: 1 },
-  brandName: { color: colors.textPrimary, fontSize: typography.brand, fontWeight: '600', textTransform: 'uppercase' },
-  brandNameRounded: {
-    fontFamily: 'Baloo2_800ExtraBold',
-    fontSize: typography.brand + spacing.md,
-    fontWeight: 'normal',
-    includeFontPadding: false,
-    lineHeight: typography.brand + spacing.md,
-    marginBottom: -spacing.xs,
-  },
-  brandUnderline: {
-    width: 26,
-    height: 2,
-    marginTop: spacing.xs,
-    backgroundColor: colors.accent,
-  },
+  brandName: { color: colors.textPrimary, fontSize: 26, fontWeight: '800', letterSpacing: 4 },
   tagline: {
-    marginTop: spacing.sm,
+    marginTop: spacing.xs,
     color: colors.textSecondary,
     fontSize: typography.label,
     lineHeight: typography.label + spacing.xs,
   },
-  title: {
+  eyebrow: {
     marginTop: spacing.xxl,
+    color: colors.accentText,
+    fontSize: typography.label,
+    fontWeight: '700',
+    letterSpacing: 1.6,
+  },
+  title: {
+    marginTop: spacing.sm,
     color: colors.textPrimary,
-    fontSize: typography.title - spacing.xs,
-    lineHeight: typography.title,
-    fontWeight: '500',
+    fontSize: 40,
+    lineHeight: 42,
+    fontWeight: '800',
+    letterSpacing: -1,
   },
   description: {
-    marginTop: spacing.sm,
+    marginTop: spacing.md,
     color: colors.textSecondary,
-    fontSize: typography.body,
-    lineHeight: typography.body + spacing.sm,
-    maxWidth: 320,
+    fontSize: typography.input,
+    lineHeight: typography.input + spacing.sm,
   },
   form: { marginTop: spacing.xl, gap: spacing.md },
   field: { gap: spacing.sm },
   passwordRow: { justifyContent: 'center' },
-  passwordInput: { paddingRight: 52 },
+  iconInput: { paddingLeft: 48 },
+  passwordInput: { paddingLeft: 48, paddingRight: 52 },
+  fieldIcon: { position: 'absolute', left: 16, top: 0, bottom: 0, zIndex: 1, justifyContent: 'center' },
   passwordToggle: {
     alignItems: 'center',
     bottom: 0,
@@ -295,7 +302,7 @@ const createStyles = (colors: ColorPalette) => StyleSheet.create({
     top: 0,
     width: 48,
   },
-  label: { color: colors.textSecondary, fontSize: typography.label },
+  label: { color: colors.textPrimary, fontSize: typography.body, fontWeight: '700' },
   error: { color: colors.accentText, fontSize: typography.label },
   notice: {
     marginTop: spacing.md,
@@ -309,7 +316,9 @@ const createStyles = (colors: ColorPalette) => StyleSheet.create({
     justifyContent: 'center',
     paddingVertical: spacing.xs,
   },
-  forgotText: { color: colors.textSecondary, fontSize: typography.label },
-  registerButton: { marginTop: spacing.xs },
-  registerText: { color: colors.accentText, fontSize: typography.label },
+  forgotButton: { paddingTop: 0 },
+  forgotText: { color: colors.textSecondary, fontSize: typography.label, borderBottomWidth: 1, borderBottomColor: colors.textMuted },
+  registerButton: { marginTop: spacing.xs, paddingBottom: 0 },
+  registerQuestion: { color: colors.textSecondary, fontSize: 13 },
+  registerText: { color: colors.accentText, fontWeight: '700' },
 });
