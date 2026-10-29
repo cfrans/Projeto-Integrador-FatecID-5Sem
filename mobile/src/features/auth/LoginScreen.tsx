@@ -12,6 +12,7 @@ import {
 import { Baloo2_800ExtraBold, useFonts } from '@expo-google-fonts/baloo-2';
 import { router } from 'expo-router';
 import { Button } from '@/components/ui/Button';
+import { EyeIcon } from '@/components/ui/EyeIcon';
 import { Input } from '@/components/ui/Input';
 import { AuthBackground } from '@/components/ui/AuthBackground';
 import { PenguinLogo } from '@/components/ui/PenguinLogo';
@@ -168,7 +169,7 @@ export default function LoginScreen() {
                       onPress={() => setShowPassword((current) => !current)}
                       style={styles.passwordToggle}
                     >
-                      <Text style={styles.passwordToggleText}>{showPassword ? t('common.hide') : t('common.show')}</Text>
+                      <EyeIcon color={colors.textSecondary} slashed={showPassword} />
                     </Pressable>
                   </View>
                   {errors.password ? (
@@ -283,16 +284,17 @@ const createStyles = (colors: ColorPalette) => StyleSheet.create({
   },
   form: { marginTop: spacing.xl, gap: spacing.md },
   field: { gap: spacing.sm },
-  passwordRow: { flexDirection: 'row', alignItems: 'center' },
-  passwordInput: { flex: 1 },
+  passwordRow: { justifyContent: 'center' },
+  passwordInput: { paddingRight: 52 },
   passwordToggle: {
-    minHeight: 44,
     alignItems: 'center',
+    bottom: 0,
     justifyContent: 'center',
-    marginLeft: spacing.sm,
-    paddingHorizontal: spacing.sm,
+    position: 'absolute',
+    right: 0,
+    top: 0,
+    width: 48,
   },
-  passwordToggleText: { color: colors.accentText, fontSize: typography.label },
   label: { color: colors.textSecondary, fontSize: typography.label },
   error: { color: colors.accentText, fontSize: typography.label },
   notice: {

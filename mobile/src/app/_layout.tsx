@@ -56,7 +56,8 @@ function RootNavigator() {
             <Stack.Screen name="restrictions" options={{ title: t('nav.restrictions') }} />
             <Stack.Screen name="access-request" options={{ title: t('nav.accessRequest') }} />
             <Stack.Screen name="sync-failure" options={{ title: t('nav.sync') }} />
-            <Stack.Screen name="about" options={{ title: t('nav.about') }} />
+            <Stack.Screen name="settings" options={{ title: t('nav.settings') }} />
+            <Stack.Screen name="about"options={{ title: t('nav.about') }} />
           </Stack.Protected>
         </Stack>
       )}

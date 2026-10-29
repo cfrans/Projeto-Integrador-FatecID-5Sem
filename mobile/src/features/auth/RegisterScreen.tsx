@@ -1,6 +1,7 @@
 import { useRef, useState } from 'react';
 import {
   KeyboardAvoidingView,
+  Modal,
   Platform,
   Pressable,
   ScrollView,
@@ -13,7 +14,7 @@ import { router } from 'expo-router';
 import { AuthBackground } from '@/components/ui/AuthBackground';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
-import { spacing, typography, type ColorPalette } from '@/theme';
+import { radius, spacing, typography, type ColorPalette } from '@/theme';
 import { useLanguage } from '@/features/i18n/LanguageProvider';
 import { useTheme, useThemedStyles } from '@/features/theme/ThemeProvider';
 
@@ -69,20 +70,6 @@ export default function RegisterScreen() {
       setConfirmPassword('');
       setDone(true);
     }
-  }
-
-  if (done) {
-    return (
-      <AuthBackground>
-        <View style={styles.page}>
-          <View style={styles.content}>
-            <Text style={styles.title}>{t('auth.completed')}</Text>
-            <Text style={styles.description}>{t('auth.completedDescription')}</Text>
-            <Button label={t('auth.goLogin')} onPress={() => router.replace('/')} style={styles.submitButton} />
-          </View>
-        </View>
-      </AuthBackground>
-    );
   }
 
   return (
@@ -196,11 +183,26 @@ export default function RegisterScreen() {
           </View>
         </ScrollView>
       </KeyboardAvoidingView>
+
+      <Modal visible={done} transparent animationType="fade" onRequestClose={() => router.replace('/')}>
+        <View style={styles.modalBackdrop}>
+          <View accessibilityViewIsModal style={styles.dialog}>
+            <Text accessibilityRole="header" style={styles.dialogTitle}>{t('auth.completed')}</Text>
+            <Text style={styles.dialogText}>{t('auth.completedDescription')}</Text>
+            <Button label={t('auth.goLogin')} variant="solid" onPress={() => router.replace('/')} style={styles.dialogButton} />
+          </View>
+        </View>
+      </Modal>
     </AuthBackground>
   );
 }
 
 const createStyles = (colors: ColorPalette) => StyleSheet.create({
+  modalBackdrop: { alignItems: 'center', backgroundColor: 'rgba(0, 0, 0, 0.6)', flex: 1, justifyContent: 'center', padding: spacing.xl },
+  dialog: { backgroundColor: colors.surface, borderColor: colors.border, borderRadius: radius.lg, borderWidth: 1, gap: spacing.md, maxWidth: 380, padding: spacing.xl, width: '100%' },
+  dialogTitle: { color: colors.textPrimary, fontSize: 20, fontWeight: '700' },
+  dialogText: { color: colors.textSecondary, fontSize: typography.body, lineHeight: typography.body + spacing.sm },
+  dialogButton: { alignSelf: 'stretch', marginTop: spacing.sm },
   keyboardView: { flex: 1 },
   scrollContent: { flexGrow: 1 },
   page: {

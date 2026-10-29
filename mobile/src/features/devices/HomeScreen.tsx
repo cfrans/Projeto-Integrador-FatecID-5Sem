@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Image,
+  Modal,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -9,13 +10,15 @@ import {
   View,
 } from 'react-native';
 import { router, useFocusEffect } from 'expo-router';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Button } from '@/components/ui/Button';
 import { prefetchTeamAvatars } from '@/features/about/AboutScreen';
 import { useSession } from '@/features/auth/SessionProvider';
 import { useLanguage } from '@/features/i18n/LanguageProvider';
 import { DeviceCard } from '@/features/devices/DeviceCard';
 import { devices, devicesErrorMessage, type PairedComputer } from '@/features/devices/services/devices';
+import { ApplicationIcon } from '@/features/restrictions/ApplicationIcon';
+import { listInstallationRequests, type InstallationRequest } from '@/features/restrictions/services/installation-requests';
 import { radius, spacing, typography, type ColorPalette } from '@/theme';
 import { useTheme, useThemedStyles } from '@/features/theme/ThemeProvider';
 
@@ -24,13 +27,23 @@ type HomeState =
   | { status: 'error'; message: string }
   | { status: 'loaded'; computers: PairedComputer[] };
 
+type PendingRequest = { computer: PairedComputer; request: InstallationRequest };
+
 export function HomeScreen() {
   const { busy, clearError, error, guardian, signOut } = useSession();
-  const { t, localize } = useLanguage();
+  const { language, t, localize } = useLanguage();
   const { colors } = useTheme();
   const styles = useThemedStyles(createStyles);
   const [state, setState] = useState<HomeState>({ status: 'loading' });
+  const [pending, setPending] = useState<PendingRequest[]>([]);
+  const [menuOpen, setMenuOpen] = useState(false);
+  const insets = useSafeAreaInsets();
   const requestId = useRef(0);
+
+  function openFromMenu(pathname: '/settings' | '/about') {
+    setMenuOpen(false);
+    router.push(pathname);
+  }
 
   useEffect(() => {
     prefetchTeamAvatars();
@@ -41,7 +54,20 @@ export function HomeScreen() {
     if (!silent) setState({ status: 'loading' });
     return devices.listPairedComputers()
       .then((computers) => {
-        if (request === requestId.current) setState({ status: 'loaded', computers });
+        if (request !== requestId.current) return;
+        setState({ status: 'loaded', computers });
+        return Promise.allSettled(
+          computers
+            .filter((computer) => computer.isPaired)
+            .map(async (computer) => (await listInstallationRequests(computer.id)).map((item) => ({ computer, request: item }))),
+        ).then((results) => {
+          if (request !== requestId.current) return;
+          setPending(
+            results
+              .flatMap((result) => (result.status === 'fulfilled' ? result.value : []))
+              .sort((a, b) => b.request.requestedAt.localeCompare(a.request.requestedAt)),
+          );
+        });
       })
       .catch((error: unknown) => {
         if (request === requestId.current) setState({ status: 'error', message: devicesErrorMessage(error) });
@@ -78,17 +104,14 @@ export function HomeScreen() {
             <Text style={styles.eyebrow}>{t('home.eyebrow')}</Text>
             <Pressable
               accessibilityRole="button"
-              accessibilityLabel={t(busy ? 'common.signingOut' : 'common.signOut')}
-              accessibilityState={{ disabled: busy, busy }}
-              disabled={busy}
-              onPress={() => {
-                clearError();
-                void signOut();
-              }}
-              style={({ pressed }) => [styles.signOutButton, pressed && styles.pressed, busy && styles.signOutDisabled]}
+              accessibilityLabel={t('menu.open')}
+              accessibilityState={{ expanded: menuOpen }}
+              onPress={() => setMenuOpen(true)}
+              style={({ pressed }) => [styles.menuButton, pressed && styles.pressed]}
             >
-              <Image accessible={false} source={require('../../../assets/icons/log-out.png')} style={styles.signOutIcon} />
-              <Text style={styles.signOutText}>{t(busy ? 'common.signingOut' : 'common.signOut')}</Text>
+              <View style={styles.menuBar} />
+              <View style={styles.menuBar} />
+              <View style={styles.menuBar} />
             </Pressable>
           </View>
           <Text style={styles.title}>{t('home.greeting', { name: guardian?.name ?? '' })}</Text>
@@ -97,6 +120,29 @@ export function HomeScreen() {
             <Text accessibilityLiveRegion="polite" style={styles.logoutError}>{localize(error)}</Text>
           ) : null}
         </View>
+
+        {pending.length > 0 ? (
+          <Pressable
+            accessibilityLabel={t('access.homeTitle', { name: pending[0].request.requesterName, app: pending[0].request.applicationName })}
+            accessibilityRole="button"
+            onPress={() => router.push({
+              pathname: '/access-request',
+              params: { deviceId: pending[0].computer.id, requestId: pending[0].request.id, applicationName: pending[0].request.applicationName },
+            })}
+            style={({ pressed }) => [styles.requestCard, pressed && styles.pressed]}
+          >
+            <ApplicationIcon name={pending[0].request.applicationName} />
+            <View style={styles.requestCopy}>
+              <Text style={styles.requestTitle}>
+                {t('access.homeTitle', { name: pending[0].request.requesterName, app: pending[0].request.applicationName })}
+              </Text>
+              <Text style={styles.requestSubtitle}>
+                {pending[0].computer.name} · {new Intl.DateTimeFormat(language, { dateStyle: 'short', timeStyle: 'short' }).format(new Date(pending[0].request.requestedAt))}
+              </Text>
+            </View>
+            {pending.length > 1 ? <Text accessibilityLabel={t('access.homeCount', { count: pending.length })} style={styles.requestBadge}>{pending.length}</Text> : null}
+          </Pressable>
+        ) : null}
 
         <View style={styles.pairingCard}>
           <View style={styles.pairingCopy}>
@@ -236,11 +282,34 @@ export function HomeScreen() {
           </View>
         </View>
 
-        <Button
-          label={t('nav.about')}
-          onPress={() => router.push('/about')}
-        />
       </ScrollView>
+
+      <Modal visible={menuOpen} transparent animationType="fade" onRequestClose={() => setMenuOpen(false)}>
+        <Pressable accessibilityLabel={t('menu.close')} onPress={() => setMenuOpen(false)} style={styles.menuBackdrop} />
+        <View accessibilityViewIsModal style={[styles.menu, { top: insets.top + 56 }]}>
+          <Pressable accessibilityRole="menuitem" onPress={() => openFromMenu('/settings')} style={({ pressed }) => [styles.menuItem, pressed && styles.pressed]}>
+            <Text style={styles.menuItemText}>{t('nav.settings')}</Text>
+          </Pressable>
+          <Pressable accessibilityRole="menuitem" onPress={() => openFromMenu('/about')} style={({ pressed }) => [styles.menuItem, pressed && styles.pressed]}>
+            <Text style={styles.menuItemText}>{t('nav.about')}</Text>
+          </Pressable>
+          <View style={styles.menuDivider} />
+          <Pressable
+            accessibilityRole="menuitem"
+            accessibilityState={{ disabled: busy, busy }}
+            disabled={busy}
+            onPress={() => {
+              setMenuOpen(false);
+              clearError();
+              void signOut();
+            }}
+            style={({ pressed }) => [styles.menuItem, pressed && styles.pressed, busy && styles.signOutDisabled]}
+          >
+            <Image accessible={false} source={require('../../../assets/icons/log-out.png')} style={styles.signOutIcon} />
+            <Text style={styles.menuItemText}>{t(busy ? 'common.signingOut' : 'common.signOut')}</Text>
+          </Pressable>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -250,9 +319,14 @@ const createStyles = (colors: ColorPalette) => StyleSheet.create({
   content: { gap: spacing.xl, padding: spacing.lg, paddingBottom: spacing.xxl },
   greeting: { gap: spacing.sm, paddingTop: spacing.sm },
   greetingHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: spacing.sm, flexWrap: 'wrap' },
-  signOutButton: { minHeight: 44, minWidth: 64, flexDirection: 'row', gap: spacing.sm, alignItems: 'center', justifyContent: 'center', paddingHorizontal: spacing.md, borderWidth: 1, borderColor: colors.border, borderRadius: radius.sm, backgroundColor: colors.surface },
+  menuButton: { width: 44, height: 44, gap: 4, alignItems: 'center', justifyContent: 'center' },
+  menuBar: { width: 18, height: 2, borderRadius: 1, backgroundColor: colors.textPrimary },
+  menuBackdrop: { position: 'absolute', top: 0, right: 0, bottom: 0, left: 0, backgroundColor: 'rgba(0, 0, 0, 0.35)' },
+  menu: { position: 'absolute', right: spacing.lg, minWidth: 220, paddingVertical: spacing.xs, borderWidth: 1, borderColor: colors.border, borderRadius: radius.md, backgroundColor: colors.surface },
+  menuItem: { minHeight: 48, flexDirection: 'row', gap: spacing.sm, alignItems: 'center', paddingHorizontal: spacing.md },
+  menuItemText: { color: colors.textPrimary, fontSize: typography.body, fontWeight: '500' },
+  menuDivider: { height: 1, marginVertical: spacing.xs, backgroundColor: colors.border },
   signOutIcon: { width: 16, height: 16, tintColor: colors.textPrimary },
-  signOutText: { color: colors.textPrimary, fontSize: typography.label, fontWeight: '600' },
   signOutDisabled: { opacity: 0.5 },
   eyebrow: {
     color: colors.accentText,
@@ -261,7 +335,7 @@ const createStyles = (colors: ColorPalette) => StyleSheet.create({
     letterSpacing: 1.2,
   },
   title: { color: colors.textPrimary, fontSize: typography.title, fontWeight: '700' },
-  subtitle: { color: colors.textSecondary, fontSize: typography.body, lineHeight: 21 },
+  subtitle: { color: colors.textSecondary, fontSize: 13, lineHeight: 19 },
   logoutError: { color: colors.accentText, fontSize: typography.label, lineHeight: 18 },
   pairingCard: {
     backgroundColor: colors.surfaceRaised,
@@ -270,6 +344,31 @@ const createStyles = (colors: ColorPalette) => StyleSheet.create({
     borderWidth: 1,
     gap: spacing.lg,
     padding: spacing.lg,
+  },
+  requestCard: {
+    alignItems: 'center',
+    backgroundColor: colors.accentSoft,
+    borderColor: colors.accent,
+    borderRadius: radius.lg,
+    borderWidth: 1,
+    flexDirection: 'row',
+    gap: spacing.md,
+    padding: spacing.md,
+  },
+  requestCopy: { flex: 1, gap: 2 },
+  requestTitle: { color: colors.textPrimary, fontSize: typography.body, fontWeight: '600' },
+  requestSubtitle: { color: colors.textSecondary, fontSize: typography.label },
+  requestBadge: {
+    backgroundColor: colors.accent,
+    borderRadius: radius.pill,
+    color: colors.textPrimary,
+    fontSize: typography.label,
+    fontWeight: '700',
+    minWidth: 24,
+    overflow: 'hidden',
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.xs,
+    textAlign: 'center',
   },
   pairingCopy: { gap: spacing.xs },
   pairingTitle: { color: colors.textPrimary, fontSize: typography.body, fontWeight: '600' },

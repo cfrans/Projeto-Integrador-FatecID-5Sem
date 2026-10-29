@@ -8,6 +8,11 @@ async function bootstrap() {
   const app = await NestFactory.create<NestExpressApplication>(AppModule);
   app.useBodyParser('json', { limit: '16kb' });
   app.enableShutdownHooks();
+  if (process.env.NODE_ENV === 'development') {
+    app.enableCors({
+      origin: [/^http:\/\/localhost:\d+$/, /^http:\/\/127\.0\.0\.1:\d+$/],
+    });
+  }
   app.useGlobalPipes(
     new ValidationPipe({
       transform: true,
