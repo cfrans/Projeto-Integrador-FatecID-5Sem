@@ -1,5 +1,7 @@
 import '@/lib/api-runtime';
 import { ActivityIndicator, StyleSheet, View } from 'react-native';
+import { useFonts } from 'expo-font';
+import { Inter_800ExtraBold } from '@expo-google-fonts/inter/800ExtraBold';
 import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { SessionProvider, useSession } from '@/features/auth/SessionProvider';
@@ -27,10 +29,11 @@ function RootNavigator() {
   const { t } = useLanguage();
   const { colors, scheme } = useTheme();
   const styles = useThemedStyles(createStyles);
+  const [fontsLoaded, fontError] = useFonts({ Inter_800ExtraBold });
 
   return (
     <>
-      {status === 'initializing' ? (
+      {status === 'initializing' || (!fontsLoaded && !fontError) ? (
         <View style={styles.loading}>
           <ActivityIndicator color={colors.accent} />
         </View>
@@ -54,6 +57,7 @@ function RootNavigator() {
             <Stack.Screen name="qr-scan" options={{ title: t('nav.pairComputer') }} />
             <Stack.Screen name="pairing-done" options={{ headerShown: false }} />
             <Stack.Screen name="restrictions" options={{ title: t('nav.restrictions') }} />
+            <Stack.Screen name="access-requests" options={{ title: t('nav.requests') }} />
             <Stack.Screen name="access-request" options={{ title: t('nav.accessRequest') }} />
             <Stack.Screen name="sync-failure" options={{ title: t('nav.sync') }} />
             <Stack.Screen name="settings" options={{ title: t('nav.settings') }} />

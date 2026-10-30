@@ -1,3 +1,5 @@
+import { getBedtime } from '@/features/settings/bedtime';
+
 export type ReleaseOptionId = 'min30' | 'hour1' | 'hour2' | 'bedtime' | 'week' | 'unlimited';
 
 export type Release = {
@@ -6,8 +8,6 @@ export type Release = {
   endsAt: string | null;
   blockAtEnd: boolean;
 };
-
-export const BEDTIME = { hour: 21, minute: 30 } as const;
 
 export const releaseOptions: readonly { id: ReleaseOptionId; minutes: number | null }[] = [
   { id: 'min30', minutes: 30 },
@@ -23,7 +23,8 @@ export function releaseEnd(optionId: ReleaseOptionId, from: Date): Date | null {
 
   if (optionId === 'bedtime') {
     const end = new Date(from);
-    end.setHours(BEDTIME.hour, BEDTIME.minute, 0, 0);
+    const bedtime = getBedtime();
+    end.setHours(bedtime.hour, bedtime.minute, 0, 0);
     if (end.getTime() <= from.getTime()) end.setDate(end.getDate() + 1);
     return end;
   }

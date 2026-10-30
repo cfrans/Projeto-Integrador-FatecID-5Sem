@@ -17,7 +17,7 @@ import { EyeIcon } from '@/components/ui/EyeIcon';
 import { CheckIcon, LockIcon, MailIcon, UserIcon } from '@/components/ui/FieldIcons';
 import { Input } from '@/components/ui/Input';
 import { PenguinLogo } from '@/components/ui/PenguinLogo';
-import { radius, spacing, typography, type ColorPalette } from '@/theme';
+import { fonts, radius, spacing, typography, type ColorPalette } from '@/theme';
 import { useLanguage } from '@/features/i18n/LanguageProvider';
 import { useTheme, useThemedStyles } from '@/features/theme/ThemeProvider';
 
@@ -291,7 +291,7 @@ const createStyles = (colors: ColorPalette) => StyleSheet.create({
   content: { width: '100%', maxWidth: 420, alignSelf: 'center' },
   header: { alignItems: 'center', flexDirection: 'row', justifyContent: 'space-between' },
   brand: { alignItems: 'center', flexDirection: 'row', gap: spacing.md },
-  brandName: { color: colors.textPrimary, fontSize: 20, fontWeight: '800', letterSpacing: 3 },
+  brandName: { color: colors.textPrimary, fontSize: 20, fontFamily: fonts.title, letterSpacing: 3 },
   backButton: { minHeight: 44, justifyContent: 'center' },
   backText: { color: colors.textPrimary, fontSize: typography.body, fontWeight: '500' },
   eyebrow: {
@@ -306,7 +306,7 @@ const createStyles = (colors: ColorPalette) => StyleSheet.create({
     color: colors.textPrimary,
     fontSize: 40,
     lineHeight: 44,
-    fontWeight: '800',
+    fontFamily: fonts.title,
     letterSpacing: -1,
   },
   description: {

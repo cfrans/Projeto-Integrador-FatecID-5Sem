@@ -18,7 +18,7 @@ import { AuthBackground } from '@/components/ui/AuthBackground';
 import { PenguinLogo } from '@/components/ui/PenguinLogo';
 import { useSession } from '@/features/auth/SessionProvider';
 import { useLanguage } from '@/features/i18n/LanguageProvider';
-import { spacing, typography, type ColorPalette } from '@/theme';
+import { fonts, spacing, typography, type ColorPalette } from '@/theme';
 import { useTheme, useThemedStyles } from '@/features/theme/ThemeProvider';
 
 type FieldErrors = {
@@ -259,7 +259,7 @@ const createStyles = (colors: ColorPalette) => StyleSheet.create({
   content: { width: '100%', maxWidth: 420, alignSelf: 'center' },
   brand: { flexDirection: 'row', alignItems: 'center', gap: spacing.md },
   brandText: { flexShrink: 1 },
-  brandName: { color: colors.textPrimary, fontSize: 26, fontWeight: '800', letterSpacing: 4 },
+  brandName: { color: colors.textPrimary, fontSize: 26, fontFamily: fonts.title, letterSpacing: 4 },
   tagline: {
     marginTop: spacing.xs,
     color: colors.textSecondary,
@@ -278,7 +278,7 @@ const createStyles = (colors: ColorPalette) => StyleSheet.create({
     color: colors.textPrimary,
     fontSize: 40,
     lineHeight: 42,
-    fontWeight: '800',
+    fontFamily: fonts.title,
     letterSpacing: -1,
   },
   description: {

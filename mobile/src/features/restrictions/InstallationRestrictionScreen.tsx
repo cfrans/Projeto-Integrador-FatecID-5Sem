@@ -9,7 +9,7 @@ import {
   listInstallationRequests,
   type InstallationRequest,
 } from '@/features/restrictions/services/installation-requests';
-import { radius, spacing, typography, type ColorPalette } from '@/theme';
+import { fonts, radius, spacing, typography, type ColorPalette } from '@/theme';
 import { useTheme, useThemedStyles } from '@/features/theme/ThemeProvider';
 import { useSimulation } from './SimulationProvider';
 import { ApplicationIcon } from './ApplicationIcon';
@@ -187,7 +187,7 @@ const createStyles = (colors: ColorPalette) => StyleSheet.create({
   safeArea: { backgroundColor: colors.background, flex: 1 },
   container: { flex: 1 },
   content: { padding: spacing.lg, paddingBottom: spacing.xxl },
-  screenTitle: { color: colors.textPrimary, fontSize: 22, fontWeight: '700', marginBottom: spacing.lg },
+  screenTitle: { color: colors.textPrimary, fontSize: 22, fontFamily: fonts.title, letterSpacing: -0.5, marginBottom: spacing.lg },
   centerState: { alignItems: 'center', gap: spacing.sm, paddingVertical: spacing.xxl },
   emptyState: { backgroundColor: colors.surface, borderColor: colors.border, borderRadius: radius.md, borderWidth: 1, gap: spacing.sm, padding: spacing.lg },
   emptyTitle: { color: colors.textPrimary, fontSize: typography.body, fontWeight: '600' },

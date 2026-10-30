@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { Image, Linking, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLanguage } from '@/features/i18n/LanguageProvider';
-import { radius, spacing, typography, type ColorPalette } from '@/theme';
+import { fonts, radius, spacing, typography, type ColorPalette } from '@/theme';
 import { useTheme, useThemedStyles } from '@/features/theme/ThemeProvider';
 
 type TeamMember = {
@@ -263,7 +263,8 @@ const createStyles = (colors: ColorPalette) => StyleSheet.create({
   title: {
     color: colors.textPrimary,
     fontSize: 22,
-    fontWeight: '700',
+    fontFamily: fonts.title,
+    letterSpacing: -0.5,
   },
   description: {
     color: colors.textSecondary,

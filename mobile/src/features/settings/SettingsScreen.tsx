@@ -3,6 +3,7 @@ import { KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Text
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
+import { formatBedtime, parseBedtime, setBedtime, useBedtime } from '@/features/settings/bedtime';
 import { useLanguage, type Language } from '@/features/i18n/LanguageProvider';
 import { radius, spacing, typography, type ColorPalette } from '@/theme';
 import { useTheme, useThemedStyles, type ThemePreference } from '@/features/theme/ThemeProvider';
@@ -21,6 +22,23 @@ export function SettingsScreen() {
   const [confirmPassword, setConfirmPassword] = useState('');
   const [passwordErrors, setPasswordErrors] = useState<{ current?: string; next?: string; confirm?: string }>({});
   const [passwordNotice, setPasswordNotice] = useState('');
+  const bedtime = useBedtime();
+  const [bedtimeText, setBedtimeText] = useState(() => formatBedtime(bedtime));
+  const [bedtimeError, setBedtimeError] = useState('');
+  const [bedtimeNotice, setBedtimeNotice] = useState('');
+
+  function saveBedtime() {
+    setBedtimeNotice('');
+    const parsed = parseBedtime(bedtimeText);
+    if (!parsed) {
+      setBedtimeError(t('settings.bedtimeInvalid'));
+      return;
+    }
+    setBedtimeError('');
+    setBedtime(parsed);
+    setBedtimeText(formatBedtime(parsed));
+    setBedtimeNotice(t('settings.bedtimeSaved'));
+  }
 
   function saveEmail() {
     setEmailNotice('');
@@ -122,6 +140,27 @@ export function SettingsScreen() {
                 {passwordNotice ? <Text accessibilityLiveRegion="polite" style={styles.notice}>{passwordNotice}</Text> : null}
                 <Button label={t('settings.savePassword')} onPress={savePassword} />
               </View>
+            </View>
+
+            <View style={styles.card}>
+              <Text style={styles.cardTitle}>{t('settings.bedtime')}</Text>
+              <Text style={styles.notice}>{t('settings.bedtimeDescription')}</Text>
+              <View style={styles.field}>
+                <Text style={styles.label}>{t('settings.bedtimeLabel')}</Text>
+                <Input
+                  accessibilityLabel={t('settings.bedtimeLabel')}
+                  invalid={Boolean(bedtimeError)}
+                  keyboardType="numbers-and-punctuation"
+                  maxLength={5}
+                  onChangeText={(value) => { setBedtimeText(value); setBedtimeError(''); setBedtimeNotice(''); }}
+                  placeholder="21:30"
+                  placeholderTextColor={colors.textSecondary}
+                  value={bedtimeText}
+                />
+                {bedtimeError ? <Text style={styles.error}>{bedtimeError}</Text> : null}
+              </View>
+              {bedtimeNotice ? <Text accessibilityLiveRegion="polite" style={styles.notice}>{bedtimeNotice}</Text> : null}
+              <Button label={t('settings.saveBedtime')} onPress={saveBedtime} />
             </View>
 
             <View style={styles.card}>

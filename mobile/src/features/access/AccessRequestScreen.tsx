@@ -3,6 +3,7 @@ import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Switch, Text, Vie
 import { router, useFocusEffect, useLocalSearchParams } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Button } from '@/components/ui/Button';
+import { CheckIcon } from '@/components/ui/FieldIcons';
 import {
   clearRelease,
   createRelease,
@@ -25,7 +26,7 @@ import {
 } from '@/features/restrictions/services/installation-requests';
 import { SimulationProvider, useSimulation, useSimulationReady } from '@/features/restrictions/SimulationProvider';
 import { useTheme, useThemedStyles } from '@/features/theme/ThemeProvider';
-import { radius, spacing, typography, type ColorPalette } from '@/theme';
+import { fonts, radius, spacing, typography, type ColorPalette } from '@/theme';
 
 type ComputerState =
   | { status: 'loading' }
@@ -40,16 +41,26 @@ function firstParam(value: string | string[] | undefined) {
 }
 
 export function AccessRequestScreen() {
-  const params = useLocalSearchParams<{ deviceId?: string | string[]; requestId?: string | string[]; applicationName?: string | string[] }>();
+  const params = useLocalSearchParams<{
+    deviceId?: string | string[];
+    requestId?: string | string[];
+    applicationName?: string | string[];
+    demo?: string | string[];
+    requesterName?: string | string[];
+    computerName?: string | string[];
+    minutes?: string | string[];
+  }>();
   const deviceId = firstParam(params.deviceId);
   const requestId = firstParam(params.requestId);
   const applicationName = firstParam(params.applicationName);
+  const demo = firstParam(params.demo) === '1';
   const [state, setState] = useState<ComputerState>({ status: 'loading' });
   const { t, localize } = useLanguage();
   const { colors } = useTheme();
   const styles = useThemedStyles(createStyles);
 
   const loadComputer = useCallback(() => {
+    if (demo) return;
     let active = true;
     setState({ status: 'loading' });
     devices.listPairedComputers()
@@ -62,9 +73,23 @@ export function AccessRequestScreen() {
         if (active) setState({ status: 'error', message: devicesErrorMessage(error) });
       });
     return () => { active = false; };
-  }, [deviceId]);
+  }, [deviceId, demo]);
 
   useFocusEffect(loadComputer);
+
+  if (demo) {
+    return (
+      <SafeAreaView edges={['left', 'right']} style={styles.safeArea}>
+        <DemoFlow
+          requestId={requestId}
+          applicationName={applicationName}
+          requesterName={firstParam(params.requesterName)}
+          computerName={firstParam(params.computerName)}
+          minutes={Number(firstParam(params.minutes)) || 5}
+        />
+      </SafeAreaView>
+    );
+  }
 
   return (
     <SafeAreaView edges={['left', 'right']} style={styles.safeArea}>
@@ -100,25 +125,26 @@ export function AccessRequestScreen() {
 type ContentProps = { computer: PairedComputer; requestId: string; applicationName: string };
 
 function AccessRequestContent(props: ContentProps) {
-  return useSimulationReady() ? <AccessRequestFlow {...props} /> : null;
+  return useSimulationReady() ? <LiveFlow {...props} /> : null;
 }
 
-function AccessRequestFlow({ computer, requestId, applicationName }: ContentProps) {
+type Decision = 'APPROVED' | 'DENIED';
+
+type FlowSource = {
+  request: InstallationRequest | null;
+  loadState: LoadState;
+  errorMessage: string;
+  decision: Decision | undefined;
+  busy: boolean;
+  decide: (decision: Decision) => Promise<boolean>;
+};
+
+function LiveFlow(props: ContentProps) {
+  const { computer, requestId } = props;
   const { snapshot, save, busy } = useSimulation();
-  const { language, t, localize } = useLanguage();
-  const { colors } = useTheme();
-  const styles = useThemedStyles(createStyles);
   const [request, setRequest] = useState<InstallationRequest | null>(null);
   const [loadState, setLoadState] = useState<LoadState>('loading');
   const [errorMessage, setErrorMessage] = useState('');
-  const [step, setStep] = useState<'review' | 'time'>('review');
-  const [optionId, setOptionId] = useState<ReleaseOptionId>('hour1');
-  const [blockAtEnd, setBlockAtEnd] = useState(true);
-  const [release, setRelease] = useState<Release | null>(() => getRelease(requestId));
-  const [now, setNow] = useState(() => new Date());
-  const decision = snapshot.settings.installationDecisions[requestId];
-  const appName = request?.applicationName ?? applicationName;
-  const timeFormat = new Intl.DateTimeFormat(language, { hour: '2-digit', minute: '2-digit' });
 
   useFocusEffect(
     useCallback(() => {
@@ -146,6 +172,72 @@ function AccessRequestFlow({ computer, requestId, applicationName }: ContentProp
     }, [computer.id, requestId, snapshot.appliedAt]),
   );
 
+  const source: FlowSource = {
+    request,
+    loadState,
+    errorMessage,
+    decision: snapshot.settings.installationDecisions[requestId],
+    busy,
+    decide: (decision) => save({ installationDecisions: { [requestId]: decision } }),
+  };
+
+  return <AccessRequestFlow {...props} source={source} />;
+}
+
+type DemoProps = { requestId: string; applicationName: string; requesterName: string; computerName: string; minutes: number };
+
+function DemoFlow({ requestId, applicationName, requesterName, computerName, minutes }: DemoProps) {
+  const [decision, setDecision] = useState<Decision>();
+  const [demo] = useState(() => ({
+    computer: {
+      id: 'demo-computer',
+      name: computerName,
+      status: 'online',
+      managedUser: requesterName,
+      lastSeen: null,
+      isDemo: true,
+      isPaired: true,
+      associationId: null,
+    } satisfies PairedComputer,
+    request: {
+      id: requestId,
+      applicationName,
+      requesterName,
+      requestedAt: new Date(Date.now() - minutes * 60_000).toISOString(),
+      ageRating: '12+',
+    } satisfies InstallationRequest,
+  }));
+
+  const source: FlowSource = {
+    request: demo.request,
+    loadState: 'ready',
+    errorMessage: '',
+    decision,
+    busy: false,
+    decide: async (next) => {
+      setDecision(next);
+      return true;
+    },
+  };
+
+  return <AccessRequestFlow computer={demo.computer} requestId={requestId} applicationName={applicationName} source={source} />;
+}
+
+function AccessRequestFlow({ computer, requestId, applicationName, source }: ContentProps & { source: FlowSource }) {
+  const { request, loadState, errorMessage, decision, busy } = source;
+  const { language, t, localize } = useLanguage();
+  const { colors } = useTheme();
+  const styles = useThemedStyles(createStyles);
+  const [step, setStep] = useState<'review' | 'time'>('review');
+  const [optionId, setOptionId] = useState<ReleaseOptionId>('hour1');
+  const [blockAtEnd, setBlockAtEnd] = useState(true);
+  const [release, setRelease] = useState<Release | null>(() => getRelease(requestId));
+  const [now, setNow] = useState(() => new Date());
+  const appName = request?.applicationName ?? applicationName;
+  const requesterName = request?.requesterName ?? computer.managedUser ?? computer.name;
+  const minutesAgo = request ? Math.max(1, Math.round((now.getTime() - new Date(request.requestedAt).getTime()) / 60_000)) : 0;
+  const timeFormat = new Intl.DateTimeFormat(language, { hour: '2-digit', minute: '2-digit' });
+
   const countingDown = decision === 'APPROVED' && release?.endsAt != null;
 
   useEffect(() => {
@@ -165,18 +257,18 @@ function AccessRequestFlow({ computer, requestId, applicationName }: ContentProp
     const created = createRelease(optionId, blockAtEnd);
     storeRelease(requestId, created);
     setRelease(created);
-    if (!(await save({ installationDecisions: { [requestId]: 'APPROVED' } }))) {
+    if (!(await source.decide('APPROVED'))) {
       clearRelease(requestId);
       setRelease(null);
     }
   }
 
   async function denyRequest() {
-    await save({ installationDecisions: { [requestId]: 'DENIED' } });
+    await source.decide('DENIED');
   }
 
   async function endRelease() {
-    if (await save({ installationDecisions: { [requestId]: 'DENIED' } })) {
+    if (await source.decide('DENIED')) {
       clearRelease(requestId);
       setRelease(null);
     }
@@ -193,9 +285,22 @@ function AccessRequestFlow({ computer, requestId, applicationName }: ContentProp
   const header = (
     <>
       <View style={styles.banner}>
-        <Text style={styles.bannerText}>
-          {t('access.banner', { name: request?.requesterName ?? computer.managedUser ?? computer.name, app: appName })}
-        </Text>
+        <View style={styles.bannerDot} />
+        <Text style={styles.bannerText}>{t('access.banner')}</Text>
+      </View>
+
+      <View style={styles.requester}>
+        <View style={styles.avatar}>
+          <Text style={styles.avatarText}>{requesterName.charAt(0).toUpperCase()}</Text>
+        </View>
+        <View style={styles.requesterCopy}>
+          <Text style={styles.heading}>
+            {t('access.heading', { name: requesterName })} <Text style={styles.headingApp}>{appName}</Text>
+          </Text>
+          <Text style={styles.requesterMeta}>
+            {request ? `${computer.name} · ${t('access.ago', { n: minutesAgo })}` : computer.name}
+          </Text>
+        </View>
       </View>
 
       <View style={styles.card}>
@@ -253,7 +358,13 @@ function AccessRequestFlow({ computer, requestId, applicationName }: ContentProp
       {view === 'review' ? (
         <>
           <View style={styles.actions}>
-            <Button label={t('access.allowLimited')} disabled={busy} onPress={() => setStep('time')} />
+            <Button
+              label={t('access.allowLimited')}
+              variant="solid"
+              icon={<CheckIcon color="#FFFFFF" />}
+              disabled={busy}
+              onPress={() => setStep('time')}
+            />
             <Pressable
               accessibilityRole="button"
               accessibilityState={{ disabled: busy }}
@@ -432,8 +543,16 @@ const createStyles = (colors: ColorPalette) => StyleSheet.create({
   emptyState: { backgroundColor: colors.surface, borderColor: colors.border, borderRadius: radius.md, borderWidth: 1, gap: spacing.md, padding: spacing.lg },
   emptyTitle: { color: colors.textPrimary, fontSize: typography.body, fontWeight: '600' },
   stateText: { color: colors.textSecondary, fontSize: typography.label, lineHeight: 18 },
-  banner: { backgroundColor: colors.accentSoft, borderColor: colors.accent, borderRadius: radius.sm, borderWidth: 1, paddingHorizontal: spacing.md, paddingVertical: spacing.sm },
-  bannerText: { color: colors.accentText, fontSize: typography.label, fontWeight: '600' },
+  banner: { alignItems: 'center', alignSelf: 'flex-start', backgroundColor: colors.accentSoft, borderRadius: radius.pill, flexDirection: 'row', gap: spacing.sm, paddingHorizontal: spacing.md, paddingVertical: spacing.sm },
+  requester: { alignItems: 'center', flexDirection: 'row', gap: spacing.md },
+  avatar: { alignItems: 'center', backgroundColor: colors.surfaceRaised, borderRadius: radius.pill, height: 48, justifyContent: 'center', width: 48 },
+  avatarText: { color: colors.accentText, fontSize: 20, fontWeight: '700' },
+  requesterCopy: { flex: 1, gap: 2 },
+  heading: { color: colors.textPrimary, fontSize: 26, fontFamily: fonts.title, letterSpacing: -0.6, lineHeight: 32 },
+  headingApp: { color: colors.accentText },
+  requesterMeta: { color: colors.textSecondary, fontSize: typography.label },
+  bannerDot: { backgroundColor: colors.accentText, borderRadius: radius.pill, height: 8, width: 8 },
+  bannerText: { color: colors.accentText, fontSize: typography.label, fontWeight: '700' },
   card: { backgroundColor: colors.surface, borderColor: colors.border, borderRadius: radius.lg, borderWidth: 1, gap: spacing.sm, padding: spacing.md },
   cardHeader: { alignItems: 'center', flexDirection: 'row', gap: spacing.md },
   cardCopy: { flex: 1, gap: 2 },

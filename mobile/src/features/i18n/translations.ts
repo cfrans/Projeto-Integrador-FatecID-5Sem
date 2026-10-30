@@ -43,7 +43,7 @@ export const translations: Record<Language, Record<TranslationKey, string>> = {
     'about.github': 'Ver projeto no GitHub',
     'about.courses': 'DISCIPLINAS INTEGRADAS',
     'about.footer': 'Fatec Indaiatuba Dr. Archimedes Lammoglia · 2026 · versão 0.9.0 (camada simulada)',
-    'home.eyebrow': 'PIPLUP · CONTROLE FAMILIAR', 'home.greeting': 'Olá, {name}', 'home.subtitle': 'Acompanhe os computadores da sua família, gerencie navegadores, aplicativos e instalações e responda aos pedidos de liberação.',
+    'home.eyebrow': 'CONTROLE FAMILIAR', 'home.greeting': 'Olá, {name}.', 'home.subtitle': 'Acompanhe os computadores da sua família, gerencie navegadores, aplicativos e instalações e responda aos pedidos de liberação.',
     'common.signOut': 'Sair', 'common.signingOut': 'Saindo…', 'common.addComputer': 'Adicionar computador',
     'home.addDescription': 'Leia o QR Code exibido no computador ou no client simulado para criar o vínculo.', 'common.computers': 'Computadores',
     'common.viewAll': 'Ver todos', 'common.loadingComputers': 'Carregando computadores…', 'common.loadError': 'Não foi possível carregar',
@@ -108,7 +108,7 @@ export const translations: Record<Language, Record<TranslationKey, string>> = {
     'about.github': 'View project on GitHub',
     'about.courses': 'INTEGRATED COURSES',
     'about.footer': 'Fatec Indaiatuba Dr. Archimedes Lammoglia · 2026 · version 0.9.0 (simulated layer)',
-    'home.eyebrow': 'PIPLUP · FAMILY CONTROL', 'home.greeting': 'Hello, {name}', 'home.subtitle': 'Keep track of your family computers, manage browsers, apps and installations, and respond to access requests.',
+    'home.eyebrow': 'FAMILY CONTROL', 'home.greeting': 'Hello, {name}.', 'home.subtitle': 'Keep track of your family computers, manage browsers, apps and installations, and respond to access requests.',
     'common.signOut': 'Sign out', 'common.signingOut': 'Signing out…', 'common.addComputer': 'Add computer',
     'home.addDescription': 'Scan the QR Code shown on the computer or simulated client to create the link.', 'common.computers': 'Computers', 'common.viewAll': 'View all',
     'common.loadingComputers': 'Loading computers…', 'common.loadError': 'Could not load', 'common.retry': 'Try again',
@@ -166,7 +166,7 @@ export const translations: Record<Language, Record<TranslationKey, string>> = {
     'about.github': 'Ver proyecto en GitHub',
     'about.courses': 'ASIGNATURAS INTEGRADAS',
     'about.footer': 'Fatec Indaiatuba Dr. Archimedes Lammoglia · 2026 · versión 0.9.0 (capa simulada)',
-    'home.eyebrow': 'PIPLUP · CONTROL FAMILIAR', 'home.greeting': 'Hola, {name}', 'home.subtitle': 'Acompaña los ordenadores de tu familia, gestiona navegadores, aplicaciones e instalaciones y responde a las solicitudes de acceso.',
+    'home.eyebrow': 'CONTROL FAMILIAR', 'home.greeting': 'Hola, {name}.', 'home.subtitle': 'Acompaña los ordenadores de tu familia, gestiona navegadores, aplicaciones e instalaciones y responde a las solicitudes de acceso.',
     'common.signOut': 'Salir', 'common.signingOut': 'Saliendo…', 'common.addComputer': 'Añadir ordenador', 'home.addDescription': 'Lee el código QR mostrado en el ordenador o cliente simulado para crear el vínculo.',
     'common.computers': 'Ordenadores', 'common.viewAll': 'Ver todos', 'common.loadingComputers': 'Cargando ordenadores…', 'common.loadError': 'No se pudo cargar', 'common.retry': 'Intentar de nuevo',
     'home.noneTitle': 'Ningún ordenador asociado', 'home.noneDescription': 'Lee el código QR temporal mostrado en el ordenador para crear un vínculo.', 'home.shortcuts': 'ATAJOS DE RESTRICCIÓN',
@@ -471,7 +471,7 @@ Object.assign(translations["es"], {
 });
 
 Object.assign(translations["pt-BR"], {
-  "access.banner": "{name} pediu acesso a {app}",
+  "access.banner": "Aguardando sua resposta",
   "access.computer": "Computador",
   "access.account": "Conta",
   "access.blockedBy": "Bloqueado por",
@@ -515,7 +515,7 @@ Object.assign(translations["pt-BR"], {
 });
 
 Object.assign(translations["en"], {
-  "access.banner": "{name} requested access to {app}",
+  "access.banner": "Waiting for your response",
   "access.computer": "Computer",
   "access.account": "Account",
   "access.blockedBy": "Blocked by",
@@ -559,7 +559,7 @@ Object.assign(translations["en"], {
 });
 
 Object.assign(translations["es"], {
-  "access.banner": "{name} pidió acceso a {app}",
+  "access.banner": "Esperando tu respuesta",
   "access.computer": "Ordenador",
   "access.account": "Cuenta",
   "access.blockedBy": "Bloqueado por",
@@ -637,6 +637,19 @@ Object.assign(translations.es, { 'auth.registerEyebrow': 'NUEVA CUENTA DE RESPON
 Object.assign(translations['pt-BR'], { 'auth.haveAccountQuestion': 'Já tem uma conta?' });
 Object.assign(translations.en, { 'auth.haveAccountQuestion': 'Already have an account?' });
 Object.assign(translations.es, { 'auth.haveAccountQuestion': '¿Ya tienes una cuenta?' });
+
+Object.assign(translations['pt-BR'], { 'settings.bedtime': 'Horário de dormir', 'settings.bedtimeDescription': 'Define o fim da opção "Até dormir" ao liberar um pedido. Fica salvo apenas neste aparelho.', 'settings.bedtimeLabel': 'Horário (HH:MM)', 'settings.saveBedtime': 'Salvar horário', 'settings.bedtimeInvalid': 'Use o formato HH:MM, de 00:00 a 23:59.', 'settings.bedtimeSaved': 'Horário salvo neste aparelho.' });
+Object.assign(translations.en, { 'settings.bedtime': 'Bedtime', 'settings.bedtimeDescription': 'Sets the end of the "Until bedtime" option when releasing a request. Saved on this device only.', 'settings.bedtimeLabel': 'Time (HH:MM)', 'settings.saveBedtime': 'Save time', 'settings.bedtimeInvalid': 'Use the HH:MM format, from 00:00 to 23:59.', 'settings.bedtimeSaved': 'Time saved on this device.' });
+Object.assign(translations.es, { 'settings.bedtime': 'Hora de dormir', 'settings.bedtimeDescription': 'Define el fin de la opción "Hasta dormir" al permitir una solicitud. Se guarda solo en este dispositivo.', 'settings.bedtimeLabel': 'Hora (HH:MM)', 'settings.saveBedtime': 'Guardar hora', 'settings.bedtimeInvalid': 'Usa el formato HH:MM, de 00:00 a 23:59.', 'settings.bedtimeSaved': 'Hora guardada en este dispositivo.' });
+Object.assign(translations['pt-BR'], { 'nav.requests': 'Pedidos de liberação' });
+Object.assign(translations.en, { 'nav.requests': 'Access requests' });
+Object.assign(translations.es, { 'nav.requests': 'Solicitudes de acceso' });
+Object.assign(translations['pt-BR'], { 'access.heading': '{name} quer utilizar', 'access.ago': 'há {n} min' });
+Object.assign(translations.en, { 'access.heading': '{name} wants to use', 'access.ago': '{n} min ago' });
+Object.assign(translations.es, { 'access.heading': '{name} quiere utilizar', 'access.ago': 'hace {n} min' });
+Object.assign(translations['pt-BR'], { 'access.empty': 'Nenhum pedido pendente.', 'access.demoTag': 'Demonstração', 'access.demoWants': '{name} quer utilizar', 'access.demoAgo': 'há {n} min', 'access.demoRefuse': 'Recusar', 'access.demoRelease': 'Liberar' });
+Object.assign(translations.en, { 'access.empty': 'No pending requests.', 'access.demoTag': 'Demo', 'access.demoWants': '{name} wants to use', 'access.demoAgo': '{n} min ago', 'access.demoRefuse': 'Deny', 'access.demoRelease': 'Allow' });
+Object.assign(translations.es, { 'access.empty': 'Ninguna solicitud pendiente.', 'access.demoTag': 'Demostración', 'access.demoWants': '{name} quiere utilizar', 'access.demoAgo': 'hace {n} min', 'access.demoRefuse': 'Rechazar', 'access.demoRelease': 'Permitir' });
 
 export function deviceLanguage(languageTag: string): Language {
   const tag = languageTag.toLowerCase();
