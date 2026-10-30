@@ -1,7 +1,7 @@
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLanguage } from '@/features/i18n/LanguageProvider';
-import { radius, spacing, typography, type ColorPalette } from '@/theme';
+import { fonts, radius, spacing, typography, type ColorPalette } from '@/theme';
 import { useTheme, useThemedStyles } from '@/features/theme/ThemeProvider';
 import { useSimulation } from './SimulationProvider';
 import { ApplicationIcon } from './ApplicationIcon';
@@ -114,7 +114,7 @@ const createStyles = (colors: ColorPalette) => StyleSheet.create({
   safeArea: { backgroundColor: colors.background, flex: 1 },
   container: { flex: 1 },
   content: { padding: spacing.lg, paddingBottom: spacing.xxl },
-  screenTitle: { color: colors.textPrimary, fontSize: 22, fontWeight: '700', marginBottom: spacing.lg },
+  screenTitle: { color: colors.textPrimary, fontSize: 22, fontFamily: fonts.title, letterSpacing: -0.5, marginBottom: spacing.lg },
   blockCard: {
     alignItems: 'center',
     backgroundColor: colors.surface,

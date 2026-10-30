@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
 import { parsePairingToken, PairingTokenError, pairingCompletionErrorMessage, pairingErrorMessage, type PairingPreview, type PairingResult } from '@/features/pairing/services/pairing';
 import { pairing } from '@/features/pairing/services/http-pairing';
-import { darkColors, radius, spacing, typography, type ColorPalette } from '@/theme';
+import { fonts, darkColors, radius, spacing, typography, type ColorPalette } from '@/theme';
 import { useLanguage } from '@/features/i18n/LanguageProvider';
 import { useTheme, useThemedStyles } from '@/features/theme/ThemeProvider';
 
@@ -274,7 +274,7 @@ const createStyles = (colors: ColorPalette) => StyleSheet.create({
   main: { alignSelf: 'center', gap: spacing.lg, maxWidth: 440, width: '100%' },
   intro: { gap: spacing.sm },
   eyebrow: { color: colors.accentText, fontSize: typography.label, fontWeight: '600', letterSpacing: 1.2 },
-  title: { color: colors.textPrimary, fontSize: typography.title, fontWeight: '700' },
+  title: { color: colors.textPrimary, fontSize: typography.title, fontFamily: fonts.title, letterSpacing: -0.7 },
   description: { color: colors.textSecondary, fontSize: typography.body, lineHeight: 21 },
   scanner: {
     alignItems: 'center',
@@ -305,7 +305,7 @@ const createStyles = (colors: ColorPalette) => StyleSheet.create({
   error: { color: darkColors.accentText, fontSize: typography.label, lineHeight: 18, textAlign: 'center' },
   confirmCard: { gap: spacing.md },
   sectionTitle: { color: colors.textPrimary, fontSize: typography.body, fontWeight: '600' },
-  deviceName: { color: colors.textPrimary, fontSize: typography.title, fontWeight: '700' },
+  deviceName: { color: colors.textPrimary, fontSize: typography.title, fontFamily: fonts.title, letterSpacing: -0.7 },
   expiry: { color: colors.textMuted, fontSize: typography.label },
   actionButton: { alignSelf: 'stretch', marginTop: spacing.xs },
   secondaryButton: { alignSelf: 'stretch', borderColor: colors.border },

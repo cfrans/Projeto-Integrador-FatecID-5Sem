@@ -12,14 +12,15 @@ import {
 import { router, useFocusEffect } from 'expo-router';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Button } from '@/components/ui/Button';
+import { PenguinLogo } from '@/components/ui/PenguinLogo';
 import { prefetchTeamAvatars } from '@/features/about/AboutScreen';
+import { loadPendingRequests, type PendingRequest } from '@/features/access/pendingRequests';
+import { RequestCard, useRequestItems } from '@/features/access/RequestCards';
 import { useSession } from '@/features/auth/SessionProvider';
 import { useLanguage } from '@/features/i18n/LanguageProvider';
 import { DeviceCard } from '@/features/devices/DeviceCard';
 import { devices, devicesErrorMessage, type PairedComputer } from '@/features/devices/services/devices';
-import { ApplicationIcon } from '@/features/restrictions/ApplicationIcon';
-import { listInstallationRequests, type InstallationRequest } from '@/features/restrictions/services/installation-requests';
-import { radius, spacing, typography, type ColorPalette } from '@/theme';
+import { fonts, radius, spacing, typography, type ColorPalette } from '@/theme';
 import { useTheme, useThemedStyles } from '@/features/theme/ThemeProvider';
 
 type HomeState =
@@ -27,11 +28,11 @@ type HomeState =
   | { status: 'error'; message: string }
   | { status: 'loaded'; computers: PairedComputer[] };
 
-type PendingRequest = { computer: PairedComputer; request: InstallationRequest };
+const HOME_REQUEST_LIMIT = 3;
 
 export function HomeScreen() {
   const { busy, clearError, error, guardian, signOut } = useSession();
-  const { language, t, localize } = useLanguage();
+  const { t, localize } = useLanguage();
   const { colors } = useTheme();
   const styles = useThemedStyles(createStyles);
   const [state, setState] = useState<HomeState>({ status: 'loading' });
@@ -40,9 +41,19 @@ export function HomeScreen() {
   const insets = useSafeAreaInsets();
   const requestId = useRef(0);
 
-  function openFromMenu(pathname: '/settings' | '/about') {
+  function openAboutFromMenu() {
     setMenuOpen(false);
-    router.push(pathname);
+    router.push('/about');
+  }
+
+  function openAddComputerFromMenu() {
+    setMenuOpen(false);
+    router.push('/qr-scan');
+  }
+
+  function openRequestsFromMenu() {
+    setMenuOpen(false);
+    router.push('/access-requests');
   }
 
   useEffect(() => {
@@ -56,17 +67,8 @@ export function HomeScreen() {
       .then((computers) => {
         if (request !== requestId.current) return;
         setState({ status: 'loaded', computers });
-        return Promise.allSettled(
-          computers
-            .filter((computer) => computer.isPaired)
-            .map(async (computer) => (await listInstallationRequests(computer.id)).map((item) => ({ computer, request: item }))),
-        ).then((results) => {
-          if (request !== requestId.current) return;
-          setPending(
-            results
-              .flatMap((result) => (result.status === 'fulfilled' ? result.value : []))
-              .sort((a, b) => b.request.requestedAt.localeCompare(a.request.requestedAt)),
-          );
+        return loadPendingRequests(computers).then((items) => {
+          if (request === requestId.current) setPending(items);
         });
       })
       .catch((error: unknown) => {
@@ -95,25 +97,40 @@ export function HomeScreen() {
   }
 
   const computers = state.status === 'loaded' ? state.computers : [];
+  const requestItems = useRequestItems(pending);
 
   return (
     <SafeAreaView style={styles.safeArea}>
+      <View style={styles.topBar}>
+        <View style={styles.brand}>
+          <PenguinLogo size={30} />
+          <Text style={styles.brandName}>PIPLUP</Text>
+        </View>
+        <View style={styles.topActions}>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={t('nav.settings')}
+            onPress={() => router.push('/settings')}
+            style={({ pressed }) => [styles.menuButton, pressed && styles.pressed]}
+          >
+            <Image accessible={false} source={require('../../../assets/icons/settings.png')} style={styles.settingsIcon} />
+          </Pressable>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={t('menu.open')}
+            accessibilityState={{ expanded: menuOpen }}
+            onPress={() => setMenuOpen(true)}
+            style={({ pressed }) => [styles.menuButton, pressed && styles.pressed]}
+          >
+            <View style={styles.menuBar} />
+            <View style={styles.menuBar} />
+            <View style={styles.menuBar} />
+          </Pressable>
+        </View>
+      </View>
       <ScrollView contentContainerStyle={styles.content}>
         <View style={styles.greeting}>
-          <View style={styles.greetingHeader}>
-            <Text style={styles.eyebrow}>{t('home.eyebrow')}</Text>
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel={t('menu.open')}
-              accessibilityState={{ expanded: menuOpen }}
-              onPress={() => setMenuOpen(true)}
-              style={({ pressed }) => [styles.menuButton, pressed && styles.pressed]}
-            >
-              <View style={styles.menuBar} />
-              <View style={styles.menuBar} />
-              <View style={styles.menuBar} />
-            </Pressable>
-          </View>
+          <Text style={styles.eyebrow}>{t('home.eyebrow')}</Text>
           <Text style={styles.title}>{t('home.greeting', { name: guardian?.name ?? '' })}</Text>
           <Text style={styles.subtitle}>{t('home.subtitle')}</Text>
           {error ? (
@@ -121,28 +138,23 @@ export function HomeScreen() {
           ) : null}
         </View>
 
-        {pending.length > 0 ? (
-          <Pressable
-            accessibilityLabel={t('access.homeTitle', { name: pending[0].request.requesterName, app: pending[0].request.applicationName })}
-            accessibilityRole="button"
-            onPress={() => router.push({
-              pathname: '/access-request',
-              params: { deviceId: pending[0].computer.id, requestId: pending[0].request.id, applicationName: pending[0].request.applicationName },
-            })}
-            style={({ pressed }) => [styles.requestCard, pressed && styles.pressed]}
-          >
-            <ApplicationIcon name={pending[0].request.applicationName} />
-            <View style={styles.requestCopy}>
-              <Text style={styles.requestTitle}>
-                {t('access.homeTitle', { name: pending[0].request.requesterName, app: pending[0].request.applicationName })}
-              </Text>
-              <Text style={styles.requestSubtitle}>
-                {pending[0].computer.name} · {new Intl.DateTimeFormat(language, { dateStyle: 'short', timeStyle: 'short' }).format(new Date(pending[0].request.requestedAt))}
-              </Text>
+        <View style={styles.requests}>
+          <View style={styles.sectionHeader}>
+            <View style={styles.sectionHeading}>
+              <Text style={styles.sectionTitle}>{t('nav.requests')}</Text>
+              {requestItems.length > 0 ? <Text style={styles.count}>{requestItems.length}</Text> : null}
             </View>
-            {pending.length > 1 ? <Text accessibilityLabel={t('access.homeCount', { count: pending.length })} style={styles.requestBadge}>{pending.length}</Text> : null}
-          </Pressable>
-        ) : null}
+            <Pressable
+              accessibilityRole="button"
+              onPress={() => router.push('/access-requests')}
+              style={({ pressed }) => [styles.linkButton, pressed && styles.pressed]}
+            >
+              <Text style={styles.link}>{t('common.viewAll')}</Text>
+            </Pressable>
+          </View>
+          {requestItems.length === 0 ? <Text style={styles.requestsEmpty}>{t('access.empty')}</Text> : null}
+          {requestItems.slice(0, HOME_REQUEST_LIMIT).map((item) => <RequestCard key={`${item.kind}-${item.id}`} item={item} />)}
+        </View>
 
         <View style={styles.pairingCard}>
           <View style={styles.pairingCopy}>
@@ -286,11 +298,15 @@ export function HomeScreen() {
 
       <Modal visible={menuOpen} transparent animationType="fade" onRequestClose={() => setMenuOpen(false)}>
         <Pressable accessibilityLabel={t('menu.close')} onPress={() => setMenuOpen(false)} style={styles.menuBackdrop} />
-        <View accessibilityViewIsModal style={[styles.menu, { top: insets.top + 56 }]}>
-          <Pressable accessibilityRole="menuitem" onPress={() => openFromMenu('/settings')} style={({ pressed }) => [styles.menuItem, pressed && styles.pressed]}>
-            <Text style={styles.menuItemText}>{t('nav.settings')}</Text>
+        <View accessibilityViewIsModal style={[styles.menu, { top: insets.top + 60 }]}>
+          <Pressable accessibilityRole="menuitem" onPress={openAddComputerFromMenu} style={({ pressed }) => [styles.menuItem, pressed && styles.pressed]}>
+            <Text style={styles.menuItemText}>{t('common.addComputer')}</Text>
           </Pressable>
-          <Pressable accessibilityRole="menuitem" onPress={() => openFromMenu('/about')} style={({ pressed }) => [styles.menuItem, pressed && styles.pressed]}>
+          <Pressable accessibilityRole="menuitem" onPress={openRequestsFromMenu} style={({ pressed }) => [styles.menuItem, pressed && styles.pressed]}>
+            <Text style={styles.menuItemText}>{t('nav.requests')}</Text>
+          </Pressable>
+          <View style={styles.menuDivider} />
+          <Pressable accessibilityRole="menuitem" onPress={openAboutFromMenu} style={({ pressed }) => [styles.menuItem, pressed && styles.pressed]}>
             <Text style={styles.menuItemText}>{t('nav.about')}</Text>
           </Pressable>
           <View style={styles.menuDivider} />
@@ -318,23 +334,29 @@ const createStyles = (colors: ColorPalette) => StyleSheet.create({
   safeArea: { backgroundColor: colors.background, flex: 1 },
   content: { gap: spacing.xl, padding: spacing.lg, paddingBottom: spacing.xxl },
   greeting: { gap: spacing.sm, paddingTop: spacing.sm },
-  greetingHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: spacing.sm, flexWrap: 'wrap' },
+  topBar: { alignItems: 'center', borderBottomColor: colors.border, borderBottomWidth: 1, flexDirection: 'row', justifyContent: 'space-between', paddingHorizontal: spacing.lg, paddingVertical: spacing.sm },
+  brand: { alignItems: 'center', flexDirection: 'row', gap: spacing.md },
+  brandName: { color: colors.textPrimary, fontSize: 16, fontFamily: fonts.title, letterSpacing: 3 },
+  topActions: { alignItems: 'center', flexDirection: 'row' },
   menuButton: { width: 44, height: 44, gap: 4, alignItems: 'center', justifyContent: 'center' },
   menuBar: { width: 18, height: 2, borderRadius: 1, backgroundColor: colors.textPrimary },
+  requests: { gap: spacing.md },
+  requestsEmpty: { color: colors.textSecondary, fontSize: typography.label },
   menuBackdrop: { position: 'absolute', top: 0, right: 0, bottom: 0, left: 0, backgroundColor: 'rgba(0, 0, 0, 0.35)' },
   menu: { position: 'absolute', right: spacing.lg, minWidth: 220, paddingVertical: spacing.xs, borderWidth: 1, borderColor: colors.border, borderRadius: radius.md, backgroundColor: colors.surface },
   menuItem: { minHeight: 48, flexDirection: 'row', gap: spacing.sm, alignItems: 'center', paddingHorizontal: spacing.md },
   menuItemText: { color: colors.textPrimary, fontSize: typography.body, fontWeight: '500' },
   menuDivider: { height: 1, marginVertical: spacing.xs, backgroundColor: colors.border },
+  settingsIcon: { width: 24, height: 24, tintColor: colors.textPrimary },
   signOutIcon: { width: 16, height: 16, tintColor: colors.textPrimary },
   signOutDisabled: { opacity: 0.5 },
   eyebrow: {
     color: colors.accentText,
     fontSize: typography.label,
-    fontWeight: '600',
-    letterSpacing: 1.2,
+    fontWeight: '700',
+    letterSpacing: 1.6,
   },
-  title: { color: colors.textPrimary, fontSize: typography.title, fontWeight: '700' },
+  title: { color: colors.textPrimary, fontSize: 34, lineHeight: 40, fontFamily: fonts.title, letterSpacing: -0.8 },
   subtitle: { color: colors.textSecondary, fontSize: 13, lineHeight: 19 },
   logoutError: { color: colors.accentText, fontSize: typography.label, lineHeight: 18 },
   pairingCard: {
@@ -344,31 +366,6 @@ const createStyles = (colors: ColorPalette) => StyleSheet.create({
     borderWidth: 1,
     gap: spacing.lg,
     padding: spacing.lg,
-  },
-  requestCard: {
-    alignItems: 'center',
-    backgroundColor: colors.accentSoft,
-    borderColor: colors.accent,
-    borderRadius: radius.lg,
-    borderWidth: 1,
-    flexDirection: 'row',
-    gap: spacing.md,
-    padding: spacing.md,
-  },
-  requestCopy: { flex: 1, gap: 2 },
-  requestTitle: { color: colors.textPrimary, fontSize: typography.body, fontWeight: '600' },
-  requestSubtitle: { color: colors.textSecondary, fontSize: typography.label },
-  requestBadge: {
-    backgroundColor: colors.accent,
-    borderRadius: radius.pill,
-    color: colors.textPrimary,
-    fontSize: typography.label,
-    fontWeight: '700',
-    minWidth: 24,
-    overflow: 'hidden',
-    paddingHorizontal: spacing.sm,
-    paddingVertical: spacing.xs,
-    textAlign: 'center',
   },
   pairingCopy: { gap: spacing.xs },
   pairingTitle: { color: colors.textPrimary, fontSize: typography.body, fontWeight: '600' },
