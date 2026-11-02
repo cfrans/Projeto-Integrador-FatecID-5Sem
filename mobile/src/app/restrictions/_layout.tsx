@@ -53,6 +53,7 @@ export default function RestrictionsLayout() {
     <RestrictionDeviceProvider>
       <Tabs
         screenOptions={{
+          sceneStyle: { backgroundColor: colors.background },
           headerShown: false,
           tabBarActiveTintColor: colors.accentText,
           tabBarInactiveTintColor: colors.textMuted,

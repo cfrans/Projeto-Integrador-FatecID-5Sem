@@ -39,6 +39,7 @@ export function HomeScreen() {
   const [pending, setPending] = useState<PendingRequest[]>([]);
   const [requestsFailed, setRequestsFailed] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
+  const [headerBottom, setHeaderBottom] = useState<number | null>(null);
   const insets = useSafeAreaInsets();
   const requestId = useRef(0);
 
@@ -109,7 +110,7 @@ export function HomeScreen() {
 
   return (
     <SafeAreaView style={styles.safeArea}>
-      <View style={styles.topBar}>
+      <View style={styles.topBar} onLayout={({ nativeEvent }) => setHeaderBottom(nativeEvent.layout.y + nativeEvent.layout.height)}>
         <View style={styles.brand}>
           <PenguinLogo size={30} />
           <Text style={styles.brandName}>PIPLUP</Text>
@@ -305,9 +306,9 @@ export function HomeScreen() {
 
       </ScrollView>
 
-      <Modal visible={menuOpen} transparent animationType="fade" onRequestClose={() => setMenuOpen(false)}>
+      <Modal visible={menuOpen} transparent statusBarTranslucent navigationBarTranslucent animationType="fade" onRequestClose={() => setMenuOpen(false)}>
         <Pressable accessibilityLabel={t('menu.close')} onPress={() => setMenuOpen(false)} style={styles.menuBackdrop} />
-        <View accessibilityViewIsModal style={[styles.menu, { top: insets.top + 60 }]}>
+        <View accessibilityViewIsModal style={[styles.menu, { top: Math.max(insets.top, (headerBottom ?? insets.top + 60) - spacing.sm) }]}>
           <Pressable accessibilityRole="menuitem" onPress={openAddComputerFromMenu} style={({ pressed }) => [styles.menuItem, pressed && styles.pressed]}>
             <Text style={styles.menuItemText}>{t('common.addComputer')}</Text>
           </Pressable>

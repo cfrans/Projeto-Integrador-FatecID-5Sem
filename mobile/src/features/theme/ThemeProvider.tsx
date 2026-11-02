@@ -1,6 +1,7 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { useColorScheme } from 'react-native';
 import * as SecureStore from 'expo-secure-store';
+import * as SystemUI from 'expo-system-ui';
 import { ThemeProvider as NavigationThemeProvider } from 'expo-router/react-navigation';
 import { darkColors, darkNavigationTheme, lightColors, lightNavigationTheme, type ColorPalette, type ThemeScheme } from '@/theme';
 
@@ -63,6 +64,11 @@ export function AppThemeProvider({ children }: { children: ReactNode }) {
   const scheme: ThemeScheme = resolveTheme(preference, systemColorScheme);
   const colors = scheme === 'dark' ? darkColors : lightColors;
   const navigationTheme = scheme === 'dark' ? darkNavigationTheme : lightNavigationTheme;
+  useEffect(() => {
+    void SystemUI.setBackgroundColorAsync(colors.background).catch(() => {
+      console.warn('Não foi possível atualizar o fundo nativo do app.');
+    });
+  }, [colors.background]);
   const value = useMemo(
     () => ({ colors, scheme, preference, setPreference }),
     [colors, scheme, preference, setPreference],

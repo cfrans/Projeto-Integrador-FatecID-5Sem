@@ -17,10 +17,7 @@ export default function RootLayout() {
       <SessionProvider>
         <LanguageProvider>
           <ComputerAppearanceProvider>
-            <View style={{ flex: 1 }}>
-              <RootNavigator />
-              <RequestBanner />
-            </View>
+            <RootNavigator />
           </ComputerAppearanceProvider>
         </LanguageProvider>
       </SessionProvider>
@@ -36,7 +33,7 @@ function RootNavigator() {
   const [fontsLoaded, fontError] = useFonts({ Inter_800ExtraBold });
 
   return (
-    <>
+    <View style={styles.root}>
       {status === 'initializing' || (!fontsLoaded && !fontError) ? (
         <View style={styles.loading}>
           <ActivityIndicator color={colors.accent} />
@@ -44,6 +41,8 @@ function RootNavigator() {
       ) : (
         <Stack
           screenOptions={{
+            animation: 'fade',
+            animationDuration: 250,
             headerStyle: { backgroundColor: colors.background },
             headerTintColor: colors.textPrimary,
             headerTitleStyle: { color: colors.textPrimary },
@@ -70,10 +69,12 @@ function RootNavigator() {
         </Stack>
       )}
       <StatusBar style={scheme === 'dark' ? 'light' : 'dark'} />
-    </>
+      <RequestBanner />
+    </View>
   );
 }
 
 const createStyles = (colors: ColorPalette) => StyleSheet.create({
+  root: { flex: 1, backgroundColor: colors.background },
   loading: { alignItems: 'center', backgroundColor: colors.background, flex: 1, justifyContent: 'center' },
 });
