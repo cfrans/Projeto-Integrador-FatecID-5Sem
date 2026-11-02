@@ -10,6 +10,10 @@ import './restrictions.test.mjs';
 import './simulation.test.mjs';
 import './icons.test.mjs';
 import './access.test.mjs';
+import './profiles.test.mjs';
+import './synchronization.test.mjs';
+import './image-cache.test.mjs';
+import './patch-router.test.mjs';
 
 const originalFetch = globalThis.fetch;
 

@@ -8,7 +8,6 @@ import {
   StyleSheet,
   Text,
   View,
-  type ImageSourcePropType,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Button } from '@/components/ui/Button';
@@ -20,16 +19,13 @@ import { formatBedtime, parseBedtime, setBedtime, useBedtimeState, reloadBedtime
 import { useLanguage, type Language } from '@/features/i18n/LanguageProvider';
 import { radius, spacing, typography, type ColorPalette } from '@/theme';
 import { useTheme, useThemedStyles, type ThemePreference } from '@/features/theme/ThemeProvider';
+import { interfaceImages } from '@/lib/image-assets';
 
 const MIN_PASSWORD_LENGTH = 8;
 
 type Section = 'email' | 'password' | 'bedtime';
 
-const themeIcons: Record<ThemePreference, ImageSourcePropType> = {
-  system: require('../../../assets/icons/monitor.png'),
-  light: require('../../../assets/icons/sun.png'),
-  dark: require('../../../assets/icons/moon.png'),
-};
+const themeIcons = { system: interfaceImages.system, light: interfaceImages.light, dark: interfaceImages.dark };
 
 export function SettingsScreen() {
   const { language, setLanguage, t } = useLanguage();
@@ -216,7 +212,7 @@ export function SettingsScreen() {
             <Text style={styles.sectionLabel}>{t('settings.bedtime')}</Text>
             <View style={styles.card}>
               <SettingRow
-                icon={<Image accessible={false} source={themeIcons.dark} style={styles.rowImage} />}
+                icon={<Image accessible={false} fadeDuration={0} source={themeIcons.dark} style={styles.rowImage} />}
                 label={t('settings.bedtimeRow')}
                 value={formatBedtime(bedtime)}
                 {...rowProps('bedtime')}
@@ -267,6 +263,7 @@ export function SettingsScreen() {
                   <Image
                     accessible={false}
                     source={themeIcons[option]}
+                    fadeDuration={0}
                     style={[styles.themeIcon, { tintColor: preference === option ? colors.textPrimary : colors.textSecondary }]}
                   />
                   <Text style={[styles.optionText, preference === option && styles.optionTextSelected]}>

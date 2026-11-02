@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Image,
@@ -7,26 +7,23 @@ import {
   ScrollView,
   StyleSheet,
   Text,
+  useWindowDimensions,
   View,
 } from 'react-native';
 import { router, useFocusEffect } from 'expo-router';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Button } from '@/components/ui/Button';
 import { PenguinLogo } from '@/components/ui/PenguinLogo';
-import { prefetchTeamAvatars } from '@/features/about/AboutScreen';
 import { loadPendingRequestsReport, type PendingRequest } from '@/features/access/pendingRequests';
 import { RequestCard, useRequestItems } from '@/features/access/RequestCards';
 import { useSession } from '@/features/auth/SessionProvider';
 import { useLanguage } from '@/features/i18n/LanguageProvider';
 import { DeviceCard } from '@/features/devices/DeviceCard';
-import { devices, devicesErrorMessage, type PairedComputer } from '@/features/devices/services/devices';
+import { devices, devicesErrorMessage } from '@/features/devices/services/devices';
+import { beginComputerRefresh, computerListFailure, isTransientComputerFailure, type ComputersState } from './services/computer-list-state';
+import { interfaceImages } from '@/lib/image-assets';
 import { fonts, radius, spacing, typography, type ColorPalette } from '@/theme';
 import { useTheme, useThemedStyles } from '@/features/theme/ThemeProvider';
-
-type HomeState =
-  | { status: 'loading' }
-  | { status: 'error'; message: string }
-  | { status: 'loaded'; computers: PairedComputer[] };
 
 const HOME_REQUEST_LIMIT = 3;
 
@@ -35,12 +32,14 @@ export function HomeScreen() {
   const { t, localize } = useLanguage();
   const { colors } = useTheme();
   const styles = useThemedStyles(createStyles);
-  const [state, setState] = useState<HomeState>({ status: 'loading' });
+  const [state, setState] = useState<ComputersState>({ status: 'loading' });
   const [pending, setPending] = useState<PendingRequest[]>([]);
   const [requestsFailed, setRequestsFailed] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const [headerBottom, setHeaderBottom] = useState<number | null>(null);
   const insets = useSafeAreaInsets();
+  const { height } = useWindowDimensions();
+  const menuTop = Math.max(insets.top, (headerBottom ?? insets.top + 60) - spacing.sm);
   const requestId = useRef(0);
 
   function openAboutFromMenu() {
@@ -58,13 +57,9 @@ export function HomeScreen() {
     router.push('/access-requests');
   }
 
-  useEffect(() => {
-    prefetchTeamAvatars();
-  }, []);
-
   const loadComputers = useCallback((silent = false) => {
     const request = ++requestId.current;
-    if (!silent) setState({ status: 'loading' });
+    if (!silent) setState(beginComputerRefresh);
     return devices.listPairedComputers()
       .then((computers) => {
         if (request !== requestId.current) return;
@@ -78,9 +73,9 @@ export function HomeScreen() {
       })
       .catch((error: unknown) => {
         if (request === requestId.current) {
-          setPending([]);
+          if (!isTransientComputerFailure(error)) setPending([]);
           setRequestsFailed(true);
-          setState({ status: 'error', message: devicesErrorMessage(error) });
+          setState((previous) => computerListFailure(previous, error, true, devicesErrorMessage(error)));
         }
       });
   }, []);
@@ -101,8 +96,7 @@ export function HomeScreen() {
   }, [loadComputers]));
 
   function retry() {
-    setState({ status: 'loading' });
-    loadComputers();
+    void loadComputers();
   }
 
   const computers = state.status === 'loaded' ? state.computers : [];
@@ -122,7 +116,7 @@ export function HomeScreen() {
             onPress={() => router.push('/settings')}
             style={({ pressed }) => [styles.menuButton, pressed && styles.pressed]}
           >
-            <Image accessible={false} source={require('../../../assets/icons/settings.png')} style={styles.settingsIcon} />
+            <Image accessible={false} fadeDuration={0} source={interfaceImages.settings} style={styles.settingsIcon} />
           </Pressable>
           <Pressable
             accessibilityRole="button"
@@ -199,6 +193,11 @@ export function HomeScreen() {
             <Text style={styles.stateText}>{t('common.loadingComputers')}</Text>
           </View>
         ) : null}
+
+        {state.status === 'loaded' && state.refreshError ? <View style={styles.stateContainer}>
+          <Text accessibilityRole="alert" style={styles.stateText}>{localize(state.refreshError)}</Text>
+          <Button label={t('common.retry')} onPress={retry} />
+        </View> : null}
 
         {state.status === 'error' ? (
           <View style={styles.stateContainer}>
@@ -308,12 +307,19 @@ export function HomeScreen() {
 
       <Modal visible={menuOpen} transparent statusBarTranslucent navigationBarTranslucent animationType="fade" onRequestClose={() => setMenuOpen(false)}>
         <Pressable accessibilityLabel={t('menu.close')} onPress={() => setMenuOpen(false)} style={styles.menuBackdrop} />
-        <View accessibilityViewIsModal style={[styles.menu, { top: Math.max(insets.top, (headerBottom ?? insets.top + 60) - spacing.sm) }]}>
+        <View accessibilityViewIsModal style={[styles.menu, { top: menuTop, maxHeight: Math.max(48, height - menuTop - insets.bottom - spacing.md) }]}>
+          <ScrollView>
           <Pressable accessibilityRole="menuitem" onPress={openAddComputerFromMenu} style={({ pressed }) => [styles.menuItem, pressed && styles.pressed]}>
             <Text style={styles.menuItemText}>{t('common.addComputer')}</Text>
           </Pressable>
           <Pressable accessibilityRole="menuitem" onPress={openRequestsFromMenu} style={({ pressed }) => [styles.menuItem, pressed && styles.pressed]}>
             <Text style={styles.menuItemText}>{t('nav.requests')}</Text>
+          </Pressable>
+          <Pressable accessibilityRole="menuitem" onPress={() => { setMenuOpen(false); router.push('/sync-failure'); }} style={({ pressed }) => [styles.menuItem, pressed && styles.pressed]}>
+            <Text style={styles.menuItemText}>{t('sync.title')}</Text>
+          </Pressable>
+          <Pressable accessibilityRole="menuitem" onPress={() => { setMenuOpen(false); router.push('/restriction-profiles'); }} style={({ pressed }) => [styles.menuItem, pressed && styles.pressed]}>
+            <Text style={styles.menuItemText}>{t('profiles.title')}</Text>
           </Pressable>
           <View style={styles.menuDivider} />
           <Pressable accessibilityRole="menuitem" onPress={openAboutFromMenu} style={({ pressed }) => [styles.menuItem, pressed && styles.pressed]}>
@@ -331,9 +337,10 @@ export function HomeScreen() {
             }}
             style={({ pressed }) => [styles.menuItem, pressed && styles.pressed, busy && styles.signOutDisabled]}
           >
-            <Image accessible={false} source={require('../../../assets/icons/log-out.png')} style={styles.signOutIcon} />
+            <Image accessible={false} fadeDuration={0} source={interfaceImages.signOut} style={styles.signOutIcon} />
             <Text style={styles.menuItemText}>{t(busy ? 'common.signingOut' : 'common.signOut')}</Text>
           </Pressable>
+          </ScrollView>
         </View>
       </Modal>
     </SafeAreaView>

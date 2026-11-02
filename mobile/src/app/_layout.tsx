@@ -1,5 +1,5 @@
 import '@/lib/api-runtime';
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { ActivityIndicator, StyleSheet, View } from 'react-native';
 import { useFonts } from 'expo-font';
 import { Inter_800ExtraBold } from '@expo-google-fonts/inter/800ExtraBold';
@@ -11,7 +11,7 @@ import { AppThemeProvider, useTheme, useThemedStyles } from '@/features/theme/Th
 import { type ColorPalette } from '@/theme';
 import { ComputerAppearanceProvider } from '@/features/devices/ComputerAppearanceProvider';
 import { RequestBanner } from '@/features/access/RequestBanner';
-import { prefetchApplicationIcons } from '@/features/restrictions/ApplicationIcon';
+import { preloadImages } from '@/lib/preload-images';
 
 export default function RootLayout() {
   return (
@@ -33,13 +33,20 @@ function RootNavigator() {
   const { colors, scheme } = useTheme();
   const styles = useThemedStyles(createStyles);
   const [fontsLoaded, fontError] = useFonts({ Inter_800ExtraBold });
+  const [imagesReady, setImagesReady] = useState(false);
   useEffect(() => {
-    void prefetchApplicationIcons();
+    let active = true;
+    const timeout = setTimeout(() => { if (active) setImagesReady(true); }, 8000);
+    void preloadImages().catch(() => undefined).finally(() => {
+      clearTimeout(timeout);
+      if (active) setImagesReady(true);
+    });
+    return () => { active = false; clearTimeout(timeout); };
   }, [status]);
 
   return (
     <View style={styles.root}>
-      {status === 'initializing' || (!fontsLoaded && !fontError) ? (
+      {status === 'initializing' || (!fontsLoaded && !fontError) || !imagesReady ? (
         <View style={styles.loading}>
           <ActivityIndicator color={colors.accent} />
         </View>
@@ -66,7 +73,8 @@ function RootNavigator() {
             <Stack.Screen name="restrictions" options={{ title: t('nav.restrictions') }} />
             <Stack.Screen name="access-requests" options={{ title: t('nav.requests') }} />
             <Stack.Screen name="access-request" options={{ title: t('nav.accessRequest') }} />
-            <Stack.Screen name="sync-failure" options={{ title: t('nav.sync') }} />
+            <Stack.Screen name="sync-failure" options={{ title: t('sync.title') }} />
+            <Stack.Screen name="restriction-profiles" options={{ title: t('profiles.title') }} />
             <Stack.Screen name="settings" options={{ title: t('nav.settings') }} />
             <Stack.Screen name="about"options={{ title: t('nav.about') }} />
           </Stack.Protected>

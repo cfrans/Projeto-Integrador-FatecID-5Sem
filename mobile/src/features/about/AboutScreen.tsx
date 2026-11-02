@@ -1,16 +1,17 @@
-import { useEffect, useState } from 'react';
-import { Image, Linking, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { useState } from 'react';
+import { Image, Linking, Pressable, ScrollView, StyleSheet, Text, View, type ImageSourcePropType } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLanguage } from '@/features/i18n/LanguageProvider';
 import { fonts, radius, spacing, typography, type ColorPalette } from '@/theme';
 import { useTheme, useThemedStyles } from '@/features/theme/ThemeProvider';
+import { teamImages } from '@/lib/image-assets';
 
 type TeamMember = {
   initials: string;
   name: string;
   username: string;
   githubUrl: string;
-  avatarUrl: string;
+  avatar: ImageSourcePropType;
 };
 
 const REPOSITORY_URL = 'https://github.com/cfrans/Projeto-Integrador-FatecID-5Sem';
@@ -21,49 +22,37 @@ const TEAM_MEMBERS: readonly TeamMember[] = [
     name: 'Caio Franson da Silva',
     username: 'cfrans',
     githubUrl: 'https://github.com/cfrans',
-    avatarUrl: 'https://avatars.githubusercontent.com/u/84992079?s=120&v=4',
+    avatar: teamImages.cfrans,
   },
   {
     initials: 'CB',
     name: 'Camila Barcaro Corrêa',
     username: 'camilabarcaro',
     githubUrl: 'https://github.com/camilabarcaro',
-    avatarUrl: 'https://avatars.githubusercontent.com/u/199844388?s=120&v=4',
+    avatar: teamImages.camilabarcaro,
   },
   {
     initials: 'GT',
     name: 'Gabriel Tamarossi',
     username: 'TamaGab',
     githubUrl: 'https://github.com/TamaGab',
-    avatarUrl: 'https://avatars.githubusercontent.com/u/167652764?s=120&v=4',
+    avatar: teamImages.TamaGab,
   },
   {
     initials: 'PO',
     name: 'Pedro de Oliveira Silva',
     username: 'pxdrui',
     githubUrl: 'https://github.com/pxdrui',
-    avatarUrl: 'https://avatars.githubusercontent.com/u/199849281?s=120&v=4',
+    avatar: teamImages.pxdrui,
   },
   {
     initials: 'VC',
     name: 'Vitória Caroline da Silva Farias Faturi',
     username: 'vitoriafaturi',
     githubUrl: 'https://github.com/vitoriafaturi',
-    avatarUrl: 'https://avatars.githubusercontent.com/u/199849555?s=120&v=4',
+    avatar: teamImages.vitoriafaturi,
   },
 ];
-
-let avatarsPrefetched = false;
-
-export function prefetchTeamAvatars() {
-  if (avatarsPrefetched) return;
-  avatarsPrefetched = true;
-  for (const member of TEAM_MEMBERS) {
-    void Image.prefetch(member.avatarUrl).catch(() => {
-      avatarsPrefetched = false;
-    });
-  }
-}
 
 const INTEGRATED_COURSES = ['about.course0', 'about.course1', 'about.course2', 'about.course3', 'about.course4'];
 
@@ -143,10 +132,6 @@ export function AboutScreen() {
   const { colors } = useTheme();
   const styles = useThemedStyles(createStyles);
 
-  useEffect(() => {
-    prefetchTeamAvatars();
-  }, []);
-
   function openExternalUrl(url: string) {
     void Linking.openURL(url).catch(() => undefined);
   }
@@ -183,7 +168,7 @@ export function AboutScreen() {
                         onError={() =>
                           setFailedAvatars((current) => ({ ...current, [member.username]: true }))
                         }
-                        source={{ uri: member.avatarUrl, cache: 'force-cache' }}
+                        source={member.avatar}
                         style={styles.avatarImage}
                       />
                     ) : null}

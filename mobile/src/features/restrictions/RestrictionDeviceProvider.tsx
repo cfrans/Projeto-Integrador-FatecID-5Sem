@@ -17,7 +17,7 @@ type DeviceState =
 
 const DeviceContext = createContext<PairedComputer | null | undefined>(undefined);
 
-export function RestrictionDeviceProvider({ children }: { children: ReactNode }) {
+export function RestrictionDeviceProvider({ children, showTools = true }: { children: ReactNode; showTools?: boolean }) {
   const { deviceId } = useGlobalSearchParams<{ deviceId?: string | string[] }>();
   const routeId = typeof deviceId === 'string' ? deviceId : deviceId === undefined ? null : '';
   const [selection, setSelection] = useState<{ routeId: string | null; id: string | null }>({ routeId, id: routeId });
@@ -66,7 +66,7 @@ export function RestrictionDeviceProvider({ children }: { children: ReactNode })
         {state.status === 'loaded' ? (
           <>
             {computers.length ? (
-              <RestrictionComputerSelector computers={computers} computer={computer} onSelect={(id) => setSelection({ routeId: routeId ?? selection.routeId, id })} />
+              <RestrictionComputerSelector computers={computers} computer={computer} showActions={showTools} onSelect={(id) => setSelection({ routeId: routeId ?? selection.routeId, id })} />
             ) : <View style={styles.messageBlock}><Text style={styles.message}>{t('restriction.pairToContinue')}</Text><Button label={t('common.addComputer')} onPress={() => router.push('/qr-scan')} /></View>}
           </>
         ) : null}

@@ -1,9 +1,15 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { ApiError } from '../src/lib/api.ts';
-import { computerListFailure } from '../src/features/devices/services/computer-list-state.ts';
+import { beginComputerRefresh, computerListFailure } from '../src/features/devices/services/computer-list-state.ts';
 
 const loaded = { status: 'loaded', computers: [{ id: 'cached-device' }] };
+
+test('refocusing Home keeps mounted computer cards and content height while refreshing', () => {
+  assert.equal(beginComputerRefresh(loaded), loaded);
+  assert.deepEqual(beginComputerRefresh({ status: 'loading' }), { status: 'loading' });
+  assert.deepEqual(beginComputerRefresh({ status: 'error', message: 'offline' }), { status: 'loading' });
+});
 
 test('keeps the last list only for transient background or manual refresh failures', () => {
   for (const error of [new ApiError('unavailable', 'offline'), new ApiError('server', 'busy', 503), new ApiError('server', 'limited', 429)]) {

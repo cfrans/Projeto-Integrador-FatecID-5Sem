@@ -6,14 +6,16 @@ import { ComputerIcon } from '@/features/devices/ComputerIcon';
 import { useLanguage } from '@/features/i18n/LanguageProvider';
 import { useThemedStyles } from '@/features/theme/ThemeProvider';
 import { radius, spacing, type ColorPalette } from '@/theme';
+import { RestrictionActionsMenu } from './RestrictionActionsMenu';
 
 type Props = {
   computers: PairedComputer[];
   computer: PairedComputer | null;
   onSelect: (id: string) => void;
+  showActions?: boolean;
 };
 
-export function RestrictionComputerSelector({ computers, computer, onSelect }: Props) {
+export function RestrictionComputerSelector({ computers, computer, onSelect, showActions = false }: Props) {
   const [open, setOpen] = useState(false);
   const { t } = useLanguage();
   const styles = useThemedStyles(createStyles);
@@ -22,23 +24,26 @@ export function RestrictionComputerSelector({ computers, computer, onSelect }: P
 
   return (
     <>
-      <Pressable
-        accessibilityRole={canChoose ? 'button' : undefined}
-        accessibilityLabel={t('restriction.selectedComputer') + (computer ? `: ${computer.name}` : '')}
-        accessibilityHint={canChoose ? t('restriction.changeComputer') : undefined}
-        accessibilityState={{ expanded: open, disabled: !canChoose }}
-        disabled={!canChoose}
-        onPress={() => setOpen(true)}
-        style={({ pressed }) => [styles.selector, pressed && styles.pressed]}
-      >
-        <ComputerIcon deviceId={computer?.id} size={38} />
-        <View style={styles.copy}>
-          <Text style={styles.label}>{t('restriction.selectedComputer')}</Text>
-          <Text numberOfLines={1} style={styles.name}>{computer?.name ?? t('restriction.chooseComputer')}</Text>
-          {computer?.managedUser ? <Text numberOfLines={1} style={styles.account}>{t('restriction.account', { name: computer.managedUser })}</Text> : null}
-        </View>
-        {canChoose ? <View style={styles.change}><Text style={styles.changeText}>{t('restriction.change')}</Text><View style={styles.chevron} /></View> : null}
-      </Pressable>
+      <View style={styles.selector}>
+        <Pressable
+          accessibilityRole={canChoose ? 'button' : undefined}
+          accessibilityLabel={t('restriction.selectedComputer') + (computer ? `: ${computer.name}` : '')}
+          accessibilityHint={canChoose ? t('restriction.changeComputer') : undefined}
+          accessibilityState={{ expanded: open, disabled: !canChoose }}
+          disabled={!canChoose}
+          onPress={() => setOpen(true)}
+          style={({ pressed }) => [styles.selection, pressed && styles.pressed]}
+        >
+          <ComputerIcon deviceId={computer?.id} size={38} />
+          <View style={styles.copy}>
+            <Text style={styles.label}>{t('restriction.selectedComputer')}</Text>
+            <Text numberOfLines={1} style={styles.name}>{computer?.name ?? t('restriction.chooseComputer')}</Text>
+            {computer?.managedUser ? <Text numberOfLines={1} style={styles.account}>{t('restriction.account', { name: computer.managedUser })}</Text> : null}
+          </View>
+          {canChoose ? <View style={styles.change}>{!showActions ? <Text style={styles.changeText}>{t('restriction.change')}</Text> : null}<View style={styles.chevron} /></View> : null}
+        </Pressable>
+        {showActions && computer ? <RestrictionActionsMenu key={`${computer.id}-${computer.associationId}`} deviceId={computer.id} name={computer.name} /> : null}
+      </View>
       <Modal visible={open} transparent animationType="fade" onRequestClose={() => setOpen(false)}>
         <View style={styles.modal}>
           <Pressable style={styles.backdrop} accessibilityLabel={t('common.close')} onPress={() => setOpen(false)} />
@@ -79,6 +84,7 @@ export function RestrictionComputerSelector({ computers, computer, onSelect }: P
 }
 
 const createStyles = (colors: ColorPalette) => StyleSheet.create({
+  selection: { flex: 1, minWidth: 0, flexDirection: 'row', alignItems: 'center', gap: spacing.md },
   selector: { flexDirection: 'row', alignItems: 'center', gap: spacing.md, marginHorizontal: spacing.lg, marginTop: spacing.md, marginBottom: spacing.sm, padding: spacing.md, minHeight: 72, borderWidth: 1, borderColor: colors.border, borderRadius: radius.md, backgroundColor: colors.surface },
   copy: { flex: 1, gap: 2 },
   label: { fontSize: 11, color: colors.textSecondary },

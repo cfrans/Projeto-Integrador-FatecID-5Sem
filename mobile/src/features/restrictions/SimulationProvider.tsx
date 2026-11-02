@@ -117,3 +117,7 @@ export function useSimulation() {
 export function useSimulationReady() {
   return useContext(SimulationContext) !== null;
 }
+
+export function useOptionalSimulation() {
+  return useContext(SimulationContext);
+}

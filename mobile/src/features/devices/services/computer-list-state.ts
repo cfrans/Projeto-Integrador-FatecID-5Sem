@@ -6,9 +6,16 @@ export type ComputersState =
   | { status: 'error'; message: string }
   | { status: 'loaded'; computers: PairedComputer[]; refreshError?: string };
 
+export function isTransientComputerFailure(error: unknown): boolean {
+  return error instanceof ApiError && (error.kind === 'unavailable' || error.status === 429 || (error.status !== undefined && error.status >= 500));
+}
+
+export function beginComputerRefresh(previous: ComputersState): ComputersState {
+  return previous.status === 'loaded' ? previous : { status: 'loading' };
+}
+
 export function computerListFailure(previous: ComputersState, error: unknown, preserve: boolean, message: string): ComputersState {
-  const transient = error instanceof ApiError && (error.kind === 'unavailable' || error.status === 429 || (error.status !== undefined && error.status >= 500));
-  return preserve && previous.status === 'loaded' && transient
+  return preserve && previous.status === 'loaded' && isTransientComputerFailure(error)
     ? { ...previous, refreshError: message }
     : { status: 'error', message };
 }
