@@ -213,3 +213,7 @@ O módulo `Commands` implementa criação/consulta por responsável e polling/cl
 ## Simulação para demonstração
 
 O módulo isolado `src/simulation` reutiliza JWT, identidade do Agent, pareamento e tabelas de inventário/pedidos. A única tabela nova, `SimulationState`, guarda configurações versionadas por vínculo e confirmação simulada. Cadastro autenticado e operações desse módulo são restritos a demonstração em `development`/`test`; não habilitam registro ou controle de PCs reais. Contratos e execução ficam em [Client simulado](simulated-client.md).
+
+## Histórico de pedidos de instalação
+
+`GET /devices/:deviceId/installation-requests/history` retorna os mesmos campos públicos da consulta de pendentes, mais `status: APPROVED | DENIED`. Exige JWT e vínculo ativo do responsável; filtra pedidos anteriores à criação do vínculo atual. Mantém a distinção entre relatório vazio (`200`), vínculo ausente (`404`) e relatório não recebido/indisponível (`503`). A rota de pendentes permanece inalterada. O histórico reflete o último relatório persistido; não é auditoria permanente, não armazena prazos locais nem exige migration.

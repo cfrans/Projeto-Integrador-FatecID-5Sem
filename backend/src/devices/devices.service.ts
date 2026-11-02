@@ -89,7 +89,7 @@ export class DevicesService {
     return device.applications;
   }
 
-  async listInstallationRequests(guardianId: string, deviceId: string) {
+  async listInstallationRequests(guardianId: string, deviceId: string, history = false) {
     let device;
     try {
       device = await this.prisma.device.findFirst({
@@ -102,14 +102,20 @@ export class DevicesService {
         },
         select: {
           installationRequestsReportedAt: true,
+          associations: {
+            where: { guardianId, activeDeviceId: deviceId, revokedAt: null },
+            select: { createdAt: true },
+            take: 1,
+          },
           installationRequests: {
-            where: { status: 'PENDING' },
+            where: { status: history ? { in: ['APPROVED', 'DENIED'] } : 'PENDING' },
             select: {
               id: true,
               applicationName: true,
               requesterName: true,
               requestedAt: true,
               ageRating: true,
+              ...(history ? { status: true } : {}),
             },
             orderBy: [{ requestedAt: 'asc' }, { id: 'asc' }],
           },
@@ -127,7 +133,10 @@ export class DevicesService {
         'Lista de pedidos de instalação ainda não recebida do computador.',
       );
     }
-    return device.installationRequests.map((request) => ({
+    const requests = history ? device.installationRequests.filter((request) =>
+      device.associations[0] && request.requestedAt >= device.associations[0].createdAt,
+    ) : device.installationRequests;
+    return requests.map((request) => ({
       ...request,
       requestedAt: request.requestedAt.toISOString(),
     }));

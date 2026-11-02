@@ -479,7 +479,7 @@ Object.assign(translations["pt-BR"], {
   "access.requestedAt": "Pedido em",
   "access.allowLimited": "Permitir com limite de tempo",
   "access.deny": "Recusar pedido",
-  "access.responseNote": "{name} recebe a resposta quando o computador sincronizar. Enquanto não houver resposta, o bloqueio continua.",
+  "access.responseNote": "A decisão sobre o pedido de {name} é enviada à simulação. A aplicação no Lux ainda não está disponível.",
   "access.timeSection": "TEMPO DE LIBERAÇÃO",
   "access.option.min30": "30 minutos",
   "access.option.hour1": "1 hora",
@@ -491,21 +491,21 @@ Object.assign(translations["pt-BR"], {
   "access.perDay": "2 h por dia",
   "access.fixed": "liberação fixa",
   "access.blockAtEnd": "Bloquear ao fim do tempo",
-  "access.blockAtEndDescription": "O aplicativo fecha sozinho e volta à lista de bloqueados.",
+  "access.blockAtEndDescription": "O bloqueio automático ainda não está disponível.",
   "access.confirm": "Confirmar liberação",
   "access.localNotice": "Por enquanto, o prazo fica registrado só neste aparelho: o computador ainda não bloqueia o aplicativo sozinho no fim do tempo.",
-  "access.released": "{app} liberado",
-  "access.releasedUntilBlock": "Liberado às {start} · encerra às {end} e volta a bloquear sozinho.",
-  "access.releasedUntil": "Liberado às {start} · encerra às {end}.",
-  "access.releasedFixed": "Liberado às {start} · sem limite de tempo.",
+  "access.released": "Aprovação enviada: {app}",
+  "access.releasedUntilBlock": "Decisão enviada às {start} · prazo local até {end}. O bloqueio automático não está disponível.",
+  "access.releasedUntil": "Decisão enviada às {start} · prazo local até {end}.",
+  "access.releasedFixed": "Decisão enviada às {start} · sem prazo local.",
   "access.releasedNoDetail": "Liberação enviada. O prazo não está disponível neste aparelho.",
   "access.remaining": "Tempo restante",
   "access.remainingOf": "{left} de {total}",
-  "access.ended": "Prazo encerrado",
+  "access.ended": "Prazo local encerrado; bloqueio não confirmado",
   "access.endNow": "Encerrar liberação agora",
   "access.backHome": "Voltar ao início",
   "access.denied": "{app} recusado",
-  "access.deniedDetail": "O pedido foi recusado e o bloqueio continua.",
+  "access.deniedDetail": "Decisão de recusa enviada à simulação. Isso não comprova bloqueio no Lux.",
   "access.notPending": "Este pedido não está mais pendente.",
   "access.minutes": "{n} min",
   "access.hours": "{n} h",
@@ -523,7 +523,7 @@ Object.assign(translations["en"], {
   "access.requestedAt": "Requested at",
   "access.allowLimited": "Allow with time limit",
   "access.deny": "Deny request",
-  "access.responseNote": "{name} gets the answer when the computer syncs. Until then, the block stays in place.",
+  "access.responseNote": "The decision for {name} is sent to the simulation. Enforcement on Lux is not available yet.",
   "access.timeSection": "RELEASE TIME",
   "access.option.min30": "30 minutes",
   "access.option.hour1": "1 hour",
@@ -535,21 +535,21 @@ Object.assign(translations["en"], {
   "access.perDay": "2 h per day",
   "access.fixed": "fixed release",
   "access.blockAtEnd": "Block when time ends",
-  "access.blockAtEndDescription": "The app closes by itself and returns to the blocked list.",
+  "access.blockAtEndDescription": "Automatic blocking is not available yet.",
   "access.confirm": "Confirm release",
   "access.localNotice": "For now, the time limit is recorded only on this device: the computer does not block the app by itself when time runs out.",
-  "access.released": "{app} released",
-  "access.releasedUntilBlock": "Released at {start} · ends at {end} and blocks again by itself.",
-  "access.releasedUntil": "Released at {start} · ends at {end}.",
-  "access.releasedFixed": "Released at {start} · no time limit.",
+  "access.released": "Approval sent: {app}",
+  "access.releasedUntilBlock": "Decision sent at {start} · local deadline {end}. Automatic blocking is unavailable.",
+  "access.releasedUntil": "Decision sent at {start} · local deadline {end}.",
+  "access.releasedFixed": "Decision sent at {start} · no local deadline.",
   "access.releasedNoDetail": "Release sent. The time limit is not available on this device.",
   "access.remaining": "Time left",
   "access.remainingOf": "{left} of {total}",
-  "access.ended": "Time is up",
+  "access.ended": "Local time is up; blocking is unconfirmed",
   "access.endNow": "End release now",
   "access.backHome": "Back to home",
   "access.denied": "{app} denied",
-  "access.deniedDetail": "The request was denied and the block stays in place.",
+  "access.deniedDetail": "Denial sent to the simulation. This does not confirm blocking on Lux.",
   "access.notPending": "This request is no longer pending.",
   "access.minutes": "{n} min",
   "access.hours": "{n} h",
@@ -567,7 +567,7 @@ Object.assign(translations["es"], {
   "access.requestedAt": "Solicitado el",
   "access.allowLimited": "Permitir con límite de tiempo",
   "access.deny": "Rechazar solicitud",
-  "access.responseNote": "{name} recibe la respuesta cuando el ordenador sincronice. Mientras tanto, el bloqueo continúa.",
+  "access.responseNote": "La decisión para {name} se envía a la simulación. La aplicación en Lux aún no está disponible.",
   "access.timeSection": "TIEMPO DE ACCESO",
   "access.option.min30": "30 minutos",
   "access.option.hour1": "1 hora",
@@ -579,21 +579,21 @@ Object.assign(translations["es"], {
   "access.perDay": "2 h por día",
   "access.fixed": "acceso fijo",
   "access.blockAtEnd": "Bloquear al terminar el tiempo",
-  "access.blockAtEndDescription": "La aplicación se cierra sola y vuelve a la lista de bloqueadas.",
+  "access.blockAtEndDescription": "El bloqueo automático aún no está disponible.",
   "access.confirm": "Confirmar acceso",
   "access.localNotice": "Por ahora, el plazo queda registrado solo en este dispositivo: el ordenador aún no bloquea la aplicación por sí solo al terminar el tiempo.",
-  "access.released": "{app} permitida",
-  "access.releasedUntilBlock": "Permitida a las {start} · termina a las {end} y vuelve a bloquearse sola.",
-  "access.releasedUntil": "Permitida a las {start} · termina a las {end}.",
-  "access.releasedFixed": "Permitida a las {start} · sin límite de tiempo.",
+  "access.released": "Aprobación enviada: {app}",
+  "access.releasedUntilBlock": "Decisión enviada a las {start} · plazo local hasta {end}. El bloqueo automático no está disponible.",
+  "access.releasedUntil": "Decisión enviada a las {start} · plazo local hasta {end}.",
+  "access.releasedFixed": "Decisión enviada a las {start} · sin plazo local.",
   "access.releasedNoDetail": "Acceso enviado. El plazo no está disponible en este dispositivo.",
   "access.remaining": "Tiempo restante",
   "access.remainingOf": "{left} de {total}",
-  "access.ended": "Plazo terminado",
+  "access.ended": "Plazo local terminado; bloqueo sin confirmar",
   "access.endNow": "Terminar acceso ahora",
   "access.backHome": "Volver al inicio",
   "access.denied": "{app} rechazada",
-  "access.deniedDetail": "La solicitud fue rechazada y el bloqueo continúa.",
+  "access.deniedDetail": "Rechazo enviado a la simulación. Esto no confirma el bloqueo en Lux.",
   "access.notPending": "Esta solicitud ya no está pendiente.",
   "access.minutes": "{n} min",
   "access.hours": "{n} h",
@@ -660,6 +660,90 @@ export function deviceLanguage(languageTag: string): Language {
   if (tag === 'es' || tag.startsWith('es-')) return 'es';
   return 'en';
 }
+
+Object.assign(translations["pt-BR"], {
+  "access.partialError": "Não foi possível consultar todos os computadores. A lista de pedidos pode estar incompleta.",
+  "access.storageError": "Não foi possível ler ou salvar o prazo neste aparelho. A decisão enviada à simulação não foi desfeita.",
+  "settings.bedtimeLoadError": "Não foi possível ler o horário salvo. Tente novamente ou salve um novo horário nas configurações.",
+  "settings.bedtimeSaveError": "Não foi possível salvar o horário neste aparelho. Tente novamente."
+});
+
+Object.assign(translations["en"], {
+  "access.partialError": "Some computers could not be checked. The request list may be incomplete.",
+  "access.storageError": "The local deadline could not be read or saved. The decision sent to the simulation was not undone.",
+  "settings.bedtimeLoadError": "The saved bedtime could not be read. Try again or save a new time in settings.",
+  "settings.bedtimeSaveError": "The bedtime could not be saved on this device. Try again."
+});
+
+Object.assign(translations["es"], {
+  "access.partialError": "No se pudieron consultar todos los ordenadores. La lista de solicitudes puede estar incompleta.",
+  "access.storageError": "No se pudo leer o guardar el plazo local. La decisión enviada a la simulación no se deshizo.",
+  "settings.bedtimeLoadError": "No se pudo leer la hora guardada. Inténtalo de nuevo o guarda otra hora en ajustes.",
+  "settings.bedtimeSaveError": "No se pudo guardar la hora en este dispositivo. Inténtalo de nuevo."
+});
+
+Object.assign(translations["pt-BR"], {
+  "access.showHistory": "Ver histórico",
+  "access.showPending": "Ver pendentes",
+  "access.historyTitle": "Histórico de solicitações",
+  "access.historyEmpty": "Nenhuma solicitação decidida neste vínculo.",
+  "access.approvedStatus": "Aprovado na simulação",
+  "access.deniedStatus": "Recusado na simulação",
+  "access.localDeadline": "Prazo local até {date} · sem bloqueio automático",
+  "access.noLocalDeadline": "Sem prazo local",
+  "access.deadlineUnavailable": "Prazo local indisponível neste aparelho.",
+
+});
+
+Object.assign(translations["en"], {
+  "access.showHistory": "View history",
+  "access.showPending": "View pending",
+  "access.historyTitle": "Request history",
+  "access.historyEmpty": "No decided requests for this link.",
+  "access.approvedStatus": "Approved in simulation",
+  "access.deniedStatus": "Denied in simulation",
+  "access.localDeadline": "Local deadline {date} · no automatic blocking",
+  "access.noLocalDeadline": "No local deadline",
+  "access.deadlineUnavailable": "Local deadline unavailable on this device.",
+
+});
+
+Object.assign(translations["es"], {
+  "access.showHistory": "Ver historial",
+  "access.showPending": "Ver pendientes",
+  "access.historyTitle": "Historial de solicitudes",
+  "access.historyEmpty": "No hay solicitudes decididas para este vínculo.",
+  "access.approvedStatus": "Aprobado en la simulación",
+  "access.deniedStatus": "Rechazado en la simulación",
+  "access.localDeadline": "Plazo local hasta {date} · sin bloqueo automático",
+  "access.noLocalDeadline": "Sin plazo local",
+  "access.deadlineUnavailable": "Plazo local no disponible en este dispositivo.",
+
+});
+
+Object.assign(translations["pt-BR"], {
+  "requestBanner.title": "Novo pedido",
+  "requestBanner.multiple": "{count} novos pedidos",
+  "requestBanner.open": "Ver pedido",
+  "requestBanner.openAll": "Ver pedidos",
+  "requestBanner.dismiss": "Dispensar"
+});
+
+Object.assign(translations["en"], {
+  "requestBanner.title": "New request",
+  "requestBanner.multiple": "{count} new requests",
+  "requestBanner.open": "View request",
+  "requestBanner.openAll": "View requests",
+  "requestBanner.dismiss": "Dismiss"
+});
+
+Object.assign(translations["es"], {
+  "requestBanner.title": "Nueva solicitud",
+  "requestBanner.multiple": "{count} nuevas solicitudes",
+  "requestBanner.open": "Ver solicitud",
+  "requestBanner.openAll": "Ver solicitudes",
+  "requestBanner.dismiss": "Descartar"
+});
 
 export function translate(language: Language, key: string, variables?: Record<string, string | number>) {
   return (translations[language][key] ?? key).replace(/\{(\w+)\}/g, (match, name: string) => String(variables?.[name] ?? match));

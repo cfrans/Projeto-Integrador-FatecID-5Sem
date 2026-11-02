@@ -202,11 +202,11 @@ describe('AppController (e2e)', () => {
     expect(other.body[0].id).not.toBe(devices[0].id);
   });
 
-  it('authenticates and validates both restriction query routes', async () => {
+  it('authenticates and validates restriction and history query routes', async () => {
     const http = request(app.getHttpServer());
     const jwt = app.get(JwtService);
     const token = await jwt.signAsync({ sub: guardian.id });
-    for (const endpoint of ['applications', 'installation-requests']) {
+    for (const endpoint of ['applications', 'installation-requests', 'installation-requests/history']) {
       await http.get(`/devices/${devices[0].id}/${endpoint}`).expect(401);
       await http.get(`/devices/not-a-uuid/${endpoint}`).set('Authorization', `Bearer ${token}`).expect(400);
       prisma.device.findFirst.mockResolvedValueOnce(null);

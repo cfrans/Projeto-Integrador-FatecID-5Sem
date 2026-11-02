@@ -4,6 +4,7 @@ import { randomUUID } from 'node:crypto';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import QRCode from 'qrcode';
+import { applicationCatalog, approvedApplications } from './catalog.mjs';
 
 const root = dirname(fileURLToPath(import.meta.url));
 const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -88,6 +89,12 @@ export async function createSimulator({ apiUrl = 'http://127.0.0.1:3000', stateP
         const next = validateSnapshot(await request('/agent/simulation/heartbeat', 'POST', { associationId: desired.associationId }));
         if (next.associationId !== desired.associationId) throw new Error('O vínculo mudou. Consulte novamente.');
         if (snapshot && snapshot.associationId !== next.associationId) snapshot = null;
+        const applications = approvedApplications(identity.applications, identity.installationRequests, next.settings.installationDecisions);
+        if (applications.length !== identity.applications.length) {
+          identity.applications = applications;
+          await persist();
+          reportDirty = true;
+        }
         const needsReport = reportDirty || !snapshot || snapshot.associationId !== next.associationId || snapshot.revision !== next.revision;
         const acknowledged = needsReport ? validateSnapshot(await request('/agent/simulation', 'PUT', { associationId: next.associationId, revision: next.revision, applications: identity.applications, installationRequests: identity.installationRequests })) : next;
         if (acknowledged.associationId !== next.associationId || acknowledged.revision !== next.revision || acknowledged.appliedRevision !== next.revision) throw new Error('Confirmação da simulação incompatível.');
@@ -112,7 +119,7 @@ export async function createSimulator({ apiUrl = 'http://127.0.0.1:3000', stateP
   }
 
   function publicState() {
-    return { backendUrl: origin, device: identity?.device ?? null, paired: !!snapshot, connected, stopped, error, pairing: pairing && Date.parse(pairing.expiresAt) > Date.now() ? pairing : null, snapshot, applications: identity?.applications ?? [], installationRequests: identity?.installationRequests ?? [] };
+    return { catalog: applicationCatalog.map(({ asset, ...app }) => app), backendUrl: origin, device: identity?.device ?? null, paired: !!snapshot, connected, stopped, error, pairing: pairing && Date.parse(pairing.expiresAt) > Date.now() ? pairing : null, snapshot, applications: identity?.applications ?? [], installationRequests: identity?.installationRequests ?? [] };
   }
 
   const server = createServer(async (req, res) => {
@@ -144,15 +151,23 @@ export async function createSimulator({ apiUrl = 'http://127.0.0.1:3000', stateP
             await pair();
           } else if (req.url === '/api/installation-request') {
             if (!snapshot || !connected) throw new Error('Conecte e pareie o computador primeiro.');
-            if (typeof body.applicationName !== 'string' || !body.applicationName.trim() || body.applicationName.trim().length > 200 || !['L', '10', '12', '16', '18'].includes(body.ageRating)) throw new Error('Informe o aplicativo e a classificação.');
+            const entry = applicationCatalog.find((app) => app.id === body.applicationId || app.name === body.applicationName);
+            if (!entry) throw new Error('Selecione um aplicativo do catálogo.');
+            if (identity.applications.some((app) => app.name === entry.name)) throw new Error('Este aplicativo já está instalado na simulação.');
+            if (identity.installationRequests.some((request) => request.applicationName === entry.name && !snapshot.settings.installationDecisions[request.id])) throw new Error('Este aplicativo já tem um pedido pendente.');
             if (identity.installationRequests.length >= 100) throw new Error('Limite de 100 pedidos desta demonstração atingido.');
-            identity.installationRequests.push({ id: randomUUID(), applicationName: body.applicationName.trim(), requesterName: identity.device.managedUser || 'Criança', requestedAt: new Date().toISOString(), ageRating: body.ageRating });
+            identity.installationRequests.push({ id: randomUUID(), applicationName: entry.name, requesterName: identity.device.managedUser || 'Criança', requestedAt: new Date().toISOString(), ageRating: entry.ageRating });
             await persist();
             reportDirty = true;
           } else { throw new Error('Operação desconhecida.'); }
         });
         error = '';
         return json(200, publicState());
+      }
+      const logo = applicationCatalog.find((app) => req.url === app.logo);
+      if (req.method === 'GET' && logo) {
+        res.writeHead(200, { 'Content-Type': 'image/png' });
+        return res.end(await readFile(resolve(root, '../mobile/assets', logo.asset)));
       }
       const files = { '/': ['index.html', 'text/html'], '/client.js': ['client.js', 'text/javascript'], '/style.css': ['style.css', 'text/css'], '/piplup.svg': ['piplup.svg', 'image/svg+xml'], '/favicon.png': ['favicon.png', 'image/png'] };
       const file = files[req.url];

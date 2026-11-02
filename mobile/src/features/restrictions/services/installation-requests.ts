@@ -6,6 +6,7 @@ export type InstallationRequest = {
   requesterName: string;
   requestedAt: string;
   ageRating: string;
+  status?: 'APPROVED' | 'DENIED';
 };
 
 export class InstallationRequestsResponseError extends Error {
@@ -65,4 +66,17 @@ export async function listInstallationRequests(deviceId: string) {
 export function installationRequestsErrorMessage(error: unknown) {
   if (error instanceof InstallationRequestsResponseError) return error.message;
   return apiErrorMessage(error);
+}
+
+export function parseInstallationHistory(value: unknown): InstallationRequest[] {
+  const requests = parseInstallationRequestsResponse(value);
+  return requests.map((request, index) => {
+    const status = (value as Record<string, unknown>[])[index].status;
+    if (status !== 'APPROVED' && status !== 'DENIED') throw new InstallationRequestsResponseError();
+    return { ...request, status };
+  });
+}
+
+export async function listInstallationHistory(deviceId: string) {
+  return parseInstallationHistory(await api.request<unknown>(`/devices/${encodeURIComponent(deviceId)}/installation-requests/history`, { method: 'GET' }));
 }

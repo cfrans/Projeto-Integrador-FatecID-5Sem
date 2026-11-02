@@ -14,8 +14,9 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Button } from '@/components/ui/Button';
 import { LockIcon, MailIcon } from '@/components/ui/FieldIcons';
 import { Input } from '@/components/ui/Input';
+import { BedtimePicker } from './BedtimePicker';
 import { useSession } from '@/features/auth/SessionProvider';
-import { formatBedtime, parseBedtime, setBedtime, useBedtime } from '@/features/settings/bedtime';
+import { formatBedtime, parseBedtime, setBedtime, useBedtimeState, reloadBedtime } from '@/features/settings/bedtime';
 import { useLanguage, type Language } from '@/features/i18n/LanguageProvider';
 import { radius, spacing, typography, type ColorPalette } from '@/theme';
 import { useTheme, useThemedStyles, type ThemePreference } from '@/features/theme/ThemeProvider';
@@ -43,7 +44,8 @@ export function SettingsScreen() {
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [passwordErrors, setPasswordErrors] = useState<{ current?: string; next?: string; confirm?: string }>({});
-  const bedtime = useBedtime();
+  const bedtimeState = useBedtimeState();
+  const bedtime = bedtimeState.value;
   const [bedtimeText, setBedtimeText] = useState(() => formatBedtime(bedtime));
   const [bedtimeError, setBedtimeError] = useState('');
 
@@ -74,6 +76,7 @@ export function SettingsScreen() {
       return;
     }
     if (open) reset(open);
+    reset(section);
     setOpen(section);
   }
 
@@ -82,13 +85,16 @@ export function SettingsScreen() {
     setNotice({ section, text });
   }
 
-  function saveBedtime() {
+  async function saveBedtime() {
     const parsed = parseBedtime(bedtimeText);
     if (!parsed) {
       setBedtimeError(t('settings.bedtimeInvalid'));
       return;
     }
-    setBedtime(parsed);
+    if (!(await setBedtime(parsed))) {
+      setBedtimeError(t('settings.bedtimeSaveError'));
+      return;
+    }
     setBedtimeText(formatBedtime(parsed));
     setBedtimeError('');
     finish('bedtime', t('settings.bedtimeSaved'));
@@ -216,21 +222,18 @@ export function SettingsScreen() {
                 {...rowProps('bedtime')}
               >
                 <Text style={styles.hint}>{t('settings.bedtimeDescription')}</Text>
+                {bedtimeState.error === 'load' ? (
+                  <View style={styles.field}>
+                    <Text accessibilityRole="alert" style={styles.error}>{t('settings.bedtimeLoadError')}</Text>
+                    <Button label={t('common.retry')} onPress={() => void reloadBedtime()} />
+                  </View>
+                ) : null}
                 <View style={styles.field}>
                   <Text style={styles.label}>{t('settings.bedtimeLabel')}</Text>
-                  <Input
-                    accessibilityLabel={t('settings.bedtimeLabel')}
-                    invalid={Boolean(bedtimeError)}
-                    keyboardType="numbers-and-punctuation"
-                    maxLength={5}
-                    onChangeText={(value) => { setBedtimeText(value); setBedtimeError(''); }}
-                    placeholder="21:30"
-                    placeholderTextColor={colors.textMuted}
-                    value={bedtimeText}
-                  />
+                  <BedtimePicker label={t('settings.bedtimeLabel')} value={bedtimeText} onChange={(value) => { setBedtimeText(value); setBedtimeError(''); }} />
                   {bedtimeError ? <Text style={styles.error}>{bedtimeError}</Text> : null}
                 </View>
-                <FormActions saveLabel={t('settings.saveBedtime')} onCancel={() => cancel('bedtime')} onSave={saveBedtime} styles={styles} t={t} />
+                <FormActions saveLabel={t('settings.saveBedtime')} onCancel={() => cancel('bedtime')} onSave={() => void saveBedtime()} disabled={bedtimeState.busy} styles={styles} t={t} />
               </SettingRow>
             </View>
 
@@ -316,8 +319,9 @@ function SettingRow({ icon, label, value, open, notice, onToggle, children, styl
   );
 }
 
-function FormActions({ saveLabel, onCancel, onSave, styles, t }: {
+function FormActions({ saveLabel, onCancel, onSave, disabled = false, styles, t }: {
   saveLabel: string;
+  disabled?: boolean;
   onCancel: () => void;
   onSave: () => void;
   styles: RowStyles;
@@ -328,7 +332,7 @@ function FormActions({ saveLabel, onCancel, onSave, styles, t }: {
       <Pressable accessibilityRole="button" onPress={onCancel} style={({ pressed }) => [styles.cancel, pressed && styles.pressed]}>
         <Text style={styles.cancelText}>{t('common.cancel')}</Text>
       </Pressable>
-      <Button label={saveLabel} variant="solid" onPress={onSave} />
+      <Button label={saveLabel} variant="solid" disabled={disabled} onPress={onSave} />
     </View>
   );
 }

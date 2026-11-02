@@ -20,9 +20,11 @@ npm start
 2. No app, faça login e escolha **Adicionar computador**. Leia o QR mostrado pelo client e confirme o vínculo; o QR expira em cinco minutos e pode ser renovado no client.
 3. O PC aparece em **Computadores**. Abra **Restrições** no cartão e altere os controles. Um único PC pareado é selecionado automaticamente; com vários, escolha no seletor compartilhado.
 4. O client consulta a API a cada dois segundos, reflete a revisão e confirma sua aplicação simulada. O app diferencia salvamento, espera pelo client e confirmação.
-5. Envie um pedido de instalação pelo client e decida na aba **Instalação** do app. A decisão aparece no client; nenhum programa é instalado.
+5. Escolha um dos 14 apps do catálogo com logos locais e envie um pedido de instalação pelo client e decida na aba **Instalação** do app. A decisão aparece no client; nenhum programa é instalado.
 
 A senha e o JWT usados no cadastro não são persistidos. A credencial individual fica no arquivo local ignorado `simulated-client/.state/identity.json`, nunca no navegador ou QR. A identidade e o inventário demonstrativo são reutilizados após reiniciar o programa; as configurações permanecem no backend. Proteja esse arquivo com as permissões da conta local. O programa usa modos `0700`/`0600` onde suportados; no Windows, a proteção depende das ACLs da pasta.
+
+O catálogo representa uma loja/varredura demonstrativa, sem examinar o Windows ou o Lux. A seleção mostra logos reutilizados dos assets documentados do mobile; classificação e categoria são exemplos da demonstração. Apps já instalados ou com pedido pendente não podem ser solicitados novamente. Após aprovação, o client adiciona o app ao inventário local com ID estável, persiste a identidade e publica o novo inventário pela API. Uma aprovação antiga também é reconciliada ao reiniciar; nenhum programa é instalado de fato. Nomes livres antigos são preservados, mas novos pedidos precisam pertencer ao catálogo. Os prazos continuam locais ao celular e não encerram aplicativos no client.
 
 ## Configuração
 

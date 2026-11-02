@@ -9,6 +9,7 @@ import { LanguageProvider, useLanguage } from '@/features/i18n/LanguageProvider'
 import { AppThemeProvider, useTheme, useThemedStyles } from '@/features/theme/ThemeProvider';
 import { type ColorPalette } from '@/theme';
 import { ComputerAppearanceProvider } from '@/features/devices/ComputerAppearanceProvider';
+import { RequestBanner } from '@/features/access/RequestBanner';
 
 export default function RootLayout() {
   return (
@@ -16,7 +17,10 @@ export default function RootLayout() {
       <SessionProvider>
         <LanguageProvider>
           <ComputerAppearanceProvider>
-            <RootNavigator />
+            <View style={{ flex: 1 }}>
+              <RootNavigator />
+              <RequestBanner />
+            </View>
           </ComputerAppearanceProvider>
         </LanguageProvider>
       </SessionProvider>

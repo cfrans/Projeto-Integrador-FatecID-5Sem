@@ -18,7 +18,7 @@ import type { Request } from 'express';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard.js';
 import { DevicesService } from './devices.service.js';
 import { InstalledApplicationResponseDto } from './dto/installed-application-response.dto.js';
-import { InstallationRequestResponseDto } from './dto/installation-request-response.dto.js';
+import { InstallationRequestResponseDto, InstallationRequestHistoryResponseDto } from './dto/installation-request-response.dto.js';
 import { DeviceResponseDto } from './dto/device-response.dto.js';
 
 type AuthenticatedRequest = Request & {
@@ -105,6 +105,19 @@ export class DevicesController {
       request.user.id,
       deviceId,
     );
+  }
+
+  @Get(':deviceId/installation-requests/history')
+  @ApiOperation({ summary: 'Consulta pedidos decididos durante o vínculo ativo' })
+  @ApiResponse({ status: 200, type: InstallationRequestHistoryResponseDto, isArray: true })
+  @ApiResponse({ status: 401, description: 'Token inválido ou ausente.' })
+  @ApiResponse({ status: 404, description: 'Computador sem vínculo ativo.' })
+  @ApiResponse({ status: 503, description: 'Relatório não recebido ou serviço indisponível.' })
+  async listInstallationHistory(
+    @Req() request: AuthenticatedRequest,
+    @Param('deviceId', new ParseUUIDPipe()) deviceId: string,
+  ) {
+    return this.devicesService.listInstallationRequests(request.user.id, deviceId, true);
   }
 
   @Delete(':deviceId/association')

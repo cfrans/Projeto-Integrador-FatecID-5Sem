@@ -16,3 +16,8 @@ export class InstallationRequestResponseDto {
   @ApiProperty()
   declare ageRating: string;
 }
+
+export class InstallationRequestHistoryResponseDto extends InstallationRequestResponseDto {
+  @ApiProperty({ enum: ['APPROVED', 'DENIED'] })
+  declare status: 'APPROVED' | 'DENIED';
+}

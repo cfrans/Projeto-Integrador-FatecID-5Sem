@@ -14,7 +14,7 @@ import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context'
 import { Button } from '@/components/ui/Button';
 import { PenguinLogo } from '@/components/ui/PenguinLogo';
 import { prefetchTeamAvatars } from '@/features/about/AboutScreen';
-import { loadPendingRequests, type PendingRequest } from '@/features/access/pendingRequests';
+import { loadPendingRequestsReport, type PendingRequest } from '@/features/access/pendingRequests';
 import { RequestCard, useRequestItems } from '@/features/access/RequestCards';
 import { useSession } from '@/features/auth/SessionProvider';
 import { useLanguage } from '@/features/i18n/LanguageProvider';
@@ -37,6 +37,7 @@ export function HomeScreen() {
   const styles = useThemedStyles(createStyles);
   const [state, setState] = useState<HomeState>({ status: 'loading' });
   const [pending, setPending] = useState<PendingRequest[]>([]);
+  const [requestsFailed, setRequestsFailed] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const insets = useSafeAreaInsets();
   const requestId = useRef(0);
@@ -67,12 +68,19 @@ export function HomeScreen() {
       .then((computers) => {
         if (request !== requestId.current) return;
         setState({ status: 'loaded', computers });
-        return loadPendingRequests(computers).then((items) => {
-          if (request === requestId.current) setPending(items);
+        return loadPendingRequestsReport(computers).then((items) => {
+          if (request === requestId.current) {
+            setPending(items.pending);
+            setRequestsFailed(items.failures.length > 0);
+          }
         });
       })
       .catch((error: unknown) => {
-        if (request === requestId.current) setState({ status: 'error', message: devicesErrorMessage(error) });
+        if (request === requestId.current) {
+          setPending([]);
+          setRequestsFailed(true);
+          setState({ status: 'error', message: devicesErrorMessage(error) });
+        }
       });
   }, []);
 
@@ -152,7 +160,8 @@ export function HomeScreen() {
               <Text style={styles.link}>{t('common.viewAll')}</Text>
             </Pressable>
           </View>
-          {requestItems.length === 0 ? <Text style={styles.requestsEmpty}>{t('access.empty')}</Text> : null}
+          {requestsFailed ? <Text accessibilityRole="alert" style={styles.requestsEmpty}>{t('access.partialError')}</Text> : null}
+          {state.status === 'loaded' && !requestsFailed && requestItems.length === 0 ? <Text style={styles.requestsEmpty}>{t('access.empty')}</Text> : null}
           {requestItems.slice(0, HOME_REQUEST_LIMIT).map((item) => <RequestCard key={`${item.kind}-${item.id}`} item={item} />)}
         </View>
 

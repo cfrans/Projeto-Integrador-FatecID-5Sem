@@ -118,6 +118,31 @@ test('sends installation requests with stable IDs and reflects independent decis
   assert.equal(f.client.publicState().snapshot.settings.installationDecisions[request.id], 'DENIED');
 });
 
+test('catalog requests install approved apps into the inventory once and serve their local logos', async (t) => {
+  const f = await fixture(t);
+  const registered = await f.register();
+  assert.ok(registered.catalog.length >= 10);
+  for (const app of registered.catalog) {
+    const response = await fetch(`${f.url}${app.logo}`);
+    assert.equal(response.status, 200);
+    assert.equal(response.headers.get('content-type'), 'image/png');
+  }
+  await f.client.synchronize();
+  assert.equal((await f.post('/api/installation-request', { applicationId: 'unknown' })).status, 400);
+  assert.equal((await f.post('/api/installation-request', { applicationId: 'firefox' })).status, 400);
+  assert.equal((await f.post('/api/installation-request', { applicationId: 'gimp' })).status, 200);
+  assert.equal((await f.post('/api/installation-request', { applicationId: 'gimp' })).status, 400);
+  await f.client.synchronize();
+  const request = f.lastReport.installationRequests[0];
+  f.setSnapshot({ ...defaults(), revision: 2, settings: { ...defaults().settings, installationDecisions: { [request.id]: 'APPROVED' } } });
+  await f.client.synchronize();
+  assert.equal(f.lastReport.applications.find((app) => app.name === 'GIMP').id, request.id);
+  await f.client.synchronize();
+  assert.equal(f.client.publicState().applications.filter((app) => app.name === 'GIMP').length, 1);
+  const stored = JSON.parse(await readFile(join(f.directory, 'identity.json'), 'utf8'));
+  assert.ok(stored.applications.some((app) => app.name === 'GIMP'));
+});
+
 test('sends contact even with no changes and keeps contact separate from applying settings', async (t) => {
   const f = await fixture(t);
   await f.register();

@@ -9,6 +9,7 @@ import './preferences.test.mjs';
 import './restrictions.test.mjs';
 import './simulation.test.mjs';
 import './icons.test.mjs';
+import './access.test.mjs';
 
 const originalFetch = globalThis.fetch;
 

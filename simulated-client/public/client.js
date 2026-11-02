@@ -7,7 +7,9 @@ let renderedState = '';
 function item(name, status, allowed) {
   const li = document.createElement('li');
   const label = document.createElement('span');
-  label.textContent = name;
+  const brand = state?.catalog?.find((app) => app.name === name);
+  if (brand) { const img = document.createElement('img'); img.src = brand.logo; img.alt = ''; img.width = 28; img.height = 28; label.append(img); }
+  label.append(document.createTextNode(name));
   const badge = document.createElement('span');
   badge.className = `status ${allowed === true ? 'allowed' : allowed === false ? 'blocked' : ''}`;
   badge.textContent = status;
@@ -38,6 +40,7 @@ function render(next) {
   $('policies').hidden = !state.snapshot;
   $('revision').textContent = state.snapshot ? `Revisão ${state.snapshot.revision} · confirmação simulada` : '';
   if (!state.snapshot) return;
+  renderCatalog();
   const settings = state.snapshot.settings;
   $('browser-policy').textContent = settings.blockBrowsers ? 'Bloqueio geral ativo. Somente as exceções estão liberadas.' : 'Bloqueio geral desativado.';
   $('browsers').replaceChildren(...[['firefox', 'Firefox'], ['chromium', 'Chromium'], ['brave', 'Brave'], ['gnome-web', 'Navegador escolar']].map(([id, name]) => {
@@ -71,15 +74,49 @@ async function action(path, body) {
   if (submitting) return;
   submitting = true;
   formError = '';
-  document.querySelectorAll('form button, #generate-qr').forEach((button) => { button.disabled = true; });
+  document.querySelectorAll('form button[type="submit"], #generate-qr, #choose-app').forEach((button) => { button.disabled = true; });
   try {
     const response = await fetch(path, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
     const result = await response.json();
     if (!response.ok) throw new Error(result.message);
     render(result);
   } catch (error) { formError = error.message; $('notice').textContent = formError; }
-  finally { submitting = false; document.querySelectorAll('form button, #generate-qr').forEach((button) => { button.disabled = false; }); }
+  finally { submitting = false; document.querySelectorAll('form button[type="submit"], #generate-qr, #choose-app').forEach((button) => { button.disabled = false; }); }
 }
+
+
+let selectedCatalogId = '';
+function renderCatalog() {
+  const catalog = state.catalog ?? [];
+  const unavailable = catalog.find((app) => app.id === selectedCatalogId);
+  if (unavailable && (state.applications.some((app) => app.name === unavailable.name) || state.installationRequests.some((request) => request.applicationName === unavailable.name && !state.snapshot.settings.installationDecisions[request.id]))) selectedCatalogId = '';
+  const selected = catalog.find((app) => app.id === selectedCatalogId);
+  $('application-id').value = selectedCatalogId;
+  $('selected-app').textContent = selected?.name ?? 'Selecionar aplicativo ▾';
+  $('app-rating').textContent = selected ? `${selected.category} · classificação demonstrativa: ${selected.ageRating}` : '';
+  $('app-options').replaceChildren(...catalog.map((app) => {
+    const option = document.createElement('button');
+    option.type = 'button'; option.setAttribute('role', 'option'); option.setAttribute('aria-selected', String(app.id === selectedCatalogId));
+    const installed = state.applications.some((item) => item.name === app.name);
+    const pending = state.installationRequests.some((request) => request.applicationName === app.name && !state.snapshot.settings.installationDecisions[request.id]);
+    option.disabled = installed || pending;
+    const img = document.createElement('img'); img.src = app.logo; img.alt = ''; img.width = 28; img.height = 28;
+    option.append(img, document.createTextNode(`${app.name}${installed ? ' · instalado' : pending ? ' · pedido pendente' : ''}`));
+    option.addEventListener('click', () => { selectedCatalogId = app.id; $('app-options').hidden = true; $('choose-app').setAttribute('aria-expanded', 'false'); renderCatalog(); $('choose-app').focus(); });
+    return option;
+  }));
+}
+$('choose-app').addEventListener('click', () => {
+  $('app-options').hidden = !$('app-options').hidden;
+  $('choose-app').setAttribute('aria-expanded', String(!$('app-options').hidden));
+  if (!$('app-options').hidden) $('app-options').querySelector('button:not(:disabled)')?.focus();
+});
+$('app-options').addEventListener('keydown', (event) => {
+  const options = [...$('app-options').querySelectorAll('button:not(:disabled)')];
+  const index = options.indexOf(document.activeElement);
+  if (event.key === 'ArrowDown' || event.key === 'ArrowUp') { event.preventDefault(); options[(index + (event.key === 'ArrowDown' ? 1 : -1) + options.length) % options.length]?.focus(); }
+  if (event.key === 'Escape') { $('app-options').hidden = true; $('choose-app').setAttribute('aria-expanded', 'false'); $('choose-app').focus(); }
+});
 
 $('registration').addEventListener('submit', (event) => {
   event.preventDefault();

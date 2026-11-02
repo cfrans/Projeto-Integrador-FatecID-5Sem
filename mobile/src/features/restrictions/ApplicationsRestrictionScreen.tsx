@@ -14,6 +14,9 @@ import { fonts, radius, spacing, typography, type ColorPalette } from '@/theme';
 import { useTheme, useThemedStyles } from '@/features/theme/ThemeProvider';
 import { useSimulation } from './SimulationProvider';
 import { ApplicationIcon } from './ApplicationIcon';
+import { listInstallationHistory, type InstallationRequest } from './services/installation-requests';
+import { findApprovedRequest } from './services/application-release';
+import { ReleaseDeadline } from '@/features/access/ReleaseDeadline';
 
 type LoadState = 'loading' | 'ready' | 'error';
 
@@ -27,6 +30,8 @@ export function ApplicationsRestrictionScreen({ computer }: { computer: PairedCo
   const [loadState, setLoadState] = useState<LoadState>('loading');
   const [errorMessage, setErrorMessage] = useState('');
   const [query, setQuery] = useState('');
+  const [history, setHistory] = useState<InstallationRequest[]>([]);
+  const [historyError, setHistoryError] = useState(false);
   const loadRequest = useRef(0);
   const [confirmationOpen, setConfirmationOpen] = useState(false);
   const { t, localize } = useLanguage();
@@ -44,9 +49,14 @@ export function ApplicationsRestrictionScreen({ computer }: { computer: PairedCo
     setErrorMessage('');
     if (!snapshot.appliedAt) return;
     try {
-      const installedApplications = await listInstalledApplications(computer.id);
+      const [installedApplications, requestHistory] = await Promise.all([
+        listInstalledApplications(computer.id),
+        listInstallationHistory(computer.id).then((items) => ({ items, failed: false })).catch(() => ({ items: [], failed: true })),
+      ]);
       if (request !== loadRequest.current) return;
       setApplications(installedApplications);
+      setHistory(requestHistory.items);
+      setHistoryError(requestHistory.failed);
       setLoadState('ready');
     } catch (error: unknown) {
       if (request !== loadRequest.current) return;
@@ -60,7 +70,7 @@ export function ApplicationsRestrictionScreen({ computer }: { computer: PairedCo
     return () => { loadRequest.current += 1; };
   }, [loadApplications]));
 
-  const configuredApplications = applications.map((application) => ({ ...application, allowed: snapshot.settings.applicationRules[application.id] ?? application.allowed }));
+  const configuredApplications = applications.map((application) => ({ ...application, approvedRequest: findApprovedRequest(history, application.name), allowed: snapshot.settings.applicationRules[application.id] ?? application.allowed }));
   const visibleApplications = configuredApplications.filter((application) =>
     `${application.name} ${application.category}`.toLocaleLowerCase().includes(query.trim().toLocaleLowerCase()),
   );
@@ -106,6 +116,7 @@ export function ApplicationsRestrictionScreen({ computer }: { computer: PairedCo
 
           {loadState === 'ready' ? (
             <>
+              {historyError ? <Text accessibilityRole="alert" style={styles.stateText}>{t('access.deadlineUnavailable')}</Text> : null}
               <View style={styles.searchBox}>
                 <Text accessible={false} importantForAccessibility="no" style={styles.searchIcon}>⌕</Text>
                 <TextInput
@@ -147,6 +158,7 @@ export function ApplicationsRestrictionScreen({ computer }: { computer: PairedCo
                       <View style={styles.applicationCopy}>
                         <Text style={styles.applicationName}>{application.name}</Text>
                         <Text style={styles.applicationCategory}>{application.category}</Text>
+                        {application.approvedRequest ? <ReleaseDeadline computer={computer} requestId={application.approvedRequest.id} /> : null}
                       </View>
                       <SwitchControl value={application.allowed} />
                     </Pressable>

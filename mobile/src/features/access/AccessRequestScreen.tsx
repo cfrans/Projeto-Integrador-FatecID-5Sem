@@ -1,27 +1,28 @@
 import { useCallback, useEffect, useState } from 'react';
-import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Switch, Text, View } from 'react-native';
+import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { router, useFocusEffect, useLocalSearchParams } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Button } from '@/components/ui/Button';
 import { CheckIcon } from '@/components/ui/FieldIcons';
 import {
-  clearRelease,
   createRelease,
-  getRelease,
   releaseEnd,
+  releaseStorageKey,
   releaseOptions,
   remainingMinutes,
-  storeRelease,
   totalMinutes,
-  type Release,
   type ReleaseOptionId,
 } from '@/features/access/services/release';
+import { useSession } from '@/features/auth/SessionProvider';
+import { useBedtimeState, reloadBedtime } from '@/features/settings/bedtime';
+import { useLocalRelease } from './useLocalRelease';
 import { devices, devicesErrorMessage, type PairedComputer } from '@/features/devices/services/devices';
 import { useLanguage } from '@/features/i18n/LanguageProvider';
 import { ApplicationIcon } from '@/features/restrictions/ApplicationIcon';
 import {
   installationRequestsErrorMessage,
   listInstallationRequests,
+  listInstallationHistory,
   type InstallationRequest,
 } from '@/features/restrictions/services/installation-requests';
 import { SimulationProvider, useSimulation, useSimulationReady } from '@/features/restrictions/SimulationProvider';
@@ -45,22 +46,17 @@ export function AccessRequestScreen() {
     deviceId?: string | string[];
     requestId?: string | string[];
     applicationName?: string | string[];
-    demo?: string | string[];
-    requesterName?: string | string[];
-    computerName?: string | string[];
-    minutes?: string | string[];
   }>();
   const deviceId = firstParam(params.deviceId);
-  const requestId = firstParam(params.requestId);
+  const rawRequestId = firstParam(params.requestId);
+  const requestId = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(rawRequestId) ? rawRequestId : '';
   const applicationName = firstParam(params.applicationName);
-  const demo = firstParam(params.demo) === '1';
   const [state, setState] = useState<ComputerState>({ status: 'loading' });
   const { t, localize } = useLanguage();
   const { colors } = useTheme();
   const styles = useThemedStyles(createStyles);
 
   const loadComputer = useCallback(() => {
-    if (demo) return;
     let active = true;
     setState({ status: 'loading' });
     devices.listPairedComputers()
@@ -73,23 +69,9 @@ export function AccessRequestScreen() {
         if (active) setState({ status: 'error', message: devicesErrorMessage(error) });
       });
     return () => { active = false; };
-  }, [deviceId, demo]);
+  }, [deviceId]);
 
   useFocusEffect(loadComputer);
-
-  if (demo) {
-    return (
-      <SafeAreaView edges={['left', 'right']} style={styles.safeArea}>
-        <DemoFlow
-          requestId={requestId}
-          applicationName={applicationName}
-          requesterName={firstParam(params.requesterName)}
-          computerName={firstParam(params.computerName)}
-          minutes={Number(firstParam(params.minutes)) || 5}
-        />
-      </SafeAreaView>
-    );
-  }
 
   return (
     <SafeAreaView edges={['left', 'right']} style={styles.safeArea}>
@@ -155,10 +137,10 @@ function LiveFlow(props: ContentProps) {
       let active = true;
       setErrorMessage('');
 
-      listInstallationRequests(computer.id)
-        .then((requests) => {
+      Promise.all([listInstallationRequests(computer.id), listInstallationHistory(computer.id)])
+        .then(([pending, history]) => {
           if (!active) return;
-          const found = requests.find((item) => item.id === requestId);
+          const found = [...pending, ...history].find((item) => item.id === requestId);
           if (found) setRequest(found);
           setLoadState('ready');
         })
@@ -184,45 +166,6 @@ function LiveFlow(props: ContentProps) {
   return <AccessRequestFlow {...props} source={source} />;
 }
 
-type DemoProps = { requestId: string; applicationName: string; requesterName: string; computerName: string; minutes: number };
-
-function DemoFlow({ requestId, applicationName, requesterName, computerName, minutes }: DemoProps) {
-  const [decision, setDecision] = useState<Decision>();
-  const [demo] = useState(() => ({
-    computer: {
-      id: 'demo-computer',
-      name: computerName,
-      status: 'online',
-      managedUser: requesterName,
-      lastSeen: null,
-      isDemo: true,
-      isPaired: true,
-      associationId: null,
-    } satisfies PairedComputer,
-    request: {
-      id: requestId,
-      applicationName,
-      requesterName,
-      requestedAt: new Date(Date.now() - minutes * 60_000).toISOString(),
-      ageRating: '12+',
-    } satisfies InstallationRequest,
-  }));
-
-  const source: FlowSource = {
-    request: demo.request,
-    loadState: 'ready',
-    errorMessage: '',
-    decision,
-    busy: false,
-    decide: async (next) => {
-      setDecision(next);
-      return true;
-    },
-  };
-
-  return <AccessRequestFlow computer={demo.computer} requestId={requestId} applicationName={applicationName} source={source} />;
-}
-
 function AccessRequestFlow({ computer, requestId, applicationName, source }: ContentProps & { source: FlowSource }) {
   const { request, loadState, errorMessage, decision, busy } = source;
   const { language, t, localize } = useLanguage();
@@ -230,8 +173,11 @@ function AccessRequestFlow({ computer, requestId, applicationName, source }: Con
   const styles = useThemedStyles(createStyles);
   const [step, setStep] = useState<'review' | 'time'>('review');
   const [optionId, setOptionId] = useState<ReleaseOptionId>('hour1');
-  const [blockAtEnd, setBlockAtEnd] = useState(true);
-  const [release, setRelease] = useState<Release | null>(() => getRelease(requestId));
+  const { guardian } = useSession();
+  const bedtimeState = useBedtimeState();
+  const storageKey = guardian && /^[a-zA-Z0-9-]+$/.test(guardian.id) && computer.associationId ? releaseStorageKey(guardian.id, computer.id, computer.associationId, requestId) : null;
+  const { release, ready: releaseReady, error: storageError, save: saveRelease, retry: retryStorage } = useLocalRelease(storageKey);
+  const [saving, setSaving] = useState(false);
   const [now, setNow] = useState(() => new Date());
   const appName = request?.applicationName ?? applicationName;
   const requesterName = request?.requesterName ?? computer.managedUser ?? computer.name;
@@ -254,28 +200,23 @@ function AccessRequestFlow({ computer, requestId, applicationName, source }: Con
   }
 
   async function confirmRelease() {
-    const created = createRelease(optionId, blockAtEnd);
-    storeRelease(requestId, created);
-    setRelease(created);
-    if (!(await source.decide('APPROVED'))) {
-      clearRelease(requestId);
-      setRelease(null);
-    }
+    if (saving || !releaseReady || !storageKey || (optionId === 'bedtime' && !bedtimeState.ready)) return;
+    setSaving(true);
+    try {
+      const created = createRelease(optionId, false, new Date(), bedtimeState.value);
+      if (await source.decide('APPROVED')) await saveRelease(created);
+    } finally { setSaving(false); }
   }
 
   async function denyRequest() {
-    await source.decide('DENIED');
-  }
-
-  async function endRelease() {
-    if (await source.decide('DENIED')) {
-      clearRelease(requestId);
-      setRelease(null);
-    }
+    if (saving) return;
+    setSaving(true);
+    try { if (await source.decide('DENIED')) await saveRelease(null); }
+    finally { setSaving(false); }
   }
 
   const view =
-    decision === 'APPROVED' ? 'released'
+    !releaseReady ? 'loading' : decision === 'APPROVED' ? 'released'
       : decision === 'DENIED' ? 'denied'
         : request ? step
           : loadState === 'loading' ? 'loading'
@@ -335,7 +276,7 @@ function AccessRequestFlow({ computer, requestId, applicationName, source }: Con
       {view === 'loading' ? (
         <View style={styles.centerState}>
           <ActivityIndicator color={colors.accent} />
-          <Text style={styles.stateText}>{t('restriction.loadingComputer')}</Text>
+          <Text style={styles.stateText}>{t('common.loadingComputers')}</Text>
         </View>
       ) : null}
 
@@ -362,13 +303,13 @@ function AccessRequestFlow({ computer, requestId, applicationName, source }: Con
               label={t('access.allowLimited')}
               variant="solid"
               icon={<CheckIcon color="#FFFFFF" />}
-              disabled={busy}
+              disabled={busy || saving}
               onPress={() => setStep('time')}
             />
             <Pressable
               accessibilityRole="button"
-              accessibilityState={{ disabled: busy }}
-              disabled={busy}
+              accessibilityState={{ disabled: busy || saving }}
+              disabled={busy || saving}
               onPress={() => void denyRequest()}
               style={({ pressed }) => [styles.secondaryButton, pressed && styles.pressed]}
             >
@@ -385,19 +326,19 @@ function AccessRequestFlow({ computer, requestId, applicationName, source }: Con
           <View style={styles.optionGrid}>
             {releaseOptions.map((option) => {
               const selected = option.id === optionId;
-              const end = releaseEnd(option.id, now);
+              const end = releaseEnd(option.id, now, bedtimeState.value);
               return (
                 <Pressable
                   key={option.id}
                   accessibilityRole="radio"
-                  accessibilityState={{ selected }}
+                  accessibilityState={{ checked: selected, disabled: option.id === 'bedtime' && !bedtimeState.ready }}
+                  disabled={option.id === 'bedtime' && !bedtimeState.ready}
                   onPress={() => setOptionId(option.id)}
                   style={({ pressed }) => [styles.option, selected && styles.optionSelected, pressed && styles.pressed]}
                 >
                   <Text style={styles.optionTitle}>{t(`access.option.${option.id}`)}</Text>
                   <Text style={styles.optionSubtitle}>
-                    {option.id === 'week' ? t('access.perDay')
-                      : end ? t('access.until', { time: timeFormat.format(end) })
+                    {end ? t('access.until', { time: option.id === 'week' ? new Intl.DateTimeFormat(language, { dateStyle: 'short', timeStyle: 'short' }).format(end) : timeFormat.format(end) })
                         : t('access.fixed')}
                   </Text>
                 </Pressable>
@@ -405,27 +346,20 @@ function AccessRequestFlow({ computer, requestId, applicationName, source }: Con
             })}
           </View>
 
-          <View style={styles.blockCard}>
-            <View style={styles.cardCopy}>
-              <Text style={styles.applicationName}>{t('access.blockAtEnd')}</Text>
-              <Text style={styles.stateText}>{t('access.blockAtEndDescription')}</Text>
+          {bedtimeState.error ? (
+            <View style={styles.message}>
+              <Text accessibilityRole="alert" style={styles.stateText}>{t('settings.bedtimeLoadError')}</Text>
+              <Button label={t('common.retry')} onPress={() => void reloadBedtime()} />
             </View>
-            <Switch
-              accessibilityLabel={t('access.blockAtEnd')}
-              onValueChange={setBlockAtEnd}
-              thumbColor={colors.textPrimary}
-              trackColor={{ false: colors.surfaceRaised, true: colors.accent }}
-              value={blockAtEnd}
-            />
-          </View>
+          ) : null}
 
           <Text style={styles.localNotice}>{t('access.localNotice')}</Text>
 
           <View style={styles.actions}>
-            <Button label={t('access.confirm')} variant="solid" disabled={busy} onPress={() => void confirmRelease()} />
+            <Button label={t('access.confirm')} variant="solid" disabled={busy || saving || !storageKey || (optionId === 'bedtime' && !bedtimeState.ready)} onPress={() => void confirmRelease()} />
             <Pressable
               accessibilityRole="button"
-              disabled={busy}
+              disabled={busy || saving}
               onPress={() => setStep('review')}
               style={({ pressed }) => [styles.secondaryButton, pressed && styles.pressed]}
             >
@@ -433,6 +367,13 @@ function AccessRequestFlow({ computer, requestId, applicationName, source }: Con
             </Pressable>
           </View>
         </>
+      ) : null}
+
+      {storageError ? (
+        <View style={styles.message}>
+          <Text accessibilityRole="alert" style={styles.localNotice}>{t('access.storageError')}</Text>
+          <Button label={t('common.retry')} onPress={() => void retryStorage()} />
+        </View>
       ) : null}
 
       {view === 'released' ? (
@@ -448,7 +389,7 @@ function AccessRequestFlow({ computer, requestId, applicationName, source }: Con
                       release.endsAt === null ? 'access.releasedFixed' : release.blockAtEnd ? 'access.releasedUntilBlock' : 'access.releasedUntil',
                       {
                         start: timeFormat.format(new Date(release.startedAt)),
-                        end: release.endsAt ? timeFormat.format(new Date(release.endsAt)) : '',
+                        end: release.endsAt ? new Intl.DateTimeFormat(language, { dateStyle: 'short', timeStyle: 'short' }).format(new Date(release.endsAt)) : '',
                       },
                     )
                     : t('access.releasedNoDetail')}
@@ -474,9 +415,9 @@ function AccessRequestFlow({ computer, requestId, applicationName, source }: Con
           <View style={styles.actions}>
             <Pressable
               accessibilityRole="button"
-              accessibilityState={{ disabled: busy }}
-              disabled={busy}
-              onPress={() => void endRelease()}
+              accessibilityState={{ disabled: busy || saving }}
+              disabled={busy || saving}
+              onPress={() => void denyRequest()}
               style={({ pressed }) => [styles.secondaryButton, pressed && styles.pressed]}
             >
               <Text style={styles.secondaryText}>{t('access.endNow')}</Text>
