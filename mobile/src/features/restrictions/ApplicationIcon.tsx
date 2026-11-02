@@ -21,12 +21,25 @@ const logos: Record<ApplicationBrand, ImageSourcePropType> = {
   minecraft: require('../../../assets/applications/minecraft.png'),
 };
 
+const prefetched = new Set<string>();
+let prefetching: Promise<void> | null = null;
+
+export function prefetchApplicationIcons(): Promise<void> {
+  if (prefetching) return prefetching;
+  const uris = [...new Set(Object.values(logos).map((source) => Image.resolveAssetSource(source)?.uri))]
+    .filter((uri): uri is string => !!uri && !prefetched.has(uri));
+  prefetching = Promise.allSettled(uris.map(async (uri) => {
+    if (await Image.prefetch(uri)) prefetched.add(uri);
+  })).then(() => undefined).finally(() => { prefetching = null; });
+  return prefetching;
+}
+
 export function ApplicationIcon({ name, size = 42 }: { name: string; size?: number }) {
   const brand = findApplicationBrand(name);
   const { colors } = useTheme();
   return (
     <View accessible={false} style={[styles.container, { width: size, height: size, backgroundColor: colors.surfaceRaised }]}>
-      {brand ? <Image accessible={false} source={logos[brand]} resizeMode="contain" style={{ width: size * 0.76, height: size * 0.76 }} /> : <Text style={{ color: colors.textSecondary, fontSize: size * 0.38, fontWeight: '600' }}>{Array.from(name.trim())[0]?.toUpperCase() ?? '?'}</Text>}
+      {brand ? <Image accessible={false} source={logos[brand]} fadeDuration={0} resizeMode="contain" style={{ width: size * 0.76, height: size * 0.76 }} /> : <Text style={{ color: colors.textSecondary, fontSize: size * 0.38, fontWeight: '600' }}>{Array.from(name.trim())[0]?.toUpperCase() ?? '?'}</Text>}
     </View>
   );
 }

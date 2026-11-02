@@ -52,6 +52,7 @@ export default function RestrictionsLayout() {
   return (
     <RestrictionDeviceProvider>
       <Tabs
+        backBehavior="none"
         screenOptions={{
           sceneStyle: { backgroundColor: colors.background },
           headerShown: false,

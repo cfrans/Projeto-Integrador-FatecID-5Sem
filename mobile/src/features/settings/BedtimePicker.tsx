@@ -12,11 +12,11 @@ export function BedtimePicker({ value, onChange, label }: { value: string; onCha
   const change = (next: Date) => onChange(formatBedtime({ hour: next.getHours(), minute: next.getMinutes() }));
   function open() {
     if (Platform.OS === 'android') {
-      DateTimePickerAndroid.open({ value: date, mode: 'time', is24Hour: true, onChange: (event, next) => { if (event.type === 'set' && next) change(next); } });
+      DateTimePickerAndroid.open({ value: date, mode: 'time', is24Hour: true, onValueChange: (_event, next) => change(next) });
     } else setVisible(!visible);
   }
   return <>
     <Button label={`${label}: ${value}`} onPress={open} />
-    {visible && Platform.OS === 'ios' ? <DateTimePicker value={date} mode="time" display="spinner" onChange={(_event, next) => { if (next) change(next); }} /> : null}
+    {visible && Platform.OS === 'ios' ? <DateTimePicker value={date} mode="time" display="spinner" onValueChange={(_event, next) => change(next)} onDismiss={() => setVisible(false)} /> : null}
   </>;
 }

@@ -1,8 +1,9 @@
 import '@/lib/api-runtime';
+import { useEffect } from 'react';
 import { ActivityIndicator, StyleSheet, View } from 'react-native';
 import { useFonts } from 'expo-font';
 import { Inter_800ExtraBold } from '@expo-google-fonts/inter/800ExtraBold';
-import { Stack } from 'expo-router';
+import { Stack } from 'expo-router/js-stack';
 import { StatusBar } from 'expo-status-bar';
 import { SessionProvider, useSession } from '@/features/auth/SessionProvider';
 import { LanguageProvider, useLanguage } from '@/features/i18n/LanguageProvider';
@@ -10,6 +11,7 @@ import { AppThemeProvider, useTheme, useThemedStyles } from '@/features/theme/Th
 import { type ColorPalette } from '@/theme';
 import { ComputerAppearanceProvider } from '@/features/devices/ComputerAppearanceProvider';
 import { RequestBanner } from '@/features/access/RequestBanner';
+import { prefetchApplicationIcons } from '@/features/restrictions/ApplicationIcon';
 
 export default function RootLayout() {
   return (
@@ -31,6 +33,9 @@ function RootNavigator() {
   const { colors, scheme } = useTheme();
   const styles = useThemedStyles(createStyles);
   const [fontsLoaded, fontError] = useFonts({ Inter_800ExtraBold });
+  useEffect(() => {
+    void prefetchApplicationIcons();
+  }, [status]);
 
   return (
     <View style={styles.root}>
@@ -41,12 +46,11 @@ function RootNavigator() {
       ) : (
         <Stack
           screenOptions={{
-            animation: 'fade',
-            animationDuration: 250,
+            animation: 'slide_from_right',
             headerStyle: { backgroundColor: colors.background },
             headerTintColor: colors.textPrimary,
             headerTitleStyle: { color: colors.textPrimary },
-            contentStyle: { backgroundColor: colors.background },
+            cardStyle: { backgroundColor: colors.background },
           }}
         >
           <Stack.Protected guard={status !== 'authenticated'}>
