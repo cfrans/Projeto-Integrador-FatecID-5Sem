@@ -8,13 +8,15 @@ datasource db {
 }
 
 model Guardian {
-  id              String              @id @default(uuid()) @db.Char(36)
-  email           String              @unique @db.VarChar(254)
-  name            String              @db.VarChar(100)
-  passwordHash    String              @db.VarChar(255)
-  devices         Device[]
-  associations    DeviceAssociation[]
-  pairingSessions PairingSession[]
+  id                 String              @id @default(uuid()) @db.Char(36)
+  email              String              @unique @db.VarChar(254)
+  name               String              @db.VarChar(100)
+  passwordHash       String              @db.VarChar(255)
+  securityQuestion   String?             @db.VarChar(255)
+  securityAnswerHash String?             @db.VarChar(255)
+  devices            Device[]
+  associations       DeviceAssociation[]
+  pairingSessions    PairingSession[]
 }
 
 model Device {

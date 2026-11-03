@@ -50,6 +50,83 @@ test('authentication persists and protects HTTP resources with MySQL', async () 
     await http.get('/auth/me').set('Authorization', `Bearer ${wrongAudience}`).expect(401);
     const wrongIssuer = await jwt.signAsync({ sub: guardian.id }, { issuer: 'different-server' });
     await http.get('/auth/me').set('Authorization', `Bearer ${wrongIssuer}`).expect(401);
+
+    const registeredEmail = `${randomUUID()}@example.test`;
+    const registered = await http
+      .post('/auth/register')
+      .send({ name: '  Maria Clara ', email: ` ${registeredEmail.toUpperCase()} `, password: 'initial-password-123' })
+      .expect(201);
+    assert.equal(registered.body.name, 'Maria Clara');
+    assert.equal(registered.body.email, registeredEmail);
+    await http
+      .post('/auth/register')
+      .send({ name: 'Outra', email: registeredEmail, password: 'initial-password-123' })
+      .expect(409);
+
+    const regLogin = await http
+      .post('/auth/login')
+      .send({ email: registeredEmail, password: 'initial-password-123' })
+      .expect(200);
+    const regAuth = `Bearer ${regLogin.body.accessToken}`;
+
+    const updatedEmail = `${randomUUID()}@example.test`;
+    await http.patch('/auth/me/email').set('Authorization', regAuth).send({ email: email }).expect(409);
+    const emailResp = await http
+      .patch('/auth/me/email')
+      .set('Authorization', regAuth)
+      .send({ email: ` ${updatedEmail.toUpperCase()} ` })
+      .expect(200);
+    assert.equal(emailResp.body.email, updatedEmail);
+
+    await http
+      .patch('/auth/me/password')
+      .set('Authorization', regAuth)
+      .send({ currentPassword: 'wrong-current', newPassword: 'updated-password-123' })
+      .expect(400);
+    await http
+      .patch('/auth/me/password')
+      .set('Authorization', regAuth)
+      .send({ currentPassword: 'initial-password-123', newPassword: 'updated-password-123' })
+      .expect(204);
+    await http.post('/auth/login').send({ email: updatedEmail, password: 'initial-password-123' }).expect(401);
+    await http.post('/auth/login').send({ email: updatedEmail, password: 'updated-password-123' }).expect(200);
+
+    await http.post('/auth/recovery/question').send({ email: updatedEmail }).expect(404);
+    const sqGetInitial = await http.get('/auth/me/security-question').set('Authorization', regAuth).expect(200);
+    assert.deepEqual(sqGetInitial.body, { question: null });
+
+    await http
+      .put('/auth/me/security-question')
+      .set('Authorization', regAuth)
+      .send({ question: 'Qual o nome do seu primeiro pet?', answer: '  Tobiás  ' })
+      .expect(200)
+      .expect({ question: 'Qual o nome do seu primeiro pet?' });
+
+    await http
+      .post('/auth/recovery/question')
+      .send({ email: updatedEmail.toUpperCase() })
+      .expect(200)
+      .expect({ question: 'Qual o nome do seu primeiro pet?' });
+    await http
+      .post('/auth/recovery/verify')
+      .send({ email: updatedEmail, answer: 'errada' })
+      .expect(400);
+    await http
+      .post('/auth/recovery/verify')
+      .send({ email: updatedEmail, answer: ' tobias ' })
+      .expect(200)
+      .expect({ valid: true });
+    await http
+      .post('/auth/recovery/reset')
+      .send({ email: updatedEmail, answer: 'errada', newPassword: 'recovered-password-123' })
+      .expect(400);
+    await http
+      .post('/auth/recovery/reset')
+      .send({ email: updatedEmail, answer: 'TOBIÁS', newPassword: 'recovered-password-123' })
+      .expect(204);
+    await http.post('/auth/login').send({ email: updatedEmail, password: 'recovered-password-123' }).expect(200);
+    await prisma.guardian.delete({ where: { id: registered.body.id } });
+
     await prisma.guardian.delete({ where: { id: guardian.id } });
     guardian = undefined;
     await http.get('/auth/me').set('Authorization', authorization).expect(401);

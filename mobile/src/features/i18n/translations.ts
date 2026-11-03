@@ -1019,6 +1019,48 @@ Object.assign(translations.es, {
   'error.associationChanged': 'El vínculo del equipo cambió. Consulta de nuevo.',
 });
 
+Object.assign(translations['pt-BR'], {
+  'auth.completedDescription': 'Sua conta foi criada com sucesso. Faça login com o e-mail e a senha cadastrados.',
+  'settings.emailSaved': 'E-mail atualizado com sucesso.',
+  'settings.passwordSaved': 'Senha atualizada com sucesso.',
+  'settings.securityHint': 'Usada para recuperar a senha. A pergunta fica associada à sua conta e a resposta é protegida por hash no servidor.',
+  'settings.securitySaved': 'Pergunta de segurança salva na sua conta.',
+  'recover.noQuestion': 'Nenhuma pergunta de segurança definida para este e-mail. Defina em Configurações > Sua conta.',
+  'recover.done': 'Senha redefinida com sucesso. Você já pode entrar com a nova senha.',
+  'error.emailConflict': 'Já existe uma conta cadastrada com este e-mail.',
+  'error.wrongCurrentPassword': 'A senha atual está incorreta.',
+  'error.noSecurityQuestion': 'Nenhuma pergunta de segurança definida para este e-mail.',
+  'error.wrongSecurityAnswer': 'Resposta de segurança incorreta.',
+});
+
+Object.assign(translations.en, {
+  'auth.completedDescription': 'Your account has been created. Sign in with your registered email and password.',
+  'settings.emailSaved': 'Email updated successfully.',
+  'settings.passwordSaved': 'Password updated successfully.',
+  'settings.securityHint': 'Used to recover your password. The question is linked to your account and the answer is stored as a hash on the server.',
+  'settings.securitySaved': 'Security question saved to your account.',
+  'recover.noQuestion': 'No security question is set for this email. Set one in Settings > Your account.',
+  'recover.done': 'Password reset successfully. You can now sign in with your new password.',
+  'error.emailConflict': 'An account with this email already exists.',
+  'error.wrongCurrentPassword': 'The current password is incorrect.',
+  'error.noSecurityQuestion': 'No security question is set for this email.',
+  'error.wrongSecurityAnswer': 'Incorrect security answer.',
+});
+
+Object.assign(translations.es, {
+  'auth.completedDescription': 'Tu cuenta fue creada con éxito. Inicia sesión con el correo y la contraseña registrados.',
+  'settings.emailSaved': 'Correo actualizado con éxito.',
+  'settings.passwordSaved': 'Contraseña actualizada con éxito.',
+  'settings.securityHint': 'Se usa para recuperar la contraseña. La pregunta queda asociada a tu cuenta y la respuesta se guarda como hash en el servidor.',
+  'settings.securitySaved': 'Pregunta de seguridad guardada en tu cuenta.',
+  'recover.noQuestion': 'No hay pregunta de seguridad definida para este correo. Defínela en Configuración > Tu cuenta.',
+  'recover.done': 'Contraseña restablecida con éxito. Ya puedes iniciar sesión con la nueva contraseña.',
+  'error.emailConflict': 'Ya existe una cuenta registrada con este correo.',
+  'error.wrongCurrentPassword': 'La contraseña actual es incorrecta.',
+  'error.noSecurityQuestion': 'No hay pregunta de seguridad definida para este correo.',
+  'error.wrongSecurityAnswer': 'Respuesta de seguridad incorrecta.',
+});
+
 export function translate(language: Language, key: string, variables?: Record<string, string | number>) {
   return (translations[language][key] ?? key).replace(/\{(\w+)\}/g, (match, name: string) => String(variables?.[name] ?? match));
 }

@@ -15,10 +15,11 @@ import { LockIcon, MailIcon } from '@/components/ui/FieldIcons';
 import { Input } from '@/components/ui/Input';
 import { BedtimePicker } from './BedtimePicker';
 import { useSession } from '@/features/auth/SessionProvider';
-import { MIN_ANSWER_LENGTH, MIN_QUESTION_LENGTH, securityQuestion } from '@/features/auth/securityQuestion';
-import { normalizeAnswer } from '@/features/auth/security-question-store';
+import { MIN_ANSWER_LENGTH, MIN_QUESTION_LENGTH, normalizeAnswer } from '@/features/auth/security-question-store';
+import { auth } from '@/features/auth/services/auth';
 import { formatBedtime, parseBedtime, setBedtime, useBedtimeState, reloadBedtime } from '@/features/settings/bedtime';
 import { useLanguage, type Language } from '@/features/i18n/LanguageProvider';
+import { apiErrorMessage } from '@/lib/api';
 import { radius, spacing, typography, type ColorPalette } from '@/theme';
 import { useTheme, useThemedStyles, type ThemePreference } from '@/features/theme/ThemeProvider';
 import { interfaceImages } from '@/lib/image-assets';
@@ -41,11 +42,12 @@ const securityQuestionOptions = [
 const themeIcons ={ system: interfaceImages.system, light: interfaceImages.light, dark: interfaceImages.dark };
 
 export function SettingsScreen() {
-  const { language, setLanguage, t } = useLanguage();
-  const { guardian } = useSession();
+  const { language, setLanguage, t, localize } = useLanguage();
+  const { guardian, updateGuardian } = useSession();
   const { colors, preference, setPreference } = useTheme();
   const styles = useThemedStyles(createStyles);
   const [open, setOpen] = useState<Section | null>(null);
+  const [busySection, setBusySection] = useState<Section | null>(null);
   const [notice, setNotice] = useState<{ section: Section; text: string } | null>(null);
   const [email, setEmail] = useState('');
   const [emailError, setEmailError] = useState('');
@@ -85,8 +87,8 @@ export function SettingsScreen() {
 
   useEffect(() => {
     let active = true;
-    if (!guardian?.email) return;
-    securityQuestion.getQuestion(guardian.email)
+    if (!guardian?.id) return;
+    auth.getSecurityQuestion()
       .then((question) => {
         if (!active) return;
         setSavedQuestion(question);
@@ -94,23 +96,27 @@ export function SettingsScreen() {
       })
       .catch(() => undefined);
     return () => { active = false; };
-  }, [guardian?.email]);
+  }, [guardian?.id]);
 
   async function saveSecurity() {
+    if (busySection) return;
     const errors: { question?: string; answer?: string } = {};
     if (questionText.trim().length < MIN_QUESTION_LENGTH) errors.question = t('settings.securityQuestionMin', { count: MIN_QUESTION_LENGTH });
     if (normalizeAnswer(answerText).length < MIN_ANSWER_LENGTH) errors.answer = t('settings.securityAnswerMin', { count: MIN_ANSWER_LENGTH });
     setSecurityErrors(errors);
-    if (Object.keys(errors).length > 0 || !guardian?.email) return;
+    if (Object.keys(errors).length > 0 || !guardian?.id) return;
+
+    setBusySection('security');
     try {
-      if (!(await securityQuestion.save(guardian.email, questionText, answerText))) return;
-    } catch {
-      setSecurityErrors({ answer: t('settings.securitySaveError') });
-      return;
+      const saved = await auth.setSecurityQuestion(questionText.trim(), answerText);
+      setSavedQuestion(saved);
+      setAnswerText('');
+      finish('security', t('settings.securitySaved'));
+    } catch (error) {
+      setSecurityErrors({ answer: localize(apiErrorMessage(error)) });
+    } finally {
+      setBusySection(null);
     }
-    setSavedQuestion(questionText.trim());
-    setAnswerText('');
-    finish('security', t('settings.securitySaved'));
   }
 
   function cancel(section: Section) {
@@ -149,24 +155,45 @@ export function SettingsScreen() {
     finish('bedtime', t('settings.bedtimeSaved'));
   }
 
-  function saveEmail() {
+  async function saveEmail() {
+    if (busySection) return;
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) {
       setEmailError(t('auth.validEmail'));
       return;
     }
-    reset('email');
-    finish('email', t('settings.notSaved'));
+
+    setBusySection('email');
+    try {
+      const updated = await auth.updateEmail(email.trim());
+      await updateGuardian(updated);
+      reset('email');
+      finish('email', t('settings.emailSaved'));
+    } catch (error) {
+      setEmailError(localize(apiErrorMessage(error)));
+    } finally {
+      setBusySection(null);
+    }
   }
 
-  function savePassword() {
+  async function savePassword() {
+    if (busySection) return;
     const errors: { current?: string; next?: string; confirm?: string } = {};
     if (currentPassword.length === 0) errors.current = t('auth.requiredPassword');
     if (newPassword.length < MIN_PASSWORD_LENGTH) errors.next = t('auth.passwordMin', { count: MIN_PASSWORD_LENGTH });
     if (confirmPassword !== newPassword) errors.confirm = t('auth.passwordMismatch');
     setPasswordErrors(errors);
     if (Object.keys(errors).length > 0) return;
-    reset('password');
-    finish('password', t('settings.notSaved'));
+
+    setBusySection('password');
+    try {
+      await auth.updatePassword(currentPassword, newPassword);
+      reset('password');
+      finish('password', t('settings.passwordSaved'));
+    } catch (error) {
+      setPasswordErrors({ current: localize(apiErrorMessage(error)) });
+    } finally {
+      setBusySection(null);
+    }
   }
 
   const rowProps = (section: Section) => ({
@@ -206,7 +233,7 @@ export function SettingsScreen() {
                   />
                   {emailError ? <Text style={styles.error}>{emailError}</Text> : null}
                 </View>
-                <FormActions saveLabel={t('settings.saveEmail')} onCancel={() => cancel('email')} onSave={saveEmail} styles={styles} t={t} />
+                <FormActions saveLabel={t('settings.saveEmail')} disabled={busySection === 'email'} onCancel={() => cancel('email')} onSave={() => void saveEmail()} styles={styles} t={t} />
               </SettingRow>
 
               <View style={styles.rowDivider} />
@@ -258,7 +285,7 @@ export function SettingsScreen() {
                   />
                   {passwordErrors.confirm ? <Text style={styles.error}>{passwordErrors.confirm}</Text> : null}
                 </View>
-                <FormActions saveLabel={t('settings.savePassword')} onCancel={() => cancel('password')} onSave={savePassword} styles={styles} t={t} />
+                <FormActions saveLabel={t('settings.savePassword')} disabled={busySection === 'password'} onCancel={() => cancel('password')} onSave={() => void savePassword()} styles={styles} t={t} />
               </SettingRow>
 
               <View style={styles.rowDivider} />
@@ -321,7 +348,7 @@ export function SettingsScreen() {
                   />
                   {securityErrors.answer ? <Text style={styles.error}>{securityErrors.answer}</Text> : null}
                 </View>
-                <FormActions saveLabel={t('settings.saveSecurity')} onCancel={() => cancel('security')} onSave={() => void saveSecurity()} styles={styles} t={t} />
+                <FormActions saveLabel={t('settings.saveSecurity')} disabled={busySection === 'security'} onCancel={() => cancel('security')} onSave={() => void saveSecurity()} styles={styles} t={t} />
               </SettingRow>
             </View>
 

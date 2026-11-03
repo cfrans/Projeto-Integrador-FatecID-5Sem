@@ -5,9 +5,11 @@ import { AuthBackground } from '@/components/ui/AuthBackground';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { PenguinLogo } from '@/components/ui/PenguinLogo';
-import { securityQuestion } from '@/features/auth/securityQuestion';
+import { normalizeAnswer } from '@/features/auth/security-question-store';
+import { auth } from '@/features/auth/services/auth';
 import { useLanguage } from '@/features/i18n/LanguageProvider';
 import { useTheme, useThemedStyles } from '@/features/theme/ThemeProvider';
+import { apiErrorMessage } from '@/lib/api';
 import { fonts, radius, spacing, typography, type ColorPalette } from '@/theme';
 
 const MIN_PASSWORD_LENGTH = 8;
@@ -16,7 +18,7 @@ const MAX_ATTEMPTS = 5;
 type Step = 'email' | 'answer' | 'password' | 'done';
 
 export function ForgotPasswordScreen() {
-  const { t } = useLanguage();
+  const { t, localize } = useLanguage();
   const { colors } = useTheme();
   const styles = useThemedStyles(createStyles);
   const [step, setStep] = useState<Step>('email');
@@ -36,7 +38,7 @@ export function ForgotPasswordScreen() {
     }
     setBusy(true);
     try {
-      const found = await securityQuestion.getQuestion(email);
+      const found = await auth.getRecoveryQuestion(email.trim());
       if (!found) {
         setErrors({ email: t('recover.noQuestion') });
         return;
@@ -44,8 +46,8 @@ export function ForgotPasswordScreen() {
       setQuestion(found);
       setErrors({});
       setStep('answer');
-    } catch {
-      setErrors({ email: t('recover.storageError') });
+    } catch (error) {
+      setErrors({ email: localize(apiErrorMessage(error)) });
     } finally {
       setBusy(false);
     }
@@ -58,31 +60,42 @@ export function ForgotPasswordScreen() {
     }
     setBusy(true);
     try {
-      if (await securityQuestion.verify(email, answer)) {
+      const valid = normalizeAnswer(answer).length > 0
+        && await auth.verifyRecoveryAnswer(email.trim(), answer);
+      if (valid) {
         setErrors({});
-        setAnswer('');
         setStep('password');
         return;
       }
       const used = attempts + 1;
       setAttempts(used);
       setErrors({ answer: used >= MAX_ATTEMPTS ? t('recover.blocked') : t('recover.wrongAnswer', { count: MAX_ATTEMPTS - used }) });
-    } catch {
-      setErrors({ answer: t('recover.storageError') });
+    } catch (error) {
+      setErrors({ answer: localize(apiErrorMessage(error)) });
     } finally {
       setBusy(false);
     }
   }
 
-  function savePassword() {
+  async function savePassword() {
     const next: { next?: string; confirm?: string } = {};
     if (newPassword.length < MIN_PASSWORD_LENGTH) next.next = t('auth.passwordMin', { count: MIN_PASSWORD_LENGTH });
     if (confirmPassword !== newPassword) next.confirm = t('auth.passwordMismatch');
     setErrors(next);
     if (Object.keys(next).length > 0) return;
-    setNewPassword('');
-    setConfirmPassword('');
-    setStep('done');
+
+    setBusy(true);
+    try {
+      await auth.resetPasswordWithSecurityAnswer(email.trim(), answer, newPassword);
+      setAnswer('');
+      setNewPassword('');
+      setConfirmPassword('');
+      setStep('done');
+    } catch (error) {
+      setErrors({ confirm: localize(apiErrorMessage(error)) });
+    } finally {
+      setBusy(false);
+    }
   }
 
   return (
@@ -186,14 +199,17 @@ export function ForgotPasswordScreen() {
                   />
                   {errors.confirm ? <Text style={styles.error}>{errors.confirm}</Text> : null}
                 </View>
-                <Button label={t('recover.save')} variant="solid" onPress={savePassword} />
+                <Button label={t('recover.save')} variant="solid" loading={busy} onPress={() => void savePassword()} />
               </>
             ) : null}
 
             {step === 'done' ? (
-              <View style={styles.questionBox}>
-                <Text accessibilityLiveRegion="polite" style={styles.question}>{t('recover.done')}</Text>
-              </View>
+              <>
+                <View style={styles.questionBox}>
+                  <Text accessibilityLiveRegion="polite" style={styles.question}>{t('recover.done')}</Text>
+                </View>
+                <Button label={t('auth.goLogin')} variant="solid" onPress={() => router.replace('/')} />
+              </>
             ) : null}
             </View>
           </View>

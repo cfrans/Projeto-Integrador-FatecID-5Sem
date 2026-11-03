@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import { afterEach, test } from 'node:test';
 import { ApiError, api, apiErrorMessage } from '../src/lib/api.ts';
+import { auth } from '../src/features/auth/services/auth.ts';
 import './devices.test.mjs';
 import './computer-list-state.test.mjs';
 import './pairing.test.mjs';
@@ -222,4 +223,65 @@ test('preserves backend service-unavailable messages for the device list', async
       && error.kind === 'server'
       && apiErrorMessage(error) === 'Serviço de dispositivos indisponível.',
   );
+});
+
+test('auth service handles registration, account updates and password recovery contracts', async () => {
+  process.env.EXPO_PUBLIC_API_URL = 'http://127.0.0.1:3000';
+  api.setAccessToken('active-jwt');
+
+  const calls = [];
+  globalThis.fetch = async (url, init) => {
+    calls.push({ url, method: init.method ?? 'GET', headers: new Headers(init.headers), body: init.body ? JSON.parse(init.body) : undefined });
+    if (url.endsWith('/auth/register')) {
+      return Response.json({ id: 'g-1', name: 'Ana', email: 'ana@example.com' }, { status: 201 });
+    }
+    if (url.endsWith('/auth/me/email')) {
+      return Response.json({ id: 'g-1', name: 'Ana', email: 'nova@example.com' }, { status: 200 });
+    }
+    if (url.endsWith('/auth/me/password')) {
+      return new Response(null, { status: 204 });
+    }
+    if (url.endsWith('/auth/me/security-question') && (!init.method || init.method === 'GET')) {
+      return Response.json({ question: null }, { status: 200 });
+    }
+    if (url.endsWith('/auth/me/security-question') && init.method === 'PUT') {
+      return Response.json({ question: 'Qual o nome do seu primeiro pet?' }, { status: 200 });
+    }
+    if (url.endsWith('/auth/recovery/question')) {
+      const parsed = JSON.parse(init.body);
+      if (parsed.email === 'missing@example.com') {
+        return Response.json({ message: 'Nenhuma pergunta de segurança definida para este e-mail.' }, { status: 404 });
+      }
+      return Response.json({ question: 'Qual o nome do seu primeiro pet?' }, { status: 200 });
+    }
+    if (url.endsWith('/auth/recovery/verify')) {
+      const parsed = JSON.parse(init.body);
+      if (parsed.answer === 'wrong') {
+        return Response.json({ message: 'Resposta de segurança incorreta.' }, { status: 400 });
+      }
+      return Response.json({ valid: true }, { status: 200 });
+    }
+    if (url.endsWith('/auth/recovery/reset')) {
+      return new Response(null, { status: 204 });
+    }
+    throw new Error(`Unexpected URL ${url}`);
+  };
+
+  const created = await auth.register('Ana', 'ana@example.com', 'secret123');
+  assert.deepEqual(created, { id: 'g-1', name: 'Ana', email: 'ana@example.com' });
+  assert.equal(calls[0].headers.get('authorization'), null);
+
+  const updated = await auth.updateEmail('nova@example.com');
+  assert.deepEqual(updated, { id: 'g-1', name: 'Ana', email: 'nova@example.com' });
+  assert.equal(calls[1].headers.get('authorization'), 'Bearer active-jwt');
+
+  await auth.updatePassword('secret123', 'newsecret123');
+  assert.equal(await auth.getSecurityQuestion(), null);
+  assert.equal(await auth.setSecurityQuestion('Qual o nome do seu primeiro pet?', 'Tobias'), 'Qual o nome do seu primeiro pet?');
+
+  assert.equal(await auth.getRecoveryQuestion('missing@example.com'), null);
+  assert.equal(await auth.getRecoveryQuestion('nova@example.com'), 'Qual o nome do seu primeiro pet?');
+  assert.equal(await auth.verifyRecoveryAnswer('nova@example.com', 'wrong'), false);
+  assert.equal(await auth.verifyRecoveryAnswer('nova@example.com', 'Tobias'), true);
+  await auth.resetPasswordWithSecurityAnswer('nova@example.com', 'Tobias', 'recovered123');
 });

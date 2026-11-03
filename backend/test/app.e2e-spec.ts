@@ -42,6 +42,8 @@ describe('AppController (e2e)', () => {
     $disconnect: vi.fn(),
     $queryRaw: vi.fn().mockResolvedValue([{ 1: 1 }]),
     guardian: {
+      create: vi.fn(),
+      update: vi.fn(),
       findUnique: vi.fn(({ where, select }: {
         where: { id?: string; email?: string };
         select?: Record<string, boolean>;
@@ -126,6 +128,76 @@ describe('AppController (e2e)', () => {
       .post('/auth/login')
       .send({ email: guardian.email, password: 'correct-horse-battery', role: 'admin' })
       .expect(400);
+  });
+
+  it('registers, updates account credentials and recovers password through HTTP routes', async () => {
+    const http = request(app.getHttpServer());
+
+    prisma.guardian.create.mockResolvedValueOnce({
+      id: '33333333-3333-4333-8333-333333333333',
+      name: 'Novo Responsável',
+      email: 'novo@example.com',
+    });
+
+    await http
+      .post('/auth/register')
+      .send({ name: '  Novo Responsável ', email: ' NOVO@EXAMPLE.COM ', password: 'valid-password' })
+      .expect(201)
+      .expect({
+        id: '33333333-3333-4333-8333-333333333333',
+        name: 'Novo Responsável',
+        email: 'novo@example.com',
+      });
+
+    await http
+      .post('/auth/register')
+      .send({ name: '', email: 'invalid', password: 'short' })
+      .expect(400);
+
+    prisma.guardian.create.mockRejectedValueOnce({ code: 'P2002' });
+    await http
+      .post('/auth/register')
+      .send({ name: 'Duplicado', email: guardian.email, password: 'valid-password' })
+      .expect(409);
+
+    const login = await http
+      .post('/auth/login')
+      .send({ email: guardian.email, password: 'correct-horse-battery' })
+      .expect(200);
+    const token = login.body.accessToken as string;
+
+    prisma.guardian.update.mockResolvedValueOnce({
+      id: guardian.id,
+      name: guardian.name,
+      email: 'updated@example.com',
+    });
+    await http
+      .patch('/auth/me/email')
+      .set('Authorization', `Bearer ${token}`)
+      .send({ email: ' UPDATED@EXAMPLE.COM ' })
+      .expect(200)
+      .expect({ id: guardian.id, name: guardian.name, email: 'updated@example.com' });
+
+    await http
+      .patch('/auth/me/password')
+      .set('Authorization', `Bearer ${token}`)
+      .send({ currentPassword: 'wrong-password', newPassword: 'new-password-123' })
+      .expect(400);
+
+    prisma.guardian.update.mockResolvedValueOnce({ id: guardian.id });
+    await http
+      .patch('/auth/me/password')
+      .set('Authorization', `Bearer ${token}`)
+      .send({ currentPassword: 'correct-horse-battery', newPassword: 'new-password-123' })
+      .expect(204);
+
+    prisma.guardian.update.mockResolvedValueOnce({ id: guardian.id });
+    await http
+      .put('/auth/me/security-question')
+      .set('Authorization', `Bearer ${token}`)
+      .send({ question: 'Qual o nome do seu primeiro pet?', answer: 'Tobias' })
+      .expect(200)
+      .expect({ question: 'Qual o nome do seu primeiro pet?' });
   });
 
   it('rejects missing, tampered, expired, and deleted-guardian tokens', async () => {

@@ -18,14 +18,17 @@ import { CheckIcon, LockIcon, MailIcon, UserIcon } from '@/components/ui/FieldIc
 import { Input } from '@/components/ui/Input';
 import { PenguinLogo } from '@/components/ui/PenguinLogo';
 import { fonts, radius, spacing, typography, type ColorPalette } from '@/theme';
+import { auth } from '@/features/auth/services/auth';
 import { useLanguage } from '@/features/i18n/LanguageProvider';
 import { useTheme, useThemedStyles } from '@/features/theme/ThemeProvider';
+import { ApiError, apiErrorMessage } from '@/lib/api';
 
 type FieldErrors = {
   name?: string;
   email?: string;
   password?: string;
   confirmPassword?: string;
+  form?: string;
 };
 
 const MIN_PASSWORD_LENGTH = 8;
@@ -50,6 +53,7 @@ export default function RegisterScreen() {
   const [confirmPassword, setConfirmPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [errors, setErrors] = useState<FieldErrors>({});
+  const [busy, setBusy] = useState(false);
   const [done, setDone] = useState(false);
   const { t, localize } = useLanguage();
   const { colors } = useTheme();
@@ -59,11 +63,12 @@ export default function RegisterScreen() {
   function change(field: keyof FieldErrors, setter: (value: string) => void) {
     return (value: string) => {
       setter(value);
-      setErrors((current) => ({ ...current, [field]: undefined }));
+      setErrors((current) => ({ ...current, [field]: undefined, form: undefined }));
     };
   }
 
-  function submit() {
+  async function submit() {
+    if (busy) return;
     const nextErrors: FieldErrors = {};
 
     if (name.trim().length === 0) {
@@ -80,10 +85,22 @@ export default function RegisterScreen() {
     }
 
     setErrors(nextErrors);
-    if (Object.keys(nextErrors).length === 0) {
+    if (Object.keys(nextErrors).length > 0) return;
+
+    setBusy(true);
+    try {
+      await auth.register(name.trim(), email.trim(), password);
       setPassword('');
       setConfirmPassword('');
       setDone(true);
+    } catch (error) {
+      if (error instanceof ApiError && error.status === 409) {
+        setErrors({ email: apiErrorMessage(error) });
+      } else {
+        setErrors({ form: apiErrorMessage(error) });
+      }
+    } finally {
+      setBusy(false);
     }
   }
 
@@ -240,10 +257,11 @@ export default function RegisterScreen() {
                     />
                   </View>
                   {errors.confirmPassword ? <Text style={styles.error}>{localize(errors.confirmPassword)}</Text> : null}
+                  {errors.form ? <Text accessibilityRole="alert" style={styles.error}>{localize(errors.form)}</Text> : null}
                 </View>
               </View>
 
-              <Button label={t('auth.createAccount')} variant="solid" onPress={submit} style={styles.submitButton} />
+              <Button label={t('auth.createAccount')} variant="solid" loading={busy} onPress={() => void submit()} style={styles.submitButton} />
 
               <Pressable
                 accessibilityRole="button"

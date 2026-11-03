@@ -16,6 +16,7 @@ type SessionContextValue = SessionState & {
   guardian: Guardian | null;
   signIn: (email: string, password: string) => Promise<void>;
   signOut: () => Promise<void>;
+  updateGuardian: (guardian: Guardian) => Promise<void>;
   retryRestore: () => Promise<void>;
   clearError: () => void;
 };
@@ -172,6 +173,16 @@ export function SessionProvider({ children }: PropsWithChildren) {
     setState((current) => ({ ...current, error: null }));
   }, []);
 
+  const updateGuardian = useCallback(async (guardian: Guardian) => {
+    const current = state.session;
+    if (state.status !== 'authenticated' || !current) return;
+    const nextSession: AuthSession = { ...current, guardian };
+    setState((prev) => (prev.status === 'authenticated' && prev.session
+      ? { ...prev, session: { ...prev.session, guardian } }
+      : prev));
+    await sessionStorage.set(nextSession).catch(() => undefined);
+  }, [state.session, state.status]);
+
   useEffect(() => {
     if (state.status !== 'authenticated' || !state.session) return;
 
@@ -200,9 +211,10 @@ export function SessionProvider({ children }: PropsWithChildren) {
     guardian: state.session?.guardian ?? null,
     signIn,
     signOut,
+    updateGuardian,
     retryRestore: restore,
     clearError,
-  }), [clearError, restore, signIn, signOut, state]);
+  }), [clearError, restore, signIn, signOut, state, updateGuardian]);
 
   return <SessionContext.Provider value={value}>{children}</SessionContext.Provider>;
 }
