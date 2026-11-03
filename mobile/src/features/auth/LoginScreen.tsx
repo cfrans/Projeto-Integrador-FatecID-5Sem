@@ -231,7 +231,7 @@ export default function LoginScreen() {
                 accessibilityState={{ disabled: busy }}
                 disabled={busy}
                 hitSlop={12}
-                onPress={() => setNotice(t('auth.forgotUnavailable'))}
+                onPress={() => router.push('/forgot-password')}
                 style={[styles.linkButton, styles.forgotButton]}
               >
                 <Text style={styles.forgotText}>{t('auth.forgot')}</Text>

@@ -1,4 +1,4 @@
-import { useState, type ReactNode } from 'react';
+import { useEffect, useState, type ReactNode } from 'react';
 import {
   Image,
   KeyboardAvoidingView,
@@ -15,6 +15,8 @@ import { LockIcon, MailIcon } from '@/components/ui/FieldIcons';
 import { Input } from '@/components/ui/Input';
 import { BedtimePicker } from './BedtimePicker';
 import { useSession } from '@/features/auth/SessionProvider';
+import { MIN_ANSWER_LENGTH, MIN_QUESTION_LENGTH, securityQuestion } from '@/features/auth/securityQuestion';
+import { normalizeAnswer } from '@/features/auth/security-question-store';
 import { formatBedtime, parseBedtime, setBedtime, useBedtimeState, reloadBedtime } from '@/features/settings/bedtime';
 import { useLanguage, type Language } from '@/features/i18n/LanguageProvider';
 import { radius, spacing, typography, type ColorPalette } from '@/theme';
@@ -23,7 +25,7 @@ import { interfaceImages } from '@/lib/image-assets';
 
 const MIN_PASSWORD_LENGTH = 8;
 
-type Section = 'email' | 'password' | 'bedtime';
+type Section = 'email' | 'password' | 'security' | 'bedtime';
 
 const themeIcons = { system: interfaceImages.system, light: interfaceImages.light, dark: interfaceImages.dark };
 
@@ -40,6 +42,10 @@ export function SettingsScreen() {
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [passwordErrors, setPasswordErrors] = useState<{ current?: string; next?: string; confirm?: string }>({});
+  const [savedQuestion, setSavedQuestion] = useState<string | null>(null);
+  const [questionText, setQuestionText] = useState('');
+  const [answerText, setAnswerText] = useState('');
+  const [securityErrors, setSecurityErrors] = useState<{ question?: string; answer?: string }>({});
   const bedtimeState = useBedtimeState();
   const bedtime = bedtimeState.value;
   const [bedtimeText, setBedtimeText] = useState(() => formatBedtime(bedtime));
@@ -54,10 +60,44 @@ export function SettingsScreen() {
       setNewPassword('');
       setConfirmPassword('');
       setPasswordErrors({});
+    } else if (section === 'security') {
+      setQuestionText(savedQuestion ?? '');
+      setAnswerText('');
+      setSecurityErrors({});
     } else {
       setBedtimeText(formatBedtime(bedtime));
       setBedtimeError('');
     }
+  }
+
+  useEffect(() => {
+    let active = true;
+    if (!guardian?.email) return;
+    securityQuestion.getQuestion(guardian.email)
+      .then((question) => {
+        if (!active) return;
+        setSavedQuestion(question);
+        setQuestionText(question ?? '');
+      })
+      .catch(() => undefined);
+    return () => { active = false; };
+  }, [guardian?.email]);
+
+  async function saveSecurity() {
+    const errors: { question?: string; answer?: string } = {};
+    if (questionText.trim().length < MIN_QUESTION_LENGTH) errors.question = t('settings.securityQuestionMin', { count: MIN_QUESTION_LENGTH });
+    if (normalizeAnswer(answerText).length < MIN_ANSWER_LENGTH) errors.answer = t('settings.securityAnswerMin', { count: MIN_ANSWER_LENGTH });
+    setSecurityErrors(errors);
+    if (Object.keys(errors).length > 0 || !guardian?.email) return;
+    try {
+      if (!(await securityQuestion.save(guardian.email, questionText, answerText))) return;
+    } catch {
+      setSecurityErrors({ answer: t('settings.securitySaveError') });
+      return;
+    }
+    setSavedQuestion(questionText.trim());
+    setAnswerText('');
+    finish('security', t('settings.securitySaved'));
   }
 
   function cancel(section: Section) {
@@ -207,6 +247,42 @@ export function SettingsScreen() {
                 </View>
                 <FormActions saveLabel={t('settings.savePassword')} onCancel={() => cancel('password')} onSave={savePassword} styles={styles} t={t} />
               </SettingRow>
+
+              <View style={styles.rowDivider} />
+
+              <SettingRow
+                icon={<Text style={styles.rowGlyph}>?</Text>}
+                label={t('settings.securityQuestion')}
+                value={savedQuestion ?? t('settings.securityNotSet')}
+                {...rowProps('security')}
+              >
+                <Text style={styles.hint}>{t('settings.securityHint')}</Text>
+                <View style={styles.field}>
+                  <Text style={styles.label}>{t('settings.securityQuestionLabel')}</Text>
+                  <Input
+                    accessibilityLabel={t('settings.securityQuestionLabel')}
+                    invalid={Boolean(securityErrors.question)}
+                    onChangeText={(value) => { setQuestionText(value); setSecurityErrors((c) => ({ ...c, question: undefined })); }}
+                    placeholder={t('settings.securityQuestionPlaceholder')}
+                    placeholderTextColor={colors.textMuted}
+                    value={questionText}
+                  />
+                  {securityErrors.question ? <Text style={styles.error}>{securityErrors.question}</Text> : null}
+                </View>
+                <View style={styles.field}>
+                  <Text style={styles.label}>{t('settings.securityAnswerLabel')}</Text>
+                  <Input
+                    accessibilityLabel={t('settings.securityAnswerLabel')}
+                    autoCapitalize="none"
+                    autoCorrect={false}
+                    invalid={Boolean(securityErrors.answer)}
+                    onChangeText={(value) => { setAnswerText(value); setSecurityErrors((c) => ({ ...c, answer: undefined })); }}
+                    value={answerText}
+                  />
+                  {securityErrors.answer ? <Text style={styles.error}>{securityErrors.answer}</Text> : null}
+                </View>
+                <FormActions saveLabel={t('settings.saveSecurity')} onCancel={() => cancel('security')} onSave={() => void saveSecurity()} styles={styles} t={t} />
+              </SettingRow>
             </View>
 
             <Text style={styles.sectionLabel}>{t('settings.bedtime')}</Text>
@@ -349,6 +425,7 @@ const createStyles = (colors: ColorPalette) => StyleSheet.create({
   },
   row: { alignItems: 'center', flexDirection: 'row', gap: spacing.md, padding: spacing.md },
   rowIcon: { alignItems: 'center', backgroundColor: colors.surfaceRaised, borderRadius: radius.md, height: 40, justifyContent: 'center', width: 40 },
+  rowGlyph: { color: colors.textSecondary, fontSize: 18, fontWeight: '700' },
   rowImage: { height: 18, tintColor: colors.textSecondary, width: 18 },
   rowCopy: { flex: 1, gap: 2 },
   rowLabel: { color: colors.textSecondary, fontSize: typography.label },
