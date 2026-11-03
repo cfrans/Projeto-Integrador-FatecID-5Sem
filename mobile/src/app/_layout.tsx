@@ -1,6 +1,6 @@
 import '@/lib/api-runtime';
 import { useEffect, useState } from 'react';
-import { ActivityIndicator, StyleSheet, View } from 'react-native';
+import { ActivityIndicator, Platform, StyleSheet, View } from 'react-native';
 import { useFonts } from 'expo-font';
 import { Inter_800ExtraBold } from '@expo-google-fonts/inter/800ExtraBold';
 import { Stack } from 'expo-router/js-stack';
@@ -35,6 +35,13 @@ function RootNavigator() {
   const [fontsLoaded, fontError] = useFonts({ Inter_800ExtraBold });
   const [imagesReady, setImagesReady] = useState(false);
   useEffect(() => {
+    if (Platform.OS !== 'web') return;
+    const style = document.createElement('style');
+    style.textContent = 'html, body { height: 100% !important; }';
+    document.head.appendChild(style);
+    return () => { style.remove(); };
+  }, []);
+  useEffect(() => {
     let active = true;
     const timeout = setTimeout(() => { if (active) setImagesReady(true); }, 8000);
     void preloadImages().catch(() => undefined).finally(() => {
@@ -63,6 +70,7 @@ function RootNavigator() {
           <Stack.Protected guard={status !== 'authenticated'}>
             <Stack.Screen name="index" options={{ headerShown: false }} />
             <Stack.Screen name="register" options={{ headerShown: false }} />
+            <Stack.Screen name="forgot-password" options={{ headerShown: false }} />
           </Stack.Protected>
 
           <Stack.Protected guard={status === 'authenticated'}>

@@ -13,6 +13,7 @@ import './access.test.mjs';
 import './profiles.test.mjs';
 import './synchronization.test.mjs';
 import './image-cache.test.mjs';
+import './security-question.test.mjs';
 import './patch-router.test.mjs';
 
 const originalFetch = globalThis.fetch;
