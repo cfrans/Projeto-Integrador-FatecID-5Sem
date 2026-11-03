@@ -56,6 +56,10 @@ Migrations Prisma são versionadas junto ao código e aplicadas de forma control
 
 `backend/prisma/schema.prisma` define `Guardian` com UUID, email único, nome e hash Argon2id da senha, e `Device` com UUID, nome, usuário gerenciado opcional, `guardianId` e `isDemo`. As migrations versionadas criam esses modelos. A relação usa comportamento restritivo para exclusão e índice simples por `guardianId`; nomes não são identidade única. `prisma:generate` gera código ignorado pelo Git, sem alterar o banco. Comandos e execução estão em [Backend](backend.md).
 
+### Objetos SQL programáveis (planejado, não aplicado)
+
+`backend/prisma/sql/sql-objects.sql` contém a função `fn_pairing_session_status`, a view `vw_device_overview`, a procedure `sp_revoke_device_association` e o trigger `trg_pairing_session_keep_consumed`. O arquivo fica fora de `prisma/migrations`, portanto não é aplicado automaticamente e a API ainda não usa esses objetos. Foi executado apenas em um banco descartável `_test`, sem testes automatizados no repositório. Antes de ativar: movê-lo para uma migration, ligar a API aos objetos e cobrir com teste MySQL. A procedure replica a revogação de `PairingService` (incluindo cancelamento de comandos); a regra não pode divergir. Com log binário ativo, criar função e trigger exige `SUPER` ou `log_bin_trust_function_creators=1` (erro 1419 sem isso). Não use `DELIMITER` em migrations.
+
 ### Inventário e pedidos persistidos
 
 `InstalledApplication` guarda UUID, computador, nome, categoria e o valor reportado de `allowed`. `InstallationRequest` guarda UUID, computador, aplicativo solicitado, solicitante, data UTC, faixa etária e estado `PENDING`, `APPROVED` ou `DENIED`. Ambos pertencem a `Device` e são removidos em cascata com o computador; revogar vínculo não apaga esses registros.
