@@ -27,7 +27,18 @@ const MIN_PASSWORD_LENGTH = 8;
 
 type Section = 'email' | 'password' | 'security' | 'bedtime';
 
-const themeIcons = { system: interfaceImages.system, light: interfaceImages.light, dark: interfaceImages.dark };
+const securityQuestionOptions = [
+  'settings.securityQ1',
+  'settings.securityQ2',
+  'settings.securityQ3',
+  'settings.securityQ4',
+  'settings.securityQ5',
+  'settings.securityQ6',
+  'settings.securityQ7',
+  'settings.securityQ8',
+] as const;
+
+const themeIcons ={ system: interfaceImages.system, light: interfaceImages.light, dark: interfaceImages.dark };
 
 export function SettingsScreen() {
   const { language, setLanguage, t } = useLanguage();
@@ -44,6 +55,7 @@ export function SettingsScreen() {
   const [passwordErrors, setPasswordErrors] = useState<{ current?: string; next?: string; confirm?: string }>({});
   const [savedQuestion, setSavedQuestion] = useState<string | null>(null);
   const [questionText, setQuestionText] = useState('');
+  const [questionMenuOpen, setQuestionMenuOpen] = useState(false);
   const [answerText, setAnswerText] = useState('');
   const [securityErrors, setSecurityErrors] = useState<{ question?: string; answer?: string }>({});
   const bedtimeState = useBedtimeState();
@@ -62,6 +74,7 @@ export function SettingsScreen() {
       setPasswordErrors({});
     } else if (section === 'security') {
       setQuestionText(savedQuestion ?? '');
+      setQuestionMenuOpen(false);
       setAnswerText('');
       setSecurityErrors({});
     } else {
@@ -259,14 +272,41 @@ export function SettingsScreen() {
                 <Text style={styles.hint}>{t('settings.securityHint')}</Text>
                 <View style={styles.field}>
                   <Text style={styles.label}>{t('settings.securityQuestionLabel')}</Text>
-                  <Input
+                  <Pressable
                     accessibilityLabel={t('settings.securityQuestionLabel')}
-                    invalid={Boolean(securityErrors.question)}
-                    onChangeText={(value) => { setQuestionText(value); setSecurityErrors((c) => ({ ...c, question: undefined })); }}
-                    placeholder={t('settings.securityQuestionPlaceholder')}
-                    placeholderTextColor={colors.textMuted}
-                    value={questionText}
-                  />
+                    accessibilityRole="button"
+                    accessibilityState={{ expanded: questionMenuOpen }}
+                    onPress={() => setQuestionMenuOpen((current) => !current)}
+                    style={[styles.select, securityErrors.question ? styles.selectInvalid : null]}
+                  >
+                    <Text style={[styles.selectText, !questionText && styles.selectPlaceholder]} numberOfLines={2}>
+                      {questionText || t('settings.securityQuestionPlaceholder')}
+                    </Text>
+                    <Text style={styles.selectChevron}>{questionMenuOpen ? '▲' : '▼'}</Text>
+                  </Pressable>
+                  {questionMenuOpen ? (
+                    <View style={styles.selectMenu}>
+                      {securityQuestionOptions.map((key) => {
+                        const label = t(key);
+                        const selected = label === questionText;
+                        return (
+                          <Pressable
+                            accessibilityRole="button"
+                            accessibilityState={{ selected }}
+                            key={key}
+                            onPress={() => {
+                              setQuestionText(label);
+                              setQuestionMenuOpen(false);
+                              setSecurityErrors((c) => ({ ...c, question: undefined }));
+                            }}
+                            style={({ pressed }) => [styles.selectItem, selected && styles.optionSelected, pressed && styles.pressed]}
+                          >
+                            <Text style={[styles.optionText, selected && styles.optionTextSelected]}>{label}</Text>
+                          </Pressable>
+                        );
+                      })}
+                    </View>
+                  ) : null}
                   {securityErrors.question ? <Text style={styles.error}>{securityErrors.question}</Text> : null}
                 </View>
                 <View style={styles.field}>
@@ -457,6 +497,37 @@ const createStyles = (colors: ColorPalette) => StyleSheet.create({
   },
   themeOption: { gap: spacing.xs, minHeight: 64, paddingVertical: spacing.sm },
   themeIcon: { height: 20, width: 20 },
+  select: {
+    alignItems: 'center',
+    backgroundColor: colors.surface,
+    borderColor: colors.border,
+    borderRadius: radius.md,
+    borderWidth: 1,
+    flexDirection: 'row',
+    gap: spacing.sm,
+    minHeight: 52,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+  },
+  selectInvalid: { borderColor: colors.accent },
+  selectText: { color: colors.textPrimary, flex: 1, fontSize: typography.body },
+  selectPlaceholder: { color: colors.textMuted },
+  selectChevron: { color: colors.textSecondary, fontSize: 10 },
+  selectMenu: {
+    backgroundColor: colors.surface,
+    borderColor: colors.border,
+    borderRadius: radius.md,
+    borderWidth: 1,
+    overflow: 'hidden',
+  },
+  selectItem: {
+    borderColor: 'transparent',
+    borderWidth: 1,
+    justifyContent: 'center',
+    minHeight: 48,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+  },
   optionSelected: { backgroundColor: colors.accentSoft, borderColor: colors.accent },
   optionText: { color: colors.textSecondary, fontSize: typography.label },
   optionTextSelected: { color: colors.textPrimary, fontWeight: '700' },
