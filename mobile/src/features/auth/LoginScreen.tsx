@@ -217,7 +217,6 @@ export default function LoginScreen() {
               <Pressable
                 accessibilityRole="button"
                 disabled={busy}
-                hitSlop={12}
                 onPress={() => router.push('/register')}
                 style={[styles.linkButton, styles.registerButton]}
               >
@@ -230,7 +229,6 @@ export default function LoginScreen() {
                 accessibilityRole="button"
                 accessibilityState={{ disabled: busy }}
                 disabled={busy}
-                hitSlop={12}
                 onPress={() => router.push('/forgot-password')}
                 style={[styles.linkButton, styles.forgotButton]}
               >
@@ -314,11 +312,12 @@ const createStyles = (colors: ColorPalette) => StyleSheet.create({
   linkButton: {
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: spacing.xs,
+    minHeight: 44,
+    paddingVertical: spacing.sm,
   },
-  forgotButton: { paddingTop: 0 },
+  forgotButton: { marginTop: spacing.md },
   forgotText: { color: colors.textSecondary, fontSize: typography.label, borderBottomWidth: 1, borderBottomColor: colors.textMuted },
-  registerButton: { marginTop: spacing.xs, paddingBottom: 0 },
+  registerButton: { marginTop: spacing.lg },
   registerQuestion: { color: colors.textSecondary, fontSize: 13 },
   registerText: { color: colors.accentText, fontWeight: '700' },
 });

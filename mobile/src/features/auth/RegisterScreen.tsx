@@ -59,11 +59,22 @@ export default function RegisterScreen() {
   const { colors } = useTheme();
   const styles = useThemedStyles(createStyles);
   const strength = passwordStrength(password);
+  const hasConfirmation = confirmPassword.length > 0;
+  const passwordsMatch = hasConfirmation && confirmPassword === password;
+  const confirmationInvalid = hasConfirmation ? !passwordsMatch : Boolean(errors.confirmPassword);
+  const confirmationMessage = hasConfirmation
+    ? t(passwordsMatch ? 'auth.passwordMatch' : 'auth.passwordMismatch')
+    : errors.confirmPassword ? localize(errors.confirmPassword) : '';
 
   function change(field: keyof FieldErrors, setter: (value: string) => void) {
     return (value: string) => {
       setter(value);
-      setErrors((current) => ({ ...current, [field]: undefined, form: undefined }));
+      setErrors((current) => ({
+        ...current,
+        [field]: undefined,
+        ...(field === 'password' ? { confirmPassword: undefined } : {}),
+        form: undefined,
+      }));
     };
   }
 
@@ -238,25 +249,28 @@ export default function RegisterScreen() {
                 <View style={styles.field}>
                   <Text style={styles.label}>{t('auth.confirmPassword')}</Text>
                   <View style={styles.inputRow}>
-                    {field(<CheckIcon color={colors.textSecondary} />)}
+                    {field(<CheckIcon color={passwordsMatch ? colors.success : colors.textSecondary} />)}
                     <Input
                       ref={confirmInput}
                       accessibilityLabel={t('auth.confirmPassword')}
+                      accessibilityHint={confirmationMessage || undefined}
                       autoCapitalize="none"
                       autoCorrect={false}
-                      invalid={Boolean(errors.confirmPassword)}
+                      invalid={confirmationInvalid}
                       onChangeText={change('confirmPassword', setConfirmPassword)}
                       onSubmitEditing={submit}
                       placeholder={t('auth.confirmPlaceholder')}
                       placeholderTextColor={colors.textSecondary}
                       returnKeyType="done"
                       secureTextEntry={!showPassword}
-                      style={styles.iconInput}
+                      style={[styles.iconInput, passwordsMatch && styles.confirmedInput]}
                       textContentType="newPassword"
                       value={confirmPassword}
                     />
                   </View>
-                  {errors.confirmPassword ? <Text style={styles.error}>{localize(errors.confirmPassword)}</Text> : null}
+                  <Text accessibilityLiveRegion="polite" style={[styles.confirmation, passwordsMatch ? styles.confirmedText : styles.error]}>
+                    {confirmationMessage}
+                  </Text>
                   {errors.form ? <Text accessibilityRole="alert" style={styles.error}>{localize(errors.form)}</Text> : null}
                 </View>
               </View>
@@ -347,6 +361,9 @@ const createStyles = (colors: ColorPalette) => StyleSheet.create({
   strengthBarFilled: { backgroundColor: colors.accent },
   hint: { color: colors.textSecondary, fontSize: typography.label },
   error: { color: colors.accentText, fontSize: typography.label },
+  confirmation: { minHeight: 18, fontSize: typography.label },
+  confirmedText: { color: colors.success },
+  confirmedInput: { borderColor: colors.success },
   submitButton: { marginTop: spacing.xl, alignSelf: 'center', minWidth: 220 },
   linkButton: {
     alignItems: 'center',
