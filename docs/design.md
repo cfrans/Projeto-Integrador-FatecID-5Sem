@@ -67,6 +67,8 @@ Esses valores adaptam a hierarquia do protótipo para React Native; não são co
 
 O login usa a hierarquia observada no HTML: marca no topo, “Bem-vindo de volta”, texto de apoio, campos de e-mail e senha, ação principal e ação secundária. A ação principal “Entrar” usa a variante `solid` do Button: fundo vermelho preenchido (`colors.accent`), texto `colors.textPrimary`, centralizada e com largura mínima de 220, em vez de ocupar toda a linha. É uma exceção intencional à convenção de botões contornados, restrita ao login; os demais botões seguem a variante `outline`. A marca passa a ser `piplup`; fundo e textos usam a paleta ativa, mantendo o acento vermelho. A tipografia permanece nativa. O feedback de validação local substitui as mensagens de autenticação do protótipo, que não representam um contrato real.
 
+No login, cadastro e recuperação de senha mantêm a ordem original, com alvos de toque de pelo menos 44 e margens verticais de 16 e 12, respectivamente. No cadastro, a confirmação informa se as senhas coincidem enquanto o usuário digita em qualquer um dos dois campos; confirmação vazia permanece neutra antes do envio. Texto e borda distinguem divergência de coincidência, com verde para a coincidência. Isso não substitui a validação de tamanho mínimo da senha.
+
 ## Home, computadores e pareamento
 
 Na Home, Sair é um botão compacto com ícone à esquerda, contorno e fundo no canto superior, com alvo de toque mínimo de 44, sem ocupar uma linha inteira. A Home e a lista mantêm cards compactos com nome, conta gerenciada e status acompanhado de texto. As ações contornadas abrem a lista ou o pareamento. Carregamento, erro com nova tentativa e lista vazia usam a mesma paleta. A lista utiliza `FlatList`; o conteúdo da Home pode rolar.
