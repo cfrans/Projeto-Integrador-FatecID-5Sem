@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { mkdtemp, readFile, rm } from 'node:fs/promises';
+import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { request as httpRequest } from 'node:http';
@@ -34,6 +34,7 @@ async function fixture(t) {
       assert.equal(options.redirect, 'error');
       if (url.endsWith('/pairing-sessions')) return Response.json({ qrPayload: `piplup://pair?token=${'t'.repeat(43)}`, expiresAt: new Date(Date.now() + 300000).toISOString() });
       if (status !== 200) return Response.json({}, { status });
+      if (options.method === 'DELETE') return Response.json({ deletedDeviceId: deviceId });
       if (url.endsWith('/heartbeat')) {
         assert.deepEqual(JSON.parse(options.body), { associationId: snapshot.associationId });
         if (heartbeatStatus !== 200) return Response.json({}, { status: heartbeatStatus });
@@ -102,6 +103,83 @@ test('reflects app settings only after successful acknowledgement and sends inve
   assert.equal(f.client.publicState().snapshot.settings.ageRating, '16');
   assert.equal(f.client.publicState().snapshot.settings.blockBrowsers, false);
   assert.equal(f.client.publicState().snapshot.appliedRevision, 2);
+});
+
+test('leaves only the local PC, clears state and accepts another registration without restarting', async (t) => {
+  const f = await fixture(t);
+  await f.register();
+  await f.client.synchronize();
+  const calls = f.calls.length;
+  const response = await f.post('/api/logout', { deviceId, confirmed: true });
+  assert.equal(response.status, 200);
+  const state = await response.json();
+  assert.equal(state.device, null);
+  assert.equal(state.snapshot, null);
+  assert.equal(state.pairing, null);
+  assert.equal(state.connected, false);
+  assert.deepEqual(state.applications, []);
+  assert.equal(f.calls.length, calls);
+  await assert.rejects(readFile(join(f.directory, 'identity.json')), { code: 'ENOENT' });
+  await f.client.synchronize();
+  assert.equal(f.calls.length, calls);
+  await f.register();
+  await f.client.synchronize();
+  assert.equal(f.client.publicState().connected, true);
+});
+
+test('reset requires confirmation and the current device, and preserves identity on API failure', async (t) => {
+  const f = await fixture(t);
+  await f.register();
+  for (const path of ['/api/reset', '/api/logout']) {
+    assert.equal((await f.post(path, { deviceId })).status, 400);
+    assert.equal((await f.post(path, { deviceId: associationId, confirmed: true })).status, 400);
+    assert.equal((await f.post(path, { deviceId, confirmed: true }, 'https://foreign.test')).status, 403);
+  }
+  for (const status of [401, 404, 503]) {
+    f.setStatus(status);
+    assert.equal((await f.post('/api/reset', { deviceId, confirmed: true })).status, 400);
+    assert.equal(f.client.publicState().device.id, deviceId);
+    assert.equal(JSON.parse(await readFile(join(f.directory, 'identity.json'), 'utf8')).device.id, deviceId);
+  }
+  f.setStatus(200);
+  const response = await f.post('/api/reset', { deviceId, confirmed: true });
+  assert.equal(response.status, 200);
+  assert.equal((await response.json()).device, null);
+  await assert.rejects(readFile(join(f.directory, 'identity.json')), { code: 'ENOENT' });
+  assert.equal(f.calls.filter((call) => call.options.method === 'DELETE').length, 4);
+  await f.register();
+  await f.client.synchronize();
+  assert.equal(f.client.publicState().connected, true);
+});
+
+test('logout after identity revocation permits synchronization for the next PC', async (t) => {
+  const f = await fixture(t);
+  await f.register();
+  f.setStatus(401);
+  await f.client.synchronize();
+  assert.equal(f.client.publicState().stopped, true);
+  assert.equal((await f.post('/api/logout', { deviceId, confirmed: true })).status, 200);
+  f.setStatus(200);
+  await f.register();
+  await f.client.synchronize();
+  assert.equal(f.client.publicState().connected, true);
+});
+
+test('does not forget local identity if removal fails and retries confirmed reset without another DELETE', async (t) => {
+  const f = await fixture(t);
+  await f.register();
+  const path = join(f.directory, 'identity.json');
+  await rm(path);
+  await mkdir(path);
+  await writeFile(join(path, 'keep'), 'fixture');
+  assert.equal((await f.post('/api/logout', { deviceId, confirmed: true })).status, 400);
+  assert.equal(f.client.publicState().device.id, deviceId);
+  assert.equal((await f.post('/api/reset', { deviceId, confirmed: true })).status, 400);
+  assert.equal(f.client.publicState().stopped, true);
+  await rm(join(path, 'keep'));
+  await rm(path, { recursive: true });
+  assert.equal((await f.post('/api/reset', { deviceId, confirmed: true })).status, 200);
+  assert.equal(f.calls.filter((call) => call.options.method === 'DELETE').length, 1);
 });
 
 test('sends installation requests with stable IDs and reflects independent decisions', async (t) => {

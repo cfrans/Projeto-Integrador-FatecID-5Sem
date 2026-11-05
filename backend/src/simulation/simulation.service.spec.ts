@@ -12,8 +12,14 @@ describe('Simulated computer synchronization', () => {
   const associationId = '946ec23b-4fb8-4faa-94dd-471d67588c84';
   const tx = {
     $queryRaw: vi.fn(),
-    device: { findFirst: vi.fn(), create: vi.fn(), update: vi.fn() },
-    deviceAssociation: { findFirst: vi.fn() },
+    device: {
+      findFirst: vi.fn(),
+      create: vi.fn(),
+      update: vi.fn(),
+      delete: vi.fn(),
+    },
+    deviceAssociation: { findFirst: vi.fn(), deleteMany: vi.fn() },
+    agentCommand: { deleteMany: vi.fn() },
     simulationState: { upsert: vi.fn(), update: vi.fn() },
     installedApplication: {
       count: vi.fn(),
@@ -108,9 +114,60 @@ describe('Simulated computer synchronization', () => {
       await expect(service.heartbeat(deviceId, {})).rejects.toMatchObject({
         status: 404,
       });
+      await expect(
+        service.reset(deviceId, associationId),
+      ).rejects.toMatchObject({ status: 404 });
       expect(prisma.$transaction).not.toHaveBeenCalled();
     },
   );
+
+  it('deletes only the authenticated demo PC and its dependent records in one transaction', async () => {
+    await expect(service.reset(deviceId, associationId)).resolves.toEqual({
+      deletedDeviceId: deviceId,
+    });
+    expect(tx.device.findFirst).toHaveBeenCalledWith({
+      where: {
+        id: deviceId,
+        isDemo: true,
+        agentIdentity: { id: associationId, revokedAt: null },
+      },
+      select: { id: true },
+    });
+    expect(tx.$queryRaw).toHaveBeenCalled();
+    expect(prisma.$transaction).toHaveBeenCalledTimes(1);
+    expect(tx.agentCommand.deleteMany).toHaveBeenCalledWith({
+      where: { deviceId },
+    });
+    expect(tx.deviceAssociation.deleteMany).toHaveBeenCalledWith({
+      where: { deviceId },
+    });
+    expect(tx.device.delete).toHaveBeenCalledWith({ where: { id: deviceId } });
+    expect(tx.agentCommand.deleteMany.mock.invocationCallOrder[0]).toBeLessThan(
+      tx.deviceAssociation.deleteMany.mock.invocationCallOrder[0],
+    );
+    expect(
+      tx.deviceAssociation.deleteMany.mock.invocationCallOrder[0],
+    ).toBeLessThan(tx.device.delete.mock.invocationCallOrder[0]);
+  });
+
+  it('does not delete a missing, real or revoked computer', async () => {
+    tx.device.findFirst.mockResolvedValueOnce(null);
+    await expect(service.reset(deviceId, associationId)).rejects.toMatchObject({
+      status: 404,
+    });
+    expect(tx.agentCommand.deleteMany).not.toHaveBeenCalled();
+    expect(tx.device.delete).not.toHaveBeenCalled();
+  });
+
+  it('reports a failed reset without confirming deletion', async () => {
+    tx.agentCommand.deleteMany.mockRejectedValueOnce(
+      new Error('database unavailable'),
+    );
+    await expect(service.reset(deviceId, associationId)).rejects.toMatchObject({
+      status: 503,
+    });
+    expect(tx.device.delete).not.toHaveBeenCalled();
+  });
 
   it('scopes each read to the active association and demo identity after locking the device', async () => {
     await service.read(deviceId, 'guardian');

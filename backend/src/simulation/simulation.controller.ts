@@ -1,6 +1,7 @@
 import {
   Body,
   Controller,
+  Delete,
   Get,
   Header,
   Patch,
@@ -59,6 +60,12 @@ export class SimulationController {
 @Controller('agent/simulation')
 export class AgentSimulationController {
   constructor(private readonly simulation: SimulationService) {}
+
+  @Delete()
+  @Header('Cache-Control', 'no-store')
+  reset(@Req() request: Request & { agent: AuthenticatedAgent }) {
+    return this.simulation.reset(request.agent.deviceId, request.agent.id);
+  }
 
   @Get()
   @Header('Cache-Control', 'no-store')

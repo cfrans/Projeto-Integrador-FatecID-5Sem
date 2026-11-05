@@ -1,5 +1,5 @@
 import { createServer } from 'node:http';
-import { mkdir, readFile, rename, writeFile } from 'node:fs/promises';
+import { mkdir, readFile, rename, rm, writeFile } from 'node:fs/promises';
 import { randomUUID } from 'node:crypto';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
@@ -52,6 +52,29 @@ export async function createSimulator({ apiUrl = 'http://127.0.0.1:3000', stateP
   let timer;
   let operation = null;
   let reportDirty = true;
+  let pollingInterval = null;
+  let resetConfirmed = false;
+
+  function startPolling(interval = 2000) {
+    pollingInterval = interval;
+    clearTimeout(timer);
+    stopped = false;
+    const poll = async () => { await synchronize(); if (!stopped) timer = setTimeout(() => void poll(), interval); };
+    void poll();
+  }
+
+  async function leaveComputer() {
+    await rm(statePath, { force: true });
+    identity = null;
+    snapshot = null;
+    pairing = null;
+    connected = false;
+    error = '';
+    reportDirty = true;
+    resetConfirmed = false;
+    stopped = false;
+    if (pollingInterval !== null) startPolling(pollingInterval);
+  }
 
   async function persist() {
     await mkdir(dirname(statePath), { recursive: true, mode: 0o700 });
@@ -146,6 +169,17 @@ export async function createSimulator({ apiUrl = 'http://127.0.0.1:3000', stateP
             identity = { backendUrl: origin, device: result.device, credential: result.credential, applications: [['Firefox', 'Navegador'], ['LibreOffice', 'Produtividade'], ['Steam', 'Jogos'], ['Visual Studio Code', 'Desenvolvimento']].map(([name, category]) => ({ id: randomUUID(), name, category })), installationRequests: [] };
             await persist();
             await pair();
+          } else if (req.url === '/api/logout' || req.url === '/api/reset') {
+            if (!identity || body.deviceId !== identity.device.id || body.confirmed !== true) throw new Error('Confirme a operação para o computador atual.');
+            if (req.url === '/api/reset' && !resetConfirmed) {
+              const result = await request('/agent/simulation', 'DELETE');
+              if (result.deletedDeviceId !== identity.device.id) throw new Error('A API não confirmou a exclusão deste computador.');
+              resetConfirmed = true;
+              stopped = true;
+              connected = false;
+              clearTimeout(timer);
+            }
+            await leaveComputer();
           } else if (req.url === '/api/pair') {
             if (!identity || stopped) throw new Error('Prepare uma identidade válida para parear.');
             await pair();
@@ -179,11 +213,7 @@ export async function createSimulator({ apiUrl = 'http://127.0.0.1:3000', stateP
 
   return {
     server, synchronize, publicState,
-    startPolling(interval = 2000) {
-      const poll = async () => { await synchronize(); if (!stopped) timer = setTimeout(() => void poll(), interval); };
-      stopped = false;
-      void poll();
-    },
+    startPolling,
     async close() { stopped = true; clearTimeout(timer); if (operation) await operation; if (server.listening) await new Promise((done) => server.close(done)); },
   };
 }

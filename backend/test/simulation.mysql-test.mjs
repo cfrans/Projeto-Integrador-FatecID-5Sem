@@ -100,6 +100,28 @@ test('demo registration, secure pairing, policy acknowledgement and revocation w
     await http.post('/simulation/devices').set('Authorization', auth(tokens[0])).send({ name: 'PC' }).expect(404);
     await guardianGet(tokens[1]).expect(404);
     await agentGet().expect(401);
+    await http.delete('/agent/simulation').set('Authorization', auth(credential)).expect(401);
+    process.env.NODE_ENV = 'test';
+    const other = await http.post('/simulation/devices').set('Authorization', auth(tokens[0])).send({ name: 'Outro PC' }).expect(201);
+    devices.push(other.body.device.id);
+    await prisma.device.update({ where: { id: other.body.device.id }, data: { isDemo: false } });
+    await http.delete('/agent/simulation').set('Authorization', auth(other.body.credential)).expect(404);
+    await prisma.device.update({ where: { id: other.body.device.id }, data: { isDemo: true } });
+    await http.delete('/agent/simulation').expect(401);
+    await http.delete('/agent/simulation').set('Authorization', auth(tokens[0])).expect(401);
+    await prisma.agentCommand.create({ data: { deviceId: device.id, associationId: next.associationId, requestId: randomUUID(), type: 'agent.ping', version: 1, parameters: {}, expiresAt: new Date(Date.now() + 60000) } });
+    const reset = await http.delete('/agent/simulation').set('Authorization', auth(credential)).expect(200);
+    assert.deepEqual(reset.body, { deletedDeviceId: device.id });
+    assert.equal(await prisma.device.count({ where: { id: device.id } }), 0);
+    for (const model of ['agentCommand', 'deviceAssociation', 'agentIdentity', 'pairingSession', 'installedApplication', 'installationRequest']) {
+      assert.equal(await prisma[model].count({ where: { deviceId: device.id } }), 0);
+    }
+    assert.equal(await prisma.simulationState.count({ where: { associationId: { in: [first.associationId, next.associationId] } } }), 0);
+    assert.equal(await prisma.device.count({ where: { id: other.body.device.id } }), 1);
+    assert.equal(await prisma.guardian.count({ where: { id: { in: guardians.map((g) => g.id) } } }), 2);
+    await agentGet().expect(401);
+    const unpairedReset = await http.delete('/agent/simulation').set('Authorization', auth(other.body.credential)).expect(200);
+    assert.equal(unpairedReset.body.deletedDeviceId, other.body.device.id);
   } finally {
     process.env.NODE_ENV = 'test';
     await prisma.deviceAssociation.deleteMany({ where: { deviceId: { in: devices } } });

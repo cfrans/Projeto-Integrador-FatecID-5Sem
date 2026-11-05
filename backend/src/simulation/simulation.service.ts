@@ -60,6 +60,29 @@ export class SimulationService {
     });
   }
 
+  async reset(deviceId: string, identityId: string) {
+    this.enabled();
+    id(deviceId);
+    id(identityId);
+    return this.transaction(async (tx) => {
+      await tx.$queryRaw`SELECT id FROM Device WHERE id = ${deviceId} FOR UPDATE`;
+      const device = await tx.device.findFirst({
+        where: {
+          id: deviceId,
+          isDemo: true,
+          agentIdentity: { id: identityId, revokedAt: null },
+        },
+        select: { id: true },
+      });
+      if (!device)
+        throw new NotFoundException('Computador simulado indisponível.');
+      await tx.agentCommand.deleteMany({ where: { deviceId } });
+      await tx.deviceAssociation.deleteMany({ where: { deviceId } });
+      await tx.device.delete({ where: { id: deviceId } });
+      return { deletedDeviceId: deviceId };
+    });
+  }
+
   async read(deviceId: string, guardianId?: string) {
     this.enabled();
     return this.transaction(async (tx) =>

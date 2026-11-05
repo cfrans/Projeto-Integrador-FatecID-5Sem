@@ -3,6 +3,8 @@ let state;
 let submitting = false;
 let formError = '';
 let renderedState = '';
+let stateVersion = 0;
+let computerAction = null;
 
 function item(name, status, allowed) {
   const li = document.createElement('li');
@@ -18,6 +20,17 @@ function item(name, status, allowed) {
 }
 
 function render(next) {
+  if (state?.device?.id !== next.device?.id) {
+    selectedCatalogId = '';
+    $('registration').reset();
+    $('launch-result').textContent = '';
+    $('application-id').value = '';
+    $('selected-app').textContent = 'Selecionar aplicativo ▾';
+    $('app-rating').textContent = '';
+    $('app-options').hidden = true;
+    $('choose-app').setAttribute('aria-expanded', 'false');
+    $('qr').removeAttribute('src');
+  }
   state = next;
   const signature = JSON.stringify([{ ...next, snapshot: next.snapshot ? { ...next.snapshot, connection: undefined } : null }, formError]);
   if (signature === renderedState) return;
@@ -71,18 +84,49 @@ function render(next) {
 }
 
 async function action(path, body) {
-  if (submitting) return;
+  if (submitting) return false;
   submitting = true;
+  stateVersion += 1;
   formError = '';
-  document.querySelectorAll('form button[type="submit"], #generate-qr, #choose-app').forEach((button) => { button.disabled = true; });
+  const controls = 'form button[type="submit"], #generate-qr, #choose-app, #leave-computer, #reset-demo, #cancel-computer-action, #confirm-computer-action';
+  document.querySelectorAll(controls).forEach((button) => { button.disabled = true; });
   try {
     const response = await fetch(path, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
     const result = await response.json();
     if (!response.ok) throw new Error(result.message);
     render(result);
-  } catch (error) { formError = error.message; $('notice').textContent = formError; }
-  finally { submitting = false; document.querySelectorAll('form button[type="submit"], #generate-qr, #choose-app').forEach((button) => { button.disabled = false; }); }
+    return true;
+  } catch (error) { formError = error.message; $('notice').textContent = formError; return false; }
+  finally { submitting = false; stateVersion += 1; document.querySelectorAll(controls).forEach((button) => { button.disabled = false; }); }
 }
+
+function confirmComputerAction(kind) {
+  if (submitting || !state?.device) return;
+  computerAction = { kind, deviceId: state.device.id };
+  const reset = kind === 'reset';
+  $('dialog-title').textContent = reset ? 'Recomeçar demonstração?' : 'Sair deste PC?';
+  $('dialog-description').textContent = reset
+    ? `Apagar permanentemente “${state.device.name}”, seus vínculos, pedidos, aplicativos simulados e configurações? Sua conta e os outros PCs serão preservados. Você poderá cadastrar outro PC em seguida.`
+    : `Desconectar “${state.device.name}” deste client? Seus dados e vínculos continuarão na API, mas o PC ficará offline. A identidade local será removida e este client voltará ao cadastro; ele não oferece retomada do PC anterior.`;
+  $('confirm-computer-action').textContent = reset ? 'Apagar este PC e recomeçar' : 'Sair do PC';
+  $('dialog-error').textContent = '';
+  $('computer-dialog').showModal();
+}
+
+$('leave-computer').addEventListener('click', () => confirmComputerAction('logout'));
+$('reset-demo').addEventListener('click', () => confirmComputerAction('reset'));
+$('cancel-computer-action').addEventListener('click', () => $('computer-dialog').close());
+$('computer-dialog').addEventListener('cancel', (event) => { if (submitting) event.preventDefault(); });
+$('confirm-computer-action').addEventListener('click', async () => {
+  if (!computerAction || submitting) return;
+  const { kind, deviceId } = computerAction;
+  const succeeded = await action(`/api/${kind}`, { deviceId, confirmed: true });
+  if (succeeded) {
+    $('computer-dialog').close();
+    computerAction = null;
+    $('registration').elements.name.focus();
+  } else $('dialog-error').textContent = formError;
+});
 
 
 let selectedCatalogId = '';
@@ -131,11 +175,12 @@ $('request-form').addEventListener('submit', (event) => {
 });
 
 async function refresh() {
+  const version = stateVersion;
   try {
     const response = await fetch('/api/state');
     if (!response.ok) throw new Error('Client local indisponível.');
     const next = await response.json();
-    if (!submitting) render(next);
+    if (!submitting && version === stateVersion) render(next);
   } catch { $('notice').textContent = 'O programa local foi encerrado ou está indisponível.'; }
   setTimeout(() => void refresh(), 1500);
 }
