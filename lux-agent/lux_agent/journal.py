@@ -28,6 +28,7 @@ class CommandJournal:
             self.db.execute('PRAGMA journal_mode=DELETE')
             self.db.execute('CREATE TABLE IF NOT EXISTS metadata (binding TEXT NOT NULL)')
             self.db.execute('CREATE TABLE IF NOT EXISTS commands (id TEXT PRIMARY KEY, claim_id TEXT NOT NULL UNIQUE, state TEXT NOT NULL, result TEXT)')
+            self.db.execute('CREATE TABLE IF NOT EXISTS reports (report_id TEXT PRIMARY KEY, payload TEXT NOT NULL, state TEXT NOT NULL)')
             binding = hashlib.sha256((origin + '\n' + credential).encode()).hexdigest()
             current = self.db.execute('SELECT binding FROM metadata').fetchall()
             if current and current != [(binding,)]:
@@ -68,6 +69,19 @@ class CommandJournal:
 
     def record(self, command_id, state, result=None):
         self.write('UPDATE commands SET state=?, result=? WHERE id=?', (state, json.dumps(result) if result is not None else None, command_id))
+
+    def get_report(self, report_id):
+        rows = self.read('SELECT report_id, payload, state FROM reports WHERE report_id=?', (report_id,))
+        return rows[0] if rows else None
+
+    def prepare_report(self, report_id, payload):
+        self.write('INSERT INTO reports VALUES (?, ?, ?)', (report_id, json.dumps(payload, sort_keys=True), 'pending'))
+
+    def pending_reports(self):
+        return self.read("SELECT report_id, payload, state FROM reports WHERE state='pending' ORDER BY rowid")
+
+    def acknowledge_report(self, report_id):
+        self.write("UPDATE reports SET state='acknowledged' WHERE report_id=?", (report_id,))
 
     def write(self, sql, values):
         try:

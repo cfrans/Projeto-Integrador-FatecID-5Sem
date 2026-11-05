@@ -1,0 +1,24 @@
+[Unit]
+Description=Lux parental agent
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=lux-agent
+Group=lux-agent
+WorkingDirectory=/opt/lux-agent
+EnvironmentFile=/etc/lux-agent/agent.env
+ExecStart=/usr/bin/python3 -B -m lux_agent poll --backend-url ${LUX_AGENT_BACKEND_URL} --credential-file /var/lib/lux-agent/credential --state-dir /var/lib/lux-agent/state --collect-report-file /var/lib/lux-agent/report.json
+Restart=on-failure
+RestartSec=10s
+UMask=0077
+NoNewPrivileges=yes
+PrivateTmp=yes
+ProtectSystem=strict
+ProtectHome=yes
+ReadWritePaths=/var/lib/lux-agent
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6
+
+[Install]
+WantedBy=multi-user.target

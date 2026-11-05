@@ -62,9 +62,9 @@ Migrations Prisma são versionadas junto ao código e aplicadas de forma control
 
 ### Inventário e pedidos persistidos
 
-`InstalledApplication` guarda UUID, computador, nome, categoria e o valor reportado de `allowed`. `InstallationRequest` guarda UUID, computador, aplicativo solicitado, solicitante, data UTC, faixa etária e estado `PENDING`, `APPROVED` ou `DENIED`. Ambos pertencem a `Device` e são removidos em cascata com o computador; revogar vínculo não apaga esses registros.
+`InstalledApplication` guarda UUID, computador, `sourceId` estável, nome, categoria e o valor reportado de `allowed`. `InstallationRequest` guarda UUID, computador, `sourceId` estável, aplicativo solicitado, solicitante, data UTC, faixa etária e estado `PENDING`, `APPROVED` ou `DENIED`. A migration `20261104200000_agent_report_idempotency` cria unicidade por dispositivo e `sourceId`, além de `AgentReport`, que registra `reportId`, hash do conteúdo, horário de coleta, horário de recebimento e contagens. Ambos pertencem a `Device` e são removidos em cascata com o computador; revogar vínculo não apaga esses registros.
 
-Os marcadores opcionais `Device.applicationsReportedAt` e `Device.installationRequestsReportedAt` distinguem relatório ausente de relatório vazio. Registros e marcador devem ser atualizados atomicamente pela futura ingestão autenticada do Agent, ainda não implementada. Não representam presença online ou aplicação confirmada de restrições. Os contratos de leitura estão em [Backend](backend.md#consultas-de-aplicativos-e-pedidos-de-instalação).
+Os marcadores opcionais `Device.applicationsReportedAt` e `Device.installationRequestsReportedAt` distinguem relatório ausente de relatório vazio. Registros, `AgentReport` e marcadores devem ser atualizados atomicamente pela futura ingestão autenticada do Agent, ainda não implementada. Não representam presença online ou aplicação confirmada de restrições. Os contratos de leitura estão em [Backend](backend.md#consultas-de-aplicativos-e-pedidos-de-instalação).
 
 Para **aplicar migrations existentes**, use `npm run prisma:migrate:deploy` em `backend/` ou a inicialização automática do Compose. Esse comando não cria migrations nem exige shadow database.
 

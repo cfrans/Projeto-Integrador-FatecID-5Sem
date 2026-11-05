@@ -168,6 +168,7 @@ export class SimulationService {
         data: input.applications.map((app) => ({
           ...app,
           deviceId,
+          sourceId: app.id,
           allowed: settings.applicationRules[app.id] ?? true,
         })),
       });
@@ -176,6 +177,7 @@ export class SimulationService {
         data: input.installationRequests.map((request) => ({
           ...request,
           deviceId,
+          sourceId: request.id,
           status:
             settings.installationDecisions[request.id] ?? ('PENDING' as const),
         })),

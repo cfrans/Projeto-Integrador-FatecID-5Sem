@@ -1,0 +1,107 @@
+import json
+import secrets
+import socket
+import tempfile
+import threading
+import unittest
+import uuid
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+from pathlib import Path
+
+from lux_agent.errors import DiagnosticError
+from lux_agent.journal import CommandJournal
+from lux_agent.reports import ReportProcessor, load_report
+
+
+def report():
+    return {
+        'protocolVersion': 1,
+        'reportId': str(uuid.uuid4()),
+        'collectedAt': '2026-11-04T20:00:00Z',
+        'applications': [
+            {'sourceId': 'org.mozilla.firefox', 'name': 'Firefox', 'category': 'browser', 'allowed': True}
+        ],
+        'installationRequests': [],
+    }
+
+
+class ReportTests(unittest.TestCase):
+    def setUp(self):
+        self.directory = tempfile.TemporaryDirectory()
+        self.root = Path(self.directory.name)
+        self.credential = secrets.token_urlsafe(32)
+        self.requests = []
+        self.drop_response = False
+        owner = self
+
+        class Handler(BaseHTTPRequestHandler):
+            def do_PUT(self):
+                length = int(self.headers.get('Content-Length', '0'))
+                body = json.loads(self.rfile.read(length))
+                owner.requests.append((self.path, body, self.headers.get('Authorization')))
+                if owner.drop_response:
+                    owner.drop_response = False
+                    self.connection.shutdown(socket.SHUT_RDWR)
+                    return
+                status = 201 if len(owner.requests) == 1 else 200
+                self.send_response(status)
+                self.end_headers()
+                self.wfile.write(json.dumps({'reportId': body['reportId'], 'accepted': True}).encode())
+
+            def log_message(self, *args):
+                pass
+
+        self.server = ThreadingHTTPServer(('127.0.0.1', 0), Handler)
+        self.thread = threading.Thread(target=self.server.serve_forever, daemon=True)
+        self.thread.start()
+        self.origin = f'http://127.0.0.1:{self.server.server_port}'
+        self.journal = CommandJournal(str(self.root / 'state'), self.origin, self.credential)
+        self.processor = ReportProcessor(self.origin + '/agent/reports', self.credential, self.journal, timeout=2)
+        self.file = self.root / 'report.json'
+
+    def tearDown(self):
+        self.journal.close()
+        self.server.shutdown()
+        self.server.server_close()
+        self.thread.join()
+        self.directory.cleanup()
+
+    def write_report(self, payload):
+        self.file.write_text(json.dumps(payload))
+
+    def restart(self):
+        self.journal.close()
+        self.journal = CommandJournal(str(self.root / 'state'), self.origin, self.credential)
+        self.processor = ReportProcessor(self.origin + '/agent/reports', self.credential, self.journal, timeout=2)
+
+    def test_report_is_sent_once_and_repeated_poll_is_idempotent(self):
+        payload = report()
+        self.write_report(payload)
+        self.assertEqual(self.processor.run_once(str(self.file)), 1)
+        self.assertEqual(self.processor.run_once(str(self.file)), 0)
+        self.assertEqual(len(self.requests), 1)
+        self.assertEqual(self.requests[0][1], payload)
+        self.assertEqual(self.requests[0][2], 'Bearer ' + self.credential)
+
+    def test_lost_response_reuses_pending_report_after_restart(self):
+        payload = report()
+        self.write_report(payload)
+        self.drop_response = True
+        with self.assertRaises(DiagnosticError):
+            self.processor.run_once(str(self.file))
+        self.assertEqual(self.journal.get_report(payload['reportId'])[2], 'pending')
+        self.restart()
+        self.assertEqual(self.processor.run_once(str(self.file)), 1)
+        self.assertEqual([body for _, body, _ in self.requests], [payload, payload])
+
+    def test_invalid_report_is_rejected_before_network(self):
+        payload = report()
+        payload['applications'].append(payload['applications'][0].copy())
+        self.write_report(payload)
+        with self.assertRaises(DiagnosticError):
+            load_report(self.file)
+        self.assertEqual(self.requests, [])
+
+
+if __name__ == '__main__':
+    unittest.main()

@@ -1,6 +1,6 @@
 # piplup
 
-Projeto Integrador: aplicativo Expo para controle parental em computadores Lenovo Lux, com API NestJS, Prisma e MySQL. Login, perfil, listagem, pareamento e revogação de vínculos usam a API real. O mobile também possui telas de controle para navegadores, aplicativos, instalação e faixa etária, seleção de idioma em português, inglês e espanhol, e temas claro/escuro com acento vermelho. O [client simulado](docs/simulated-client.md) permite cadastrar PCs demonstrativos, parear por QR e refletir configurações persistidas do app. Existe uma [PoC Python de leitura nativa e diagnóstico autenticado do Agent no Lux](lux-agent/README.md); o Agent já consulta vínculos e processa o diagnóstico `agent.ping` por HTTPS com resultado persistido; serviço automático, interface GTK e integração parental ponta a ponta ainda não existem. Consulte o [estado das etapas](docs/architecture.md#etapas-de-implementação).
+Projeto Integrador: aplicativo Expo para controle parental em computadores Lenovo Lux, com API NestJS, Prisma e MySQL. Login, perfil, listagem, pareamento e revogação de vínculos usam a API real. O mobile também possui telas de controle para navegadores, aplicativos, instalação e faixa etária, seleção de idioma em português, inglês e espanhol, e temas claro/escuro com acento vermelho. O [client simulado](docs/simulated-client.md) permite cadastrar PCs demonstrativos, parear por QR e refletir configurações persistidas do app. Existe uma [implementação Python do Agent](lux-agent/README.md) com consulta autenticada, `agent.ping`, coleta de aplicativos Linux e envio idempotente de relatórios por HTTPS. A unidade `systemd` está preparada, mas ainda depende de instalação e validação no Lux real; interface GTK e integração parental ponta a ponta continuam pendentes. Consulte o [estado das etapas](docs/architecture.md#etapas-de-implementação).
 
 ## Estado atual
 
@@ -14,7 +14,9 @@ Projeto Integrador: aplicativo Expo para controle parental em computadores Lenov
 - Pareamento por QR Code com token temporário, validação, confirmação, consumo único e revogação.
 - Home, lista de computadores, leitura de QR Code e estados de carregamento, erro e lista vazia.
 - Telas de Navegadores, Aplicativos, Instalação e Faixa etária com seleção compartilhada de computador e identidade visual do protótipo.
-- Consultas autenticadas de inventário de aplicativos e pedidos de instalação persistidos; coleta pelo Agent ainda pendente.
+- Consultas autenticadas de inventário de aplicativos e pedidos de instalação persistidos; coleta de pedidos pelo Agent ainda pendente.
+- Ingestão autenticada de relatórios do Agent, com atualização transacional de inventário, pedidos e marcadores de coleta.
+- Agent Python com polling autenticado, diário persistente, reenvio idempotente e coleta real de aplicativos Linux por arquivos `.desktop`.
 - Estados condicionais para aplicativos instalados e pedidos de instalação: sem computador pareado, não há dados fictícios exibidos.
 - Seleção de idioma em **Sobre o projeto → Idioma**, com português, inglês e espanhol. O idioma inicial é detectado pelo sistema do dispositivo e a escolha manual é persistida.
 - Temas **Sistema**, **Claro** e **Escuro** em **Sobre o projeto → Tema**. Sistema acompanha a aparência do dispositivo; a escolha manual é persistida. O visor da câmera no pareamento permanece escuro.
@@ -23,16 +25,15 @@ Projeto Integrador: aplicativo Expo para controle parental em computadores Lenov
 
 ### Próximos passos
 
-1. Implementar a ingestão autenticada de inventário e pedidos pelo futuro Agent, atualizando registros e marcadores de relatório atomicamente.
-2. Evoluir o contrato do Agent real; configurações demonstrativas já são persistidas pelo módulo de simulação.
-3. Integrar confirmação de operações reais; o client simulado já confirma suas próprias revisões sem comprovar aplicação no GNOME.
-4. Implementar o Lux Agent em Python como serviço systemd, com identidade provisionada, polling autenticado e recuperação de conexão.
-5. Definir privilégios mínimos do futuro Agent e validar operações de escrita; a PoC de leitura na VM Lux já foi validada com e sem restrições, exigindo autenticação administrativa para outra conta.
-6. Implementar a interface local GTK4/libadwaita para autorização administrativa e provisionamento/pareamento do Agent.
-7. Conectar o Agent às decisões de instalação e restrições, registrando sucesso, falha e indisponibilidade no backend.
-8. Expandir a cobertura de testes para troca de idioma e tema, múltiplos computadores, ausência de conexão, pedidos de instalação e fluxo ponta a ponta.
+1. Instalar e validar a unidade `systemd` no Lux real, com identidade provisionada, URL HTTPS definitiva e recuperação de conexão.
+2. Integrar confirmação de operações reais; o client simulado confirma suas próprias revisões, mas não comprova aplicação no GNOME.
+3. Definir privilégios mínimos do Agent e validar operações de escrita; a leitura de políticas na VM Lux já foi validada com e sem restrições, exigindo autenticação administrativa para outra conta.
+4. Implementar a coleta real de pedidos de instalação e suas decisões, registrando sucesso, falha e indisponibilidade no backend.
+5. Implementar a interface local GTK4/libadwaita para autorização administrativa e provisionamento/pareamento do Agent.
+6. Conectar o Agent às decisões de instalação e restrições, registrando confirmação posterior no backend.
+7. Expandir a cobertura de testes para troca de idioma e tema, múltiplos computadores, ausência de conexão, pedidos de instalação e fluxo ponta a ponta.
 
-As telas de restrições já existem como superfície de produto, mas a aplicação real no computador depende dos endpoints, do Agent e da validação GNOME descritos acima. O [roadmap da arquitetura](docs/architecture.md#etapas-de-implementação) mantém o estado técnico detalhado e as limitações conhecidas.
+As telas de restrições já existem como superfície de produto, e a coleta de aplicativos já foi validada ponta a ponta localmente. A aplicação real de políticas no computador ainda depende dos endpoints parentais, do Agent instalado no Lux e da validação GNOME descritos acima. O [roadmap da arquitetura](docs/architecture.md#etapas-de-implementação) mantém o estado técnico detalhado e as limitações conhecidas.
 
 ## Demonstração sem Lux
 

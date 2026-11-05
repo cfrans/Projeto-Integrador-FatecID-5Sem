@@ -65,6 +65,108 @@ Falha usa `status: "failed"`, `result: null` e `error: { "code": "EXECUTION_TIME
 
 Erros: 400 contrato inválido; 401 autenticação/identidade revogada; 404 recurso alheio/inexistente; 409 conflito; 410 vínculo original revogado, identidade indisponível na criação ou comando vencido/cancelado antes da reserva; 413 corpo excessivo; 503 indisponibilidade operacional. Erros não expõem exceções ou corpos do backend na CLI.
 
+## Contrato proposto de relatórios do Agent
+
+Esta seção define a próxima extensão do protocolo. Ela é uma especificação; os endpoints abaixo ainda não existem no backend e não devem ser confundidos com o client simulado. O objetivo é permitir que o Agent real envie um retrato do computador e que o responsável consulte dados cuja origem e horário de coleta sejam conhecidos.
+
+### Endpoints usados pelo Agent
+
+O Agent usa a credencial individual provisionada para o computador e nunca escolhe outro `deviceId` no corpo da requisição:
+
+| Endpoint | Finalidade | Estado |
+| --- | --- | --- |
+| `GET /agent/associations` | Confirma a identidade e consulta o vínculo ativo do próprio computador. | Implementado |
+| `GET /agent/commands` | Busca no máximo um comando parental pendente. | Implementado para `agent.ping` |
+| `POST /agent/commands/:id/claim` | Reserva um comando antes da execução local. | Implementado para `agent.ping` |
+| `PUT /agent/commands/:id/result` | Informa o resultado de uma operação reservada. | Implementado para `agent.ping` |
+| `PUT /agent/reports` | Envia inventário e pedidos observados pelo computador em um relatório. | Implementado |
+
+O endpoint de relatório deve derivar o dispositivo da identidade autenticada. Não aceita `deviceId`, `guardianId` ou associação escolhida pelo cliente. A resposta de sucesso deve incluir `reportId`, `receivedAt`, `applicationsReportedAt` e `installationRequestsReportedAt`.
+
+### Autenticação
+
+O Agent envia `Authorization: Bearer <credential>` por HTTPS. A credencial é aleatória, exclusiva do computador e provisionada administrativamente. O backend armazena somente seu hash SHA-256 e associa a identidade ao dispositivo. O guard deve verificar, na mesma operação de gravação, que:
+
+1. a identidade existe e não foi revogada;
+2. o vínculo original existe, está ativo e pertence ao dispositivo autenticado;
+3. o dispositivo ainda pode receber relatórios.
+
+Falha de autenticação ou revogação retorna `401`. O relatório não usa JWT do responsável e não recebe credencial administrativa do Linux.
+
+### Relatório enviado
+
+O corpo de `PUT /agent/reports` é JSON, limitado a 16 KiB inicialmente:
+
+```json
+{
+  "protocolVersion": 1,
+  "reportId": "3c8d8a4c-9a07-4c64-98c8-8ea70f1b1b8c",
+  "collectedAt": "2026-11-04T20:00:00.000Z",
+  "applications": [
+    {
+      "sourceId": "org.mozilla.firefox",
+      "name": "Firefox",
+      "category": "browser",
+      "allowed": true
+    }
+  ],
+  "installationRequests": [
+    {
+      "sourceId": "a8e47b1a-8fcf-46da-85ad-69ff6a604d22",
+      "applicationName": "Firefox",
+      "requesterName": "Conta gerenciada",
+      "requestedAt": "2026-11-04T19:58:00.000Z",
+      "ageRating": "L"
+    }
+  ]
+}
+```
+
+`reportId` é um UUID v4 criado pelo Agent e identifica uma coleta. `collectedAt` é o horário UTC informado pelo computador; `receivedAt` é sempre definido pelo servidor e não é confiável para substituir o horário da coleta. `sourceId` é estável para o mesmo aplicativo ou pedido no computador e é obrigatório para reconciliar uma repetição sem duplicar linhas.
+
+O relatório representa um retrato completo, não um conjunto de eventos. Portanto, a lista `applications` substitui o inventário anterior e a lista `installationRequests` reconcilia os pedidos observados. O Agent não envia decisões do responsável como se fossem observações locais; estados `APPROVED` e `DENIED` continuam sendo decisões do backend e só retornam ao computador por comandos próprios.
+
+### Resposta e erros
+
+Uma gravação nova retorna `201`:
+
+```json
+{
+  "reportId": "3c8d8a4c-9a07-4c64-98c8-8ea70f1b1b8c",
+  "accepted": true,
+  "receivedAt": "2026-11-04T20:00:02.000Z",
+  "applicationsReportedAt": "2026-11-04T20:00:02.000Z",
+  "installationRequestsReportedAt": "2026-11-04T20:00:02.000Z"
+}
+```
+
+Uma repetição equivalente do mesmo `reportId` retorna `200` com o mesmo recibo lógico e não reaplica o retrato. O servidor pode atualizar somente `receivedAt` no transporte, mas não deve mudar o conteúdo aceito nem os marcadores de coleta.
+
+| Status | Significado |
+| --- | --- |
+| `400` | JSON, UUID, data, enumeração ou campo obrigatório inválido. |
+| `401` | Bearer ausente, credencial inválida ou identidade revogada. |
+| `409` | Mesmo `reportId` já foi aceito com conteúdo diferente. |
+| `413` | Relatório excede o limite de tamanho. |
+| `422` | Conteúdo coerente, mas impossível de reconciliar, por exemplo `sourceId` duplicado na mesma lista. |
+| `503` | Falha de banco ou indisponibilidade operacional; o Agent deve conservar o relatório local. |
+
+As respostas de erro possuem somente um código estável, por exemplo `{ "error": { "code": "REPORT_TOO_LARGE" } }`. Não retornam stack trace, senha, credencial, caminho local ou dados de outro dispositivo.
+
+### Estados e confirmação
+
+O relatório possui os estados efetivos `accepted`, `duplicate`, `rejected` e `unavailable` no diário do Agent. O backend persiste somente relatórios aceitos e conflitos auditáveis; `unavailable` é uma condição de transporte, não uma confirmação de falha do computador.
+
+Uma operação parental só é **confirmada** quando o Agent recebe um comando válido, reserva-o, executa a ação local permitida e consulta novamente o estado do sistema para verificar o efeito esperado. O recebimento do comando, o `claim`, uma resposta HTTP 200 ou a gravação de uma configuração desejada não significam aplicação. O resultado deve ser `succeeded` somente com essa verificação; caso contrário deve ser `failed` com código tipado ou `unknown` quando não for possível distinguir execução de perda de comunicação.
+
+### Repetição e atomicidade
+
+O Agent grava `reportId`, conteúdo e estado pendente no diário local antes do envio. Após timeout, reinício ou resposta perdida, repete exatamente o mesmo relatório e não gera outro `reportId`. O backend deve aceitar a repetição equivalente sem duplicar aplicações, pedidos ou marcadores.
+
+No backend, autenticação da identidade, reconciliação das duas listas, atualização de `applicationsReportedAt` e `installationRequestsReportedAt` e registro do recibo devem ocorrer em uma única transação. Se qualquer etapa falhar, todas as alterações do relatório são desfeitas e os marcadores anteriores permanecem intactos. Assim, o mobile nunca interpreta um inventário novo com pedidos antigos, ou o contrário, como uma coleta confirmada.
+
+Os identificadores persistentes e a tabela de recibos são preparados pela migration `20261104200000_agent_report_idempotency`; a ingestão HTTP está implementada no backend e o Agent envia relatórios usando `--report-file` ou coleta aplicativos Linux com `--collect-report-file`. A coleta de pedidos de instalação ainda depende de uma fonte Linux validada. O `SimulationState` e seus endpoints continuam separados: uma confirmação do client simulado não comprova ingestão pelo Agent nem aplicação no GNOME.
+
 ## Persistência e estados
 
 A migration `20261026035355_agent_ping_commands` cria somente `AgentCommand`, índices únicos/de fila e FKs restritivas para dispositivo, associação original e identidade da reserva. Não modifica registros existentes nem remove a CHECK de vínculo ativo. Campos: identificação/escopo, intenção, estado, criação/validade, claim/identidade/horários e resultado/erro/conclusão. Não há tabela de tentativas ou worker de expiração.

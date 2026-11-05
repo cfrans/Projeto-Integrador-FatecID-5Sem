@@ -38,6 +38,8 @@ def poll_associations(
     timeout: float = 10,
     max_queries: int | None = None,
     command_processor=None,
+    report_processor=None,
+    report_file: str | None = None,
 ) -> int:
     queries = 0
     backoff = interval
@@ -46,6 +48,9 @@ def poll_associations(
         retry_after = 0.0
         try:
             associations = query_associations(endpoint, credential, timeout, ca_file)
+            if report_processor is not None:
+                confirmed_reports = report_processor.run_once(report_file)
+                print(f"Relatórios: {confirmed_reports} resultado(s) confirmado(s).", flush=True)
             if command_processor is not None:
                 confirmed = command_processor.run_once()
                 print(f"Comandos: {confirmed} resultado(s) confirmado(s).", flush=True)
