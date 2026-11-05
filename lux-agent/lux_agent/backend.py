@@ -42,7 +42,7 @@ def parse_retry_after(value: str | None) -> float | None:
 def request_json(
     endpoint: str, credential: str, timeout: float, ca_file: str | None = None,
     *, method: str = "GET", payload: dict[str, Any] | None = None,
-    max_bytes: int = 1024 * 1024,
+    max_bytes: int = 1024 * 1024, expected_statuses: tuple[int, ...] = (200,),
 ) -> Any:
     data = None if payload is None else json.dumps(payload, allow_nan=False).encode("utf-8")
     if data is not None and len(data) > max_bytes:
@@ -58,7 +58,7 @@ def request_json(
     opener = build_opener(ProxyHandler({}), NoRedirect(), HTTPSHandler(context=context))
     try:
         with opener.open(request, timeout=timeout) as response:
-            if response.status != 200:
+            if response.status not in expected_statuses:
                 raise DiagnosticError(
                     "Resposta HTTP inesperada do backend.", 6, category="http",
                     http_status=response.status,

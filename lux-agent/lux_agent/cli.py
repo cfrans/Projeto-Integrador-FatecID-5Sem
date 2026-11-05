@@ -30,6 +30,9 @@ def create_parser() -> argparse.ArgumentParser:
     poll = commands.add_parser("poll", help="Consulta vínculos e processa ping com diário explícito", description="Consulta periodicamente os vínculos do próprio computador, sem alterá-los.")
     add_backend_arguments(poll, polling=True)
     poll.add_argument("--state-dir", help="Ativa agent.ping com diário em diretório privado 0700")
+    report = poll.add_mutually_exclusive_group()
+    report.add_argument("--report-file", help="Arquivo JSON de relatório validado para envio autenticado")
+    report.add_argument("--collect-report-file", help="Coleta aplicativos Linux e grava um relatório para envio")
     poll.add_argument("--interval", type=float, default=15, help="Intervalo base em segundos (padrão: 15)")
     poll.add_argument("--max-backoff", type=float, default=300, help="Teto do backoff com jitter (padrão: 300)")
     poll.add_argument("--jitter", type=float, default=0.2, help="Variação proporcional de 0 a menos de 1 (padrão: 0.2)")
@@ -64,6 +67,12 @@ def run_poll(args: argparse.Namespace) -> int:
         for signum in (signal.SIGINT, signal.SIGTERM):
             previous_handlers[signum] = signal.signal(signum, stop_polling)
         credential = load_credential(args.credential_file)
+        report_file = args.report_file
+        if args.collect_report_file is not None:
+            from .collector import collect_report
+
+            report_file = args.collect_report_file
+            collect_report(report_file)
         processor = None
         if args.state_dir is not None:
             from .journal import CommandJournal
@@ -72,9 +81,17 @@ def run_poll(args: argparse.Namespace) -> int:
             origin = endpoint.removesuffix('/agent/associations')
             journal = CommandJournal(args.state_dir, origin, credential)
             processor = CommandProcessor(origin + '/agent/commands', credential, journal, args.timeout, args.ca_file)
+        report_processor = None
+        if report_file is not None:
+            from .reports import ReportProcessor
+
+            if journal is None:
+                raise DiagnosticError('--report-file exige --state-dir.', 2)
+            report_processor = ReportProcessor(origin + '/agent/reports', credential, journal, args.timeout, args.ca_file)
         return poll_associations(
             endpoint, credential, ca_file=args.ca_file, interval=args.interval, max_backoff=args.max_backoff,
             jitter=args.jitter, timeout=args.timeout, max_queries=args.max_queries, command_processor=processor,
+            report_processor=report_processor, report_file=report_file,
         )
     except DiagnosticError as error:
         print(f"Erro: {error.category}: {error}", file=sys.stderr)

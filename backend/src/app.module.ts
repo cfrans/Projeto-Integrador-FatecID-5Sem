@@ -6,6 +6,7 @@ import { DevicesModule } from './devices/devices.module.js';
 import { PairingModule } from './pairing/pairing.module.js';
 import { SimulationModule } from './simulation/simulation.module.js';
 import { CommandsModule } from './commands/commands.module.js';
+import { AgentModule } from './agent/agent.module.js';
 
 @Module({
   imports: [
@@ -14,6 +15,7 @@ import { CommandsModule } from './commands/commands.module.js';
     DevicesModule,
     PairingModule,
     CommandsModule,
+    AgentModule,
     SimulationModule,
   ],
   controllers: [AppController],

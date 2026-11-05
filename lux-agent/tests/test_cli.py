@@ -79,7 +79,7 @@ assert "gi" not in sys.modules
 
     def test_deploy_allowlist_contains_sources_without_state_or_secrets(self):
         entries = (ROOT / 'deploy-files.txt').read_text().splitlines()
-        allowed_metadata = {'.gitignore', 'README.md', 'pyproject.toml', 'deploy-files.txt'}
+        allowed_metadata = {'.gitignore', 'README.md', 'pyproject.toml', 'deploy-files.txt', 'lux-agent.service', 'agent.env.example'}
         self.assertEqual(len(entries), len(set(entries)))
         for entry in entries:
             path = Path(entry)

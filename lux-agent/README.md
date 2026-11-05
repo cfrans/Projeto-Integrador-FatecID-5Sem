@@ -1,6 +1,6 @@
 # Lux Agent
 
-Pacote Python `lux_agent` com três subcomandos: `read-policies` lê políticas nativas; `check-backend` valida uma vez a identidade provisionada; `poll` consulta vínculos e, com `--state-dir`, processa somente `agent.ping`. Não há comandos parentais, pareamento local, serviço systemd ou GTK.
+Pacote Python `lux_agent` com três subcomandos: `read-policies` lê políticas nativas; `check-backend` valida uma vez a identidade provisionada; `poll` consulta vínculos, processa `agent.ping` e, com `--collect-report-file` e `--state-dir`, coleta aplicativos Linux e envia relatórios autenticados para `PUT /agent/reports`. Não há comandos parentais, pareamento local, serviço systemd ou GTK.
 
 O [protocolo v1](../docs/agent-protocol.md) implementa reserva única e resultado idempotente de ping com diário privado. A [validação ponta a ponta](../docs/agent-ping-validation.md) usou NestJS/MySQL e Lux reais por HTTPS. Operações parentais continuam fora do executor.
 
@@ -25,6 +25,7 @@ lux-agent/
 │   ├── errors.py
 │   ├── backend.py
 │   ├── polling.py
+│   ├── reports.py
 │   ├── commands.py
 │   ├── journal.py
 │   └── parental.py
@@ -35,6 +36,7 @@ lux-agent/
     ├── test_commands.py
     ├── test_https_transport.py
     ├── test_read_policies.py
+    ├── test_reports.py
     └── test_cli.py
 ```
 
@@ -70,6 +72,21 @@ O pacote pode ser executado dos fontes, sem pip. O `pyproject.toml` declara some
 | `python3 lux-agent/read_policies.py ARGS` | `python3 -m lux_agent read-policies ARGS` |
 
 Os exemplos com `PYTHONPATH=lux-agent` abaixo partem da raiz do repositório; os comandos SSH entram no diretório de deploy.
+
+### Coleta de aplicativos Linux
+
+O Agent coleta entradas `.desktop` visíveis em `$XDG_DATA_HOME/applications` e nos diretórios `applications` de `$XDG_DATA_DIRS`. Entradas `Hidden=true`, `NoDisplay=true` e tipos diferentes de `Application` são ignoradas. O relatório usa o nome do arquivo `.desktop` como `sourceId`, gera um novo `reportId`, não inventa pedidos de instalação e é gravado com modo `0600`.
+
+Para coletar e enviar um relatório no primeiro ciclo do polling:
+
+```bash
+python3 -B -m lux_agent poll --backend-url https://api.exemplo \
+    --credential-file /caminho/privado/credential \
+    --state-dir /caminho/privado/state \
+    --collect-report-file /caminho/privado/report.json
+```
+
+`--collect-report-file` e `--report-file` são alternativas. A coleta atualiza o arquivo uma vez no início do processo; o diário conserva o mesmo `reportId` e reenvia o payload após timeout, reinício ou resposta perdida. A coleta de pedidos de instalação e a leitura de políticas parentais ainda dependem de fontes Linux que não foram validadas.
 
 Os três scripts antigos permanecem como wrappers para a mesma CLI; argumentos, mensagens operacionais e códigos de saída são preservados. O texto de uso do argparse passa a identificar os subcomandos. Imports internos devem usar `lux_agent.*`; `command_processor.py` e `command_journal.py` foram movidos para `commands.py` e `journal.py`, sem wrappers de biblioteca. Registros históricos abaixo mantêm os nomes usados nas provas anteriores.
 

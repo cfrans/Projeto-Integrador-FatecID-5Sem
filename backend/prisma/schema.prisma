@@ -30,6 +30,7 @@ model Device {
   installationRequestsReportedAt DateTime?              @db.DateTime(3)
   applications                   InstalledApplication[]
   installationRequests           InstallationRequest[]
+  agentReports                   AgentReport[]
   agentIdentity                  AgentIdentity?
   pairingSessions                PairingSession[]
   associations                   DeviceAssociation[]    @relation("AssociationDevice")
@@ -94,11 +95,13 @@ model SimulationState {
 model InstalledApplication {
   id       String  @id @default(uuid()) @db.Char(36)
   deviceId String  @db.Char(36)
+  sourceId String  @db.VarChar(191)
   name     String  @db.VarChar(200)
   category String  @db.VarChar(100)
   allowed  Boolean
   device   Device  @relation(fields: [deviceId], references: [id], onDelete: Cascade)
 
+  @@unique([deviceId, sourceId])
   @@index([deviceId, name])
 }
 
@@ -111,6 +114,7 @@ enum InstallationRequestStatus {
 model InstallationRequest {
   id              String                    @id @default(uuid()) @db.Char(36)
   deviceId        String                    @db.Char(36)
+  sourceId        String                    @db.VarChar(191)
   applicationName String                    @db.VarChar(200)
   requesterName   String                    @db.VarChar(100)
   requestedAt     DateTime                  @db.DateTime(3)
@@ -118,7 +122,23 @@ model InstallationRequest {
   status          InstallationRequestStatus @default(PENDING)
   device          Device                    @relation(fields: [deviceId], references: [id], onDelete: Cascade)
 
+  @@unique([deviceId, sourceId])
   @@index([deviceId, status, requestedAt])
+}
+
+model AgentReport {
+  id                        String   @id @default(uuid()) @db.Char(36)
+  deviceId                  String   @db.Char(36)
+  reportId                  String   @db.Char(36)
+  contentHash               String   @db.Char(64)
+  collectedAt               DateTime @db.DateTime(3)
+  receivedAt                DateTime @default(now()) @db.DateTime(3)
+  applicationsCount         Int
+  installationRequestsCount Int
+  device                    Device   @relation(fields: [deviceId], references: [id], onDelete: Cascade)
+
+  @@unique([deviceId, reportId])
+  @@index([deviceId, receivedAt])
 }
 
 enum CommandStatus {

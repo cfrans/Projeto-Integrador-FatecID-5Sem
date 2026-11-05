@@ -79,7 +79,7 @@ O Agent usa a credencial individual provisionada para o computador e nunca escol
 | `GET /agent/commands` | Busca no máximo um comando parental pendente. | Implementado para `agent.ping` |
 | `POST /agent/commands/:id/claim` | Reserva um comando antes da execução local. | Implementado para `agent.ping` |
 | `PUT /agent/commands/:id/result` | Informa o resultado de uma operação reservada. | Implementado para `agent.ping` |
-| `PUT /agent/reports` | Envia inventário e pedidos observados pelo computador em um relatório. | Proposto |
+| `PUT /agent/reports` | Envia inventário e pedidos observados pelo computador em um relatório. | Implementado |
 
 O endpoint de relatório deve derivar o dispositivo da identidade autenticada. Não aceita `deviceId`, `guardianId` ou associação escolhida pelo cliente. A resposta de sucesso deve incluir `reportId`, `receivedAt`, `applicationsReportedAt` e `installationRequestsReportedAt`.
 
@@ -165,7 +165,7 @@ O Agent grava `reportId`, conteúdo e estado pendente no diário local antes do 
 
 No backend, autenticação da identidade, reconciliação das duas listas, atualização de `applicationsReportedAt` e `installationRequestsReportedAt` e registro do recibo devem ocorrer em uma única transação. Se qualquer etapa falhar, todas as alterações do relatório são desfeitas e os marcadores anteriores permanecem intactos. Assim, o mobile nunca interpreta um inventário novo com pedidos antigos, ou o contrário, como uma coleta confirmada.
 
-Para implementar esta proposta serão necessários identificadores persistentes de relatório e de origem dos pedidos, além de uma migration para impedir duplicações. O `SimulationState` e seus endpoints continuam separados: uma confirmação do client simulado não comprova ingestão pelo Agent nem aplicação no GNOME.
+Os identificadores persistentes e a tabela de recibos são preparados pela migration `20261104200000_agent_report_idempotency`; a ingestão HTTP está implementada no backend e o Agent envia relatórios usando `--report-file` ou coleta aplicativos Linux com `--collect-report-file`. A coleta de pedidos de instalação ainda depende de uma fonte Linux validada. O `SimulationState` e seus endpoints continuam separados: uma confirmação do client simulado não comprova ingestão pelo Agent nem aplicação no GNOME.
 
 ## Persistência e estados
 
