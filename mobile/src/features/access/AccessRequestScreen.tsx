@@ -19,6 +19,8 @@ import { useLocalRelease } from './useLocalRelease';
 import { devices, devicesErrorMessage, type PairedComputer } from '@/features/devices/services/devices';
 import { useLanguage } from '@/features/i18n/LanguageProvider';
 import { ApplicationIcon } from '@/features/restrictions/ApplicationIcon';
+import { findApplicationBrand } from '@/features/restrictions/services/application-brand';
+import { ApplicationCatalogCard } from './ApplicationCatalogCard';
 import {
   installationRequestsErrorMessage,
   listInstallationRequests,
@@ -180,6 +182,7 @@ function AccessRequestFlow({ computer, requestId, applicationName, source }: Con
   const [saving, setSaving] = useState(false);
   const [now, setNow] = useState(() => new Date());
   const appName = request?.applicationName ?? applicationName;
+  const catalogBrand = request ? findApplicationBrand(request.applicationName) : null;
   const requesterName = request?.requesterName ?? computer.managedUser ?? computer.name;
   const minutesAgo = request ? Math.max(1, Math.round((now.getTime() - new Date(request.requestedAt).getTime()) / 60_000)) : 0;
   const timeFormat = new Intl.DateTimeFormat(language, { hour: '2-digit', minute: '2-digit' });
@@ -252,7 +255,7 @@ function AccessRequestFlow({ computer, requestId, applicationName, source }: Con
           </View>
           {request ? (
             <View style={styles.ageBadge}>
-              <Text style={styles.ageText}>{request.ageRating}</Text>
+              <Text style={styles.ageText}>{t('access.requestRating', { rating: request.ageRating })}</Text>
             </View>
           ) : null}
         </View>
@@ -272,7 +275,7 @@ function AccessRequestFlow({ computer, requestId, applicationName, source }: Con
   );
 
   return (
-    <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+    <ScrollView contentContainerStyle={styles.content}>
       {view === 'loading' ? (
         <View style={styles.centerState}>
           <ActivityIndicator color={colors.accent} />
@@ -298,6 +301,7 @@ function AccessRequestFlow({ computer, requestId, applicationName, source }: Con
 
       {view === 'review' ? (
         <>
+          {catalogBrand && request ? <ApplicationCatalogCard key={`${catalogBrand}-${language}`} brand={catalogBrand} name={request.applicationName} /> : null}
           <View style={styles.actions}>
             <Button
               label={t('access.allowLimited')}
@@ -478,7 +482,7 @@ function ReleaseCountdown({ left, total, formatDuration, styles, label, endedLab
 
 const createStyles = (colors: ColorPalette) => StyleSheet.create({
   safeArea: { backgroundColor: colors.background, flex: 1 },
-  content: { gap: spacing.lg, padding: spacing.lg, paddingBottom: spacing.xxl },
+  content: { alignSelf: 'center', width: '100%', maxWidth: 720, gap: spacing.lg, padding: spacing.lg, paddingBottom: spacing.xxl },
   centerState: { alignItems: 'center', gap: spacing.sm, paddingVertical: spacing.xxl },
   message: { gap: spacing.md, padding: spacing.lg },
   emptyState: { backgroundColor: colors.surface, borderColor: colors.border, borderRadius: radius.md, borderWidth: 1, gap: spacing.md, padding: spacing.lg },

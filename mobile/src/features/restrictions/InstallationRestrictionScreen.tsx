@@ -1,6 +1,6 @@
 import { useCallback, useState } from 'react';
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
-import { useFocusEffect } from 'expo-router';
+import { router, useFocusEffect } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import type { PairedComputer } from '@/features/devices/services/devices';
 import { useLanguage } from '@/features/i18n/LanguageProvider';
@@ -13,6 +13,7 @@ import { fonts, radius, spacing, typography, type ColorPalette } from '@/theme';
 import { useTheme, useThemedStyles } from '@/features/theme/ThemeProvider';
 import { useSimulation } from './SimulationProvider';
 import { ApplicationIcon } from './ApplicationIcon';
+import { findApplicationBrand } from './services/application-brand';
 
 type LoadState = 'loading' | 'ready' | 'error';
 
@@ -118,6 +119,15 @@ export function InstallationRestrictionScreen({ computer }: { computer: PairedCo
                         </View>
                       </View>
 
+                      {findApplicationBrand(request.applicationName) ? (
+                        <Pressable
+                          accessibilityRole="button"
+                          onPress={() => router.push({ pathname: '/access-request', params: { deviceId: computer.id, requestId: request.id } })}
+                          style={styles.catalogLink}
+                        >
+                          <Text style={styles.allowText}>{t('access.aboutApplication', { name: request.applicationName })}</Text>
+                        </Pressable>
+                      ) : null}
                       <View style={styles.actions}>
                         <Pressable
                           accessibilityLabel={t('restriction.allowInstall', { name: request.applicationName })}
@@ -207,6 +217,7 @@ const createStyles = (colors: ColorPalette) => StyleSheet.create({
   ageBadge: { alignItems: 'center', borderColor: colors.textMuted, borderRadius: radius.pill, borderWidth: 1, minWidth: 48, paddingHorizontal: spacing.sm, paddingVertical: spacing.xs },
   ageText: { color: colors.textSecondary, fontSize: typography.label },
   actions: { flexDirection: 'row', gap: spacing.md, marginTop: spacing.md },
+  catalogLink: { alignSelf: 'flex-start', justifyContent: 'center', minHeight: 44 },
   allowButton: { alignItems: 'center', borderColor: colors.accent, borderRadius: radius.sm, borderWidth: 1, flex: 1, justifyContent: 'center', minHeight: 44 },
   allowText: { color: colors.accentText, fontSize: typography.body },
   denyButton: { alignItems: 'center', borderColor: colors.border, borderRadius: radius.sm, borderWidth: 1, flex: 1, justifyContent: 'center', minHeight: 44 },

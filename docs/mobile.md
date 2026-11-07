@@ -31,6 +31,21 @@ A Home mantém os cartões montados ao recuperar foco e consulta dados sem subst
 
 `postinstall` executa `scripts/patch-router.cjs` para remover os handles obsoletos de `InteractionManager` da Card do `expo-router` 57.0.24. No React Native 0.86 esses handles já são inoperantes; a alteração preserva animações, callbacks e gestos, sem suprimir logs nem trocar agendamento de tarefas. O script é idempotente, valida a versão e a estrutura esperadas e exige revisão ao atualizar o Router. Depois de instalar/aplicar, reinicie o Expo com `--clear` para descartar o bundle anterior. Testes verificam a alteração e a dependência instalada.
 
+## Catálogo de aplicativos no navegador
+
+Com a API de desenvolvimento ativa, execute em `mobile/` (PowerShell):
+
+```powershell
+$env:EXPO_PUBLIC_API_URL = 'http://127.0.0.1:3000'
+npm run web
+```
+
+Use a conta responsável por um PC demonstrativo já pareado. Envie um pedido de instalação de qualquer aplicativo do [client simulado](simulated-client.md) e abra o pedido na Home do app web. A aba **Instalação** também dá acesso ao cartão pelo botão **Detalhes de…**. Para consultar um app já instalado, abra **Restrições → Aplicativos** e selecione **Detalhes de…** abaixo do item. Com o vínculo existente, essa validação dispensa a câmera.
+
+O app associa os nomes conhecidos ao ID do Flathub e consulta a ficha pública no idioma da interface. Na aba Rede do navegador, filtre por `api/v2/appstream` para conferir a chamada. O cartão exibe resumo, versão estável e captura com legenda quando disponíveis. O selo no canto usa a classificação regional do catálogo. A classificação informada pelo simulador aparece separadamente nos dados do pedido. Os botões expandem os indicadores de conteúdo e a descrição. Pedidos antigos com nomes desconhecidos mantêm o fluxo de decisão sem consulta externa.
+
+Em português do Brasil, o app complementa as fichas do Flathub com traduções locais dos textos conhecidos. Textos novos são exibidos como recebidos. Se a consulta falhar, o responsável pode tentar novamente, liberar ou recusar o pedido.
+
 ## Rotas e seleção de computador
 
 `/`, `/home`, `/computers` e `/qr-scan` formam o fluxo de login, início, computadores e pareamento pela API. Os cartões com vínculo ativo abrem `/restrictions/browsers?deviceId=<UUID>`. As quatro abas compartilham a seleção em `RestrictionDeviceProvider`; somente computadores com vínculo ativo podem ser selecionados. Um único vínculo é selecionado automaticamente; vários vínculos exigem escolha. Um identificador ausente da lista ou revogado não é substituído por outro computador. A seleção fica somente em memória no fluxo de restrições e não é salva entre sessões. O seletor modal mostra nome e conta; trocar o PC preserva a aba. As abas usam `backBehavior="none"`: o retorno do sistema Android é encaminhado à Stack para sair das restrições para a tela anterior, como o botão do cabeçalho, em vez de selecionar Navegadores. O navegador das abas permanece montado durante carregamento e troca de seleção; somente o conteúdo de cada rota aguarda computador/configurações, evitando retornar à primeira aba.

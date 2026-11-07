@@ -14,6 +14,8 @@ import { fonts, radius, spacing, typography, type ColorPalette } from '@/theme';
 import { useTheme, useThemedStyles } from '@/features/theme/ThemeProvider';
 import { useSimulation } from './SimulationProvider';
 import { ApplicationIcon } from './ApplicationIcon';
+import { ApplicationCatalogCard } from '@/features/access/ApplicationCatalogCard';
+import { findApplicationBrand } from './services/application-brand';
 import { listInstallationHistory, type InstallationRequest } from './services/installation-requests';
 import { findApprovedRequest } from './services/application-release';
 import { ReleaseDeadline } from '@/features/access/ReleaseDeadline';
@@ -30,11 +32,12 @@ export function ApplicationsRestrictionScreen({ computer }: { computer: PairedCo
   const [loadState, setLoadState] = useState<LoadState>('loading');
   const [errorMessage, setErrorMessage] = useState('');
   const [query, setQuery] = useState('');
+  const [expandedApp, setExpandedApp] = useState<string | null>(null);
   const [history, setHistory] = useState<InstallationRequest[]>([]);
   const [historyError, setHistoryError] = useState(false);
   const loadRequest = useRef(0);
   const [confirmationOpen, setConfirmationOpen] = useState(false);
-  const { t, localize } = useLanguage();
+  const { language, t, localize } = useLanguage();
   const { colors } = useTheme();
   const styles = useThemedStyles(createStyles);
   const { snapshot, save, busy } = useSimulation();
@@ -96,7 +99,7 @@ export function ApplicationsRestrictionScreen({ computer }: { computer: PairedCo
   return (
     <SafeAreaView edges={['left', 'right']} style={styles.safeArea}>
       <View style={styles.container} accessibilityElementsHidden={confirmationOpen} importantForAccessibility={confirmationOpen ? 'no-hide-descendants' : 'auto'}>
-        <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled" keyboardDismissMode="on-drag">
+        <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled" keyboardDismissMode="on-drag">
           <Text accessibilityRole="header" style={styles.screenTitle}>{t('nav.apps')}</Text>
 
           {loadState === 'loading' ? (
@@ -144,25 +147,37 @@ export function ApplicationsRestrictionScreen({ computer }: { computer: PairedCo
 
               {visibleApplications.length > 0 ? (
                 <View style={styles.applicationList}>
-                  {visibleApplications.map((application) => (
-                    <Pressable
-                      key={application.id}
-                      accessibilityLabel={`${application.name}, ${t(application.allowed ? 'restriction.allowed' : 'restriction.restricted')}`}
-                      accessibilityRole="switch"
-                      accessibilityState={{ checked: application.allowed, disabled: busy }}
-                      disabled={busy}
-                      onPress={() => toggleApplication(application.id)}
-                      style={({ pressed }) => [styles.applicationRow, pressed && styles.pressed]}
-                    >
-                      <ApplicationIcon name={application.name} />
-                      <View style={styles.applicationCopy}>
-                        <Text style={styles.applicationName}>{application.name}</Text>
-                        <Text style={styles.applicationCategory}>{application.category}</Text>
-                        {application.approvedRequest ? <ReleaseDeadline computer={computer} requestId={application.approvedRequest.id} /> : null}
+                  {visibleApplications.map((application) => {
+                    const brand = findApplicationBrand(application.name);
+                    const expanded = expandedApp === application.id;
+                    return (
+                      <View key={application.id} style={styles.applicationItem}>
+                        <Pressable
+                          accessibilityLabel={`${application.name}, ${t(application.allowed ? 'restriction.allowed' : 'restriction.restricted')}`}
+                          accessibilityRole="switch"
+                          accessibilityState={{ checked: application.allowed, disabled: busy }}
+                          disabled={busy}
+                          onPress={() => toggleApplication(application.id)}
+                          style={({ pressed }) => [styles.applicationRow, pressed && styles.pressed]}
+                        >
+                          <ApplicationIcon name={application.name} />
+                          <View style={styles.applicationCopy}>
+                            <Text style={styles.applicationName}>{application.name}</Text>
+                            <Text style={styles.applicationCategory}>{application.category}</Text>
+                            {application.approvedRequest ? <ReleaseDeadline computer={computer} requestId={application.approvedRequest.id} /> : null}
+                          </View>
+                          <SwitchControl value={application.allowed} />
+                        </Pressable>
+                        {brand ? (
+                          <Pressable accessibilityRole="button" accessibilityState={{ expanded }}
+                            onPress={() => setExpandedApp(expanded ? null : application.id)} style={styles.detailsButton}>
+                            <Text style={styles.restrictText}>{t('access.aboutApplication', { name: application.name })}</Text>
+                          </Pressable>
+                        ) : null}
+                        {brand && expanded ? <ApplicationCatalogCard key={`${brand}-${language}`} brand={brand} name={application.name} /> : null}
                       </View>
-                      <SwitchControl value={application.allowed} />
-                    </Pressable>
-                  ))}
+                    );
+                  })}
                 </View>
               ) : (
                 <Text style={styles.stateText}>{t(applications.length === 0 ? 'restriction.noApplications' : 'restriction.noAppMatch')}</Text>
@@ -246,7 +261,9 @@ const createStyles = (colors: ColorPalette) => StyleSheet.create({
   summaryText: { color: colors.textSecondary, fontSize: typography.body },
   restrictText: { color: colors.accentText, fontSize: typography.body },
   applicationList: { backgroundColor: colors.surface, borderColor: colors.border, borderRadius: radius.md, borderWidth: 1, overflow: 'hidden' },
-  applicationRow: { alignItems: 'center', borderBottomColor: colors.border, borderBottomWidth: 1, flexDirection: 'row', gap: spacing.md, minHeight: 72, paddingHorizontal: spacing.md, paddingVertical: spacing.md },
+  applicationItem: { borderBottomColor: colors.border, borderBottomWidth: 1 },
+  detailsButton: { alignSelf: 'flex-start', minHeight: 44, justifyContent: 'center', paddingHorizontal: spacing.md },
+  applicationRow: { alignItems: 'center', flexDirection: 'row', gap: spacing.md, minHeight: 72, paddingHorizontal: spacing.md, paddingVertical: spacing.md },
   applicationCopy: { flex: 1, gap: 2 },
   applicationName: { color: colors.textPrimary, fontSize: typography.body, fontWeight: '600' },
   applicationCategory: { color: colors.textSecondary, fontSize: typography.label },
