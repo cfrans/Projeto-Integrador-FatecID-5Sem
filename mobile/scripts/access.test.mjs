@@ -8,9 +8,78 @@ import { createBedtimeStore } from '../src/features/settings/bedtime-store.ts';
 import { parseInstallationHistory, listInstallationHistory } from '../src/features/restrictions/services/installation-requests.ts';
 import { emptyRequestBanners, updateRequestBanners } from '../src/features/access/request-banner-state.ts';
 import { findApprovedRequest } from '../src/features/restrictions/services/application-release.ts';
+import { applicationCatalog } from '../../simulated-client/catalog.mjs';
+import { findApplicationBrand, flathubIds } from '../src/features/restrictions/services/application-brand.ts';
+import { fetchCatalogDetails } from '../src/features/access/services/flathub.ts';
 
 const originalFetch = globalThis.fetch;
 afterEach(() => { globalThis.fetch = originalFetch; api.setAccessToken(null); });
+
+test('every simulator app resolves to its own catalog entry, including desktop ID aliases', async () => {
+  const signal = new AbortController().signal;
+  for (const { name, id } of applicationCatalog) {
+    const brand = findApplicationBrand(name);
+    assert.equal(brand, id);
+    const flatpak = flathubIds[brand];
+    assert.equal(findApplicationBrand(flatpak), brand);
+    globalThis.fetch = async (url) => {
+      assert.equal(url, `https://flathub.org/api/v2/appstream/${flatpak}?locale=pt-BR`);
+      return Response.json({ id: flatpak, summary: name });
+    };
+    assert.equal((await fetchCatalogDetails(brand, 'pt-BR', signal)).summary, name);
+  }
+  assert.equal(findApplicationBrand('Unknown program'), null);
+});
+
+test('GIMP requests public localized metadata and selects a display-sized Flathub image', async () => {
+  const signal = new AbortController().signal;
+  const uri = 'https://dl.flathub.org/media/gimp/624.png';
+  globalThis.fetch = async (url, options) => {
+    assert.equal(url, 'https://flathub.org/api/v2/appstream/org.gimp.GIMP?locale=es');
+    assert.deepEqual(options, { credentials: 'omit', signal });
+    return Response.json({ id: 'org.gimp.GIMP', summary: ' Editor ', screenshots: [
+      { caption: 'Credit', sizes: [
+        { width: '1920', src: 'https://dl.flathub.org/media/gimp/original.png' },
+        { width: '600', src: 'https://example.org/other.png' },
+        { width: '624', src: uri },
+      ] },
+    ] });
+  };
+  const details = await fetchCatalogDetails('gimp', 'es', signal);
+  assert.equal(details.summary, 'Editor');
+  assert.deepEqual(details.screenshot, { uri, caption: 'Credit' });
+});
+
+test('GIMP accepts a missing screenshot and rejects a wrong entry or failed request', async () => {
+  const signal = new AbortController().signal;
+  globalThis.fetch = async () => Response.json({ id: 'org.gimp.GIMP', summary: 'Editor' });
+  assert.deepEqual(await fetchCatalogDetails('gimp', 'en', signal), { summary: 'Editor', screenshot: null, description: [], version: null, rating: null });
+  globalThis.fetch = async () => Response.json({ id: 'other', summary: 'Editor' });
+  await assert.rejects(fetchCatalogDetails('gimp', 'pt-BR', signal));
+  globalThis.fetch = async () => new Response(null, { status: 503 });
+  await assert.rejects(fetchCatalogDetails('gimp', 'pt-BR', signal));
+});
+
+test('GIMP keeps updated catalog text, selects the local rating and the stable release', async () => {
+  globalThis.fetch = async () => Response.json({
+    id: 'org.gimp.GIMP', summary: 'High-end image creation and manipulation',
+    description: '<p>Novo texto do catálogo.</p><p>Um <em>segundo</em> parágrafo.</p>',
+    releases: [{ type: 'development', version: '4' }, { type: 'stable', version: '3' }],
+    content_rating_details: {
+      en_US: { minimumAgeText: 'Early Childhood' },
+      pt_BR: { minimumAge: 3, minimumAgeText: 'L', contentRatingSystem: 'DJCTQ', categories: [
+        null, { description: 'Impossível conversar com outros usuários' }, { description: 123 },
+      ] },
+    },
+    screenshots: [{ caption: 'A new caption and credit', sizes: [{ width: 624, src: 'https://dl.flathub.org/media/test.png' }] }],
+  });
+  const details = await fetchCatalogDetails('gimp', 'pt-BR', new AbortController().signal);
+  assert.match(details.summary, /retocar fotos/);
+  assert.deepEqual(details.description, ['Novo texto do catálogo.', 'Um segundo parágrafo.']);
+  assert.equal(details.version, '3');
+  assert.deepEqual(details.rating, { label: 'L', system: 'DJCTQ', indicators: ['Impossível conversar com outros usuários'] });
+  assert.equal(details.screenshot.caption, 'A new caption and credit');
+});
 
 test('local deadlines handle calendar weeks, year changes and configured bedtime', () => {
   for (const [start, expected] of [

@@ -64,7 +64,7 @@ function RootNavigator() {
             headerStyle: { backgroundColor: colors.background },
             headerTintColor: colors.textPrimary,
             headerTitleStyle: { color: colors.textPrimary },
-            cardStyle: { backgroundColor: colors.background },
+            cardStyle: { backgroundColor: colors.background, ...(Platform.OS === 'web' && { height: '100%' }) },
           }}
         >
           <Stack.Protected guard={status !== 'authenticated'}>

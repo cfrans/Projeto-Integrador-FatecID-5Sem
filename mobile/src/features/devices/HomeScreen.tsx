@@ -100,6 +100,7 @@ export function HomeScreen() {
   }
 
   const computers = state.status === 'loaded' ? state.computers : [];
+  const hasPairedComputer = computers.some((computer) => computer.isPaired);
   const requestItems = useRequestItems(pending);
 
   return (
@@ -160,7 +161,7 @@ export function HomeScreen() {
           {requestItems.slice(0, HOME_REQUEST_LIMIT).map((item) => <RequestCard key={`${item.kind}-${item.id}`} item={item} />)}
         </View>
 
-        <View style={styles.pairingCard}>
+        {state.status === 'loaded' && !hasPairedComputer ? <View style={styles.pairingCard}>
           <View style={styles.pairingCopy}>
             <Text style={styles.pairingTitle}>{t('common.addComputer')}</Text>
             <Text style={styles.pairingDescription}>{t('home.addDescription')}</Text>
@@ -169,22 +170,32 @@ export function HomeScreen() {
             label={t('common.addComputer')}
             onPress={() => router.push('/qr-scan')}
           />
-        </View>
+        </View> : null}
 
-        <View style={styles.sectionHeader}>
+        <View style={[styles.sectionHeader, styles.computersHeader]}>
           <View style={styles.sectionHeading}>
             <Text style={styles.sectionTitle}>{t('common.computers')}</Text>
             {state.status === 'loaded' ? (
               <Text style={styles.count}>{computers.length}</Text>
             ) : null}
           </View>
-          <Pressable
-            accessibilityRole="button"
-            onPress={() => router.push('/computers')}
-            style={({ pressed }) => [styles.linkButton, pressed && styles.pressed]}
-          >
-            <Text style={styles.link}>{t('common.viewAll')}</Text>
-          </Pressable>
+          <View style={styles.computerActions}>
+            <Pressable
+              accessibilityRole="button"
+              onPress={() => router.push('/computers')}
+              style={({ pressed }) => [styles.linkButton, pressed && styles.pressed]}
+            >
+              <Text style={styles.link}>{t('common.viewAll')}</Text>
+            </Pressable>
+            {hasPairedComputer ? <Pressable
+              accessibilityRole="button"
+              accessibilityLabel={t('common.addComputer')}
+              onPress={() => router.push('/qr-scan')}
+              style={({ pressed }) => [styles.addComputerButton, pressed && styles.pressed]}
+            >
+              <Text style={styles.addComputerIcon}>+</Text>
+            </Pressable> : null}
+          </View>
         </View>
 
         {state.status === 'loading' ? (
@@ -388,6 +399,10 @@ const createStyles = (colors: ColorPalette) => StyleSheet.create({
   pairingTitle: { color: colors.textPrimary, fontSize: typography.body, fontWeight: '600' },
   pairingDescription: { color: colors.textSecondary, fontSize: typography.label, lineHeight: 18 },
   sectionHeader: { alignItems: 'center', flexDirection: 'row', justifyContent: 'space-between' },
+  computersHeader: { flexWrap: 'wrap', gap: spacing.sm },
+  computerActions: { alignItems: 'center', flexDirection: 'row', gap: spacing.sm },
+  addComputerButton: { minWidth: 44, minHeight: 44, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.surfaceRaised, borderColor: colors.border, borderWidth: 1, borderRadius: radius.md },
+  addComputerIcon: { color: colors.accentText, fontSize: 28, lineHeight: 32 },
   sectionHeading: { alignItems: 'center', flexDirection: 'row', gap: spacing.sm },
   sectionTitle: { color: colors.textPrimary, fontSize: 18, fontWeight: '600' },
   count: {

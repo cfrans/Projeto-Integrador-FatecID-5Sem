@@ -71,6 +71,8 @@ No login, cadastro e recuperação de senha mantêm a ordem original, com alvos 
 
 ## Home, computadores e pareamento
 
+Na Home, o cartão **Adicionar computador** aparece após carregar a lista somente quando não há PC pareado. Com pelo menos um vínculo ativo, um botão **+** no cabeçalho de **Computadores**, ao lado de **Ver todos**, abre a leitura do QR. O botão mantém rótulo acessível e área de toque mínima de 44.
+
 Na Home, Sair é um botão compacto com ícone à esquerda, contorno e fundo no canto superior, com alvo de toque mínimo de 44, sem ocupar uma linha inteira. A Home e a lista mantêm cards compactos com nome, conta gerenciada e status acompanhado de texto. As ações contornadas abrem a lista ou o pareamento. Carregamento, erro com nova tentativa e lista vazia usam a mesma paleta. A lista utiliza `FlatList`; o conteúdo da Home pode rolar.
 
 O pareamento preserva a moldura de leitura e a confirmação do HTML numa única rota. A leitura usa `expo-camera`; confirmação do computador e remoção de vínculo reutilizam os componentes existentes. Dados demonstrativos continuam identificados como demonstração. O Button mantém estado desativado visual e acessível durante solicitações pendentes; nenhuma mudança de paleta ou estrutura de navegação foi necessária.

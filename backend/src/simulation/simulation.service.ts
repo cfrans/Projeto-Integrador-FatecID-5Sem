@@ -101,6 +101,14 @@ export class SimulationService {
         throw new ConflictException(
           'As configurações mudaram. Atualize e tente novamente.',
         );
+      const current = state.settings as Settings;
+      const revokedRequests = Object.entries(patch.installationDecisions ?? {})
+        .filter(
+          ([requestId, decision]) =>
+            decision === 'DENIED' &&
+            current.installationDecisions[requestId] === 'APPROVED',
+        )
+        .map(([requestId]) => requestId);
       if (patch.applicationRules) {
         const count = await tx.installedApplication.count({
           where: { deviceId, id: { in: Object.keys(patch.applicationRules) } },
@@ -111,14 +119,25 @@ export class SimulationService {
         const count = await tx.installationRequest.count({
           where: {
             deviceId,
-            status: 'PENDING',
             id: { in: Object.keys(patch.installationDecisions) },
+            OR: [
+              { status: 'PENDING' },
+              { status: 'APPROVED', id: { in: revokedRequests } },
+            ],
           },
         });
         if (count !== Object.keys(patch.installationDecisions).length)
           invalid();
       }
-      const settings = mergeSettings(state.settings as Settings, patch);
+      const settings = mergeSettings(current, patch);
+      if (revokedRequests.length) {
+        const installed = await tx.installedApplication.findMany({
+          where: { deviceId, id: { in: revokedRequests } },
+          select: { id: true },
+        });
+        for (const application of installed)
+          settings.applicationRules[application.id] = false;
+      }
       if (
         Object.keys(settings.applicationRules).length > 100 ||
         Object.keys(settings.installationDecisions).length > 100
