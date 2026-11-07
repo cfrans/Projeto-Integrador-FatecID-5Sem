@@ -32,7 +32,7 @@ export function ApplicationsRestrictionScreen({ computer }: { computer: PairedCo
   const [loadState, setLoadState] = useState<LoadState>('loading');
   const [errorMessage, setErrorMessage] = useState('');
   const [query, setQuery] = useState('');
-  const [expandedApp, setExpandedApp] = useState<string | null>(null);
+  const [selectedAppId, setSelectedAppId] = useState<string | null>(null);
   const [history, setHistory] = useState<InstallationRequest[]>([]);
   const [historyError, setHistoryError] = useState(false);
   const loadRequest = useRef(0);
@@ -43,7 +43,10 @@ export function ApplicationsRestrictionScreen({ computer }: { computer: PairedCo
   const { snapshot, save, busy } = useSimulation();
 
   useFocusEffect(useCallback(() => {
-    return () => { setConfirmationOpen(false); };
+    return () => {
+      setConfirmationOpen(false);
+      setSelectedAppId(null);
+    };
   }, []));
 
   const loadApplications = useCallback(async () => {
@@ -70,7 +73,10 @@ export function ApplicationsRestrictionScreen({ computer }: { computer: PairedCo
 
   useFocusEffect(useCallback(() => {
     void loadApplications();
-    return () => { loadRequest.current += 1; };
+    return () => {
+      loadRequest.current += 1;
+      setSelectedAppId(null);
+    };
   }, [loadApplications]));
 
   const configuredApplications = applications.map((application) => ({ ...application, approvedRequest: findApprovedRequest(history, application.name), allowed: snapshot.settings.applicationRules[application.id] ?? application.allowed }));
@@ -78,6 +84,10 @@ export function ApplicationsRestrictionScreen({ computer }: { computer: PairedCo
     `${application.name} ${application.category}`.toLocaleLowerCase().includes(query.trim().toLocaleLowerCase()),
   );
   const allowedCount = configuredApplications.filter((application) => application.allowed).length;
+  const selectedApplication = applications.find((application) => application.id === selectedAppId);
+  const selectedBrand = selectedApplication ? findApplicationBrand(selectedApplication.name) : null;
+  const detailsOpen = Boolean(selectedApplication && selectedBrand);
+  const modalOpen = confirmationOpen || detailsOpen;
 
   function toggleApplication(id: string) {
     const application = configuredApplications.find((item) => item.id === id);
@@ -98,7 +108,7 @@ export function ApplicationsRestrictionScreen({ computer }: { computer: PairedCo
 
   return (
     <SafeAreaView edges={['left', 'right']} style={styles.safeArea}>
-      <View style={styles.container} accessibilityElementsHidden={confirmationOpen} importantForAccessibility={confirmationOpen ? 'no-hide-descendants' : 'auto'}>
+      <View style={styles.container} accessibilityElementsHidden={modalOpen} importantForAccessibility={modalOpen ? 'no-hide-descendants' : 'auto'}>
         <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled" keyboardDismissMode="on-drag">
           <Text accessibilityRole="header" style={styles.screenTitle}>{t('nav.apps')}</Text>
 
@@ -149,7 +159,6 @@ export function ApplicationsRestrictionScreen({ computer }: { computer: PairedCo
                 <View style={styles.applicationList}>
                   {visibleApplications.map((application) => {
                     const brand = findApplicationBrand(application.name);
-                    const expanded = expandedApp === application.id;
                     return (
                       <View key={application.id} style={styles.applicationItem}>
                         <Pressable
@@ -169,12 +178,14 @@ export function ApplicationsRestrictionScreen({ computer }: { computer: PairedCo
                           <SwitchControl value={application.allowed} />
                         </Pressable>
                         {brand ? (
-                          <Pressable accessibilityRole="button" accessibilityState={{ expanded }}
-                            onPress={() => setExpandedApp(expanded ? null : application.id)} style={styles.detailsButton}>
-                            <Text style={styles.restrictText}>{t('access.aboutApplication', { name: application.name })}</Text>
+                          <Pressable accessibilityRole="button" accessibilityLabel={t('access.aboutApplication', { name: application.name })}
+                            onPress={() => { Keyboard.dismiss(); setSelectedAppId(application.id); }}
+                            style={({ pressed }) => [styles.detailsButton, pressed && styles.pressed]}>
+                            <View accessible={false} importantForAccessibility="no-hide-descendants" style={styles.infoIcon}>
+                              <Text style={styles.infoText}>i</Text>
+                            </View>
                           </Pressable>
                         ) : null}
-                        {brand && expanded ? <ApplicationCatalogCard key={`${brand}-${language}`} brand={brand} name={application.name} /> : null}
                       </View>
                     );
                   })}
@@ -186,6 +197,24 @@ export function ApplicationsRestrictionScreen({ computer }: { computer: PairedCo
           ) : null}
         </ScrollView>
       </View>
+      <Modal visible={detailsOpen} transparent animationType="fade" onRequestClose={() => setSelectedAppId(null)}>
+        <SafeAreaView style={styles.modalOverlay}>
+          <Pressable accessible={false} importantForAccessibility="no" style={styles.modalBackdrop} onPress={() => setSelectedAppId(null)} />
+          <View accessibilityViewIsModal style={styles.dialog}>
+            <View style={styles.detailsHeader}>
+              <Pressable accessibilityRole="button" accessibilityLabel={t('common.close')} onPress={() => setSelectedAppId(null)}
+                style={({ pressed }) => [styles.closeButton, pressed && styles.pressed]}>
+                <Text style={styles.clearText}>×</Text>
+              </Pressable>
+            </View>
+            <ScrollView style={styles.detailsScroll} contentContainerStyle={styles.detailsContent} bounces={false}>
+              {selectedApplication && selectedBrand ? (
+                <ApplicationCatalogCard key={`${selectedApplication.id}-${language}`} brand={selectedBrand} name={selectedApplication.name} />
+              ) : null}
+            </ScrollView>
+          </View>
+        </SafeAreaView>
+      </Modal>
       <Modal visible={confirmationOpen} transparent animationType="fade" onRequestClose={() => setConfirmationOpen(false)}>
         <SafeAreaView style={styles.modalOverlay}>
           <Pressable accessible={false} importantForAccessibility="no" style={styles.modalBackdrop} onPress={() => setConfirmationOpen(false)} />
@@ -242,6 +271,10 @@ const createStyles = (colors: ColorPalette) => StyleSheet.create({
   dialogDescription: { color: colors.textSecondary, fontSize: typography.body, lineHeight: 22 },
   dialogActions: { gap: spacing.sm },
   dialogConfirm: { backgroundColor: colors.accentSoft },
+  detailsHeader: { alignItems: 'flex-end', paddingHorizontal: spacing.sm, paddingTop: spacing.xs },
+  closeButton: { minWidth: 44, minHeight: 44, alignItems: 'center', justifyContent: 'center' },
+  detailsScroll: { flexShrink: 1 },
+  detailsContent: { paddingHorizontal: spacing.md, paddingBottom: spacing.md },
   safeArea: { backgroundColor: colors.background, flex: 1 },
   container: { flex: 1 },
   content: { padding: spacing.lg, paddingBottom: spacing.xxl },
@@ -261,10 +294,12 @@ const createStyles = (colors: ColorPalette) => StyleSheet.create({
   summaryText: { color: colors.textSecondary, fontSize: typography.body },
   restrictText: { color: colors.accentText, fontSize: typography.body },
   applicationList: { backgroundColor: colors.surface, borderColor: colors.border, borderRadius: radius.md, borderWidth: 1, overflow: 'hidden' },
-  applicationItem: { borderBottomColor: colors.border, borderBottomWidth: 1 },
-  detailsButton: { alignSelf: 'flex-start', minHeight: 44, justifyContent: 'center', paddingHorizontal: spacing.md },
-  applicationRow: { alignItems: 'center', flexDirection: 'row', gap: spacing.md, minHeight: 72, paddingHorizontal: spacing.md, paddingVertical: spacing.md },
-  applicationCopy: { flex: 1, gap: 2 },
+  applicationItem: { alignItems: 'center', flexDirection: 'row', borderBottomColor: colors.border, borderBottomWidth: 1 },
+  detailsButton: { minWidth: 44, minHeight: 44, alignItems: 'center', justifyContent: 'center', marginRight: spacing.xs },
+  infoIcon: { width: 22, height: 22, borderRadius: radius.pill, borderWidth: 1.5, borderColor: colors.accentText, alignItems: 'center', justifyContent: 'center' },
+  infoText: { color: colors.accentText, fontSize: 15, lineHeight: 18, fontWeight: '700' },
+  applicationRow: { flex: 1, minWidth: 0, alignItems: 'center', flexDirection: 'row', gap: spacing.md, minHeight: 72, paddingHorizontal: spacing.md, paddingVertical: spacing.md },
+  applicationCopy: { flex: 1, minWidth: 0, gap: 2 },
   applicationName: { color: colors.textPrimary, fontSize: typography.body, fontWeight: '600' },
   applicationCategory: { color: colors.textSecondary, fontSize: typography.label },
   switch: { backgroundColor: colors.surfaceRaised, borderColor: colors.textMuted, borderRadius: radius.pill, borderWidth: 2, height: 36, justifyContent: 'center', paddingHorizontal: 4, width: 64 },

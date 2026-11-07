@@ -40,7 +40,7 @@ $env:EXPO_PUBLIC_API_URL = 'http://127.0.0.1:3000'
 npm run web
 ```
 
-Use a conta responsável por um PC demonstrativo já pareado. Envie um pedido de instalação de qualquer aplicativo do [client simulado](simulated-client.md) e abra o pedido na Home do app web. A aba **Instalação** também dá acesso ao cartão pelo botão **Detalhes de…**. Para consultar um app já instalado, abra **Restrições → Aplicativos** e selecione **Detalhes de…** abaixo do item. Com o vínculo existente, essa validação dispensa a câmera.
+Use a conta responsável por um PC demonstrativo já pareado. Envie um pedido de instalação de qualquer aplicativo do [client simulado](simulated-client.md) e abra o pedido na Home do app web. A aba **Instalação** também dá acesso ao cartão pelo botão **Detalhes de…**. Para consultar um app já instalado, abra **Restrições → Aplicativos** e toque no ícone de informação na linha do item. A ficha abre em um modal com conteúdo rolável; o X no topo, o toque fora e o retorno do sistema fecham o modal. Com o vínculo existente, essa validação dispensa a câmera.
 
 O app associa os nomes conhecidos ao ID do Flathub e consulta a ficha pública no idioma da interface. Na aba Rede do navegador, filtre por `api/v2/appstream` para conferir a chamada. O cartão exibe resumo, versão estável e captura com legenda quando disponíveis. O selo no canto usa a classificação regional do catálogo. A classificação informada pelo simulador aparece separadamente nos dados do pedido. Os botões expandem os indicadores de conteúdo e a descrição. Pedidos antigos com nomes desconhecidos mantêm o fluxo de decisão sem consulta externa.
 

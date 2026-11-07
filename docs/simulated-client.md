@@ -26,6 +26,8 @@ A senha e o JWT usados no cadastro não são persistidos. A credencial individua
 
 O catálogo representa uma loja/varredura demonstrativa, sem examinar o Windows ou o Lux. A seleção mostra logos reutilizados dos assets documentados do mobile; classificação e categoria são exemplos da demonstração. Apps já instalados ou com pedido pendente não podem ser solicitados novamente. Após aprovação, o client adiciona o app ao inventário local com ID estável, persiste a identidade e publica o novo inventário pela API. Uma aprovação antiga também é reconciliada ao reiniciar; nenhum programa é instalado de fato. Nomes livres antigos são preservados, mas novos pedidos precisam pertencer ao catálogo. Os prazos continuam locais ao celular e não encerram aplicativos no client.
 
+**Encerrar liberação agora** revoga uma aprovação do vínculo atual, mesmo após sua confirmação pelo client. Na próxima sincronização, o pedido aparece como recusado e o aplicativo permanece no inventário, bloqueado na simulação. Desligar a permissão na lista de aplicativos altera apenas o bloqueio, preservando a decisão do pedido.
+
 ## Sair e recomeçar
 
 Com um PC cadastrado, o client oferece duas ações com confirmação:

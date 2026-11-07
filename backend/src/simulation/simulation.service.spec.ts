@@ -23,6 +23,7 @@ describe('Simulated computer synchronization', () => {
     simulationState: { upsert: vi.fn(), update: vi.fn() },
     installedApplication: {
       count: vi.fn(),
+      findMany: vi.fn(),
       deleteMany: vi.fn(),
       createMany: vi.fn(),
     },
@@ -70,6 +71,7 @@ describe('Simulated computer synchronization', () => {
     tx.simulationState.update.mockResolvedValue(state());
     tx.device.create.mockResolvedValue({ id: deviceId, isDemo: true });
     tx.installedApplication.count.mockResolvedValue(1);
+    tx.installedApplication.findMany.mockResolvedValue([]);
     tx.installationRequest.count.mockResolvedValue(1);
   });
 
@@ -228,6 +230,32 @@ describe('Simulated computer synchronization', () => {
     ).rejects.toMatchObject({ status: 409 });
     expect(tx.installedApplication.deleteMany).not.toHaveBeenCalled();
     expect(tx.simulationState.update).not.toHaveBeenCalled();
+  });
+
+  it('revokes a confirmed approval and blocks its installed app without confirming application', async () => {
+    tx.simulationState.upsert.mockResolvedValue({
+      ...state(),
+      settings: {
+        ...defaults(),
+        installationDecisions: { [associationId]: 'APPROVED' },
+        applicationRules: { [associationId]: true, [deviceId]: true },
+      },
+    });
+    tx.installedApplication.findMany.mockResolvedValue([{ id: associationId }]);
+    await service.update(deviceId, 'guardian', {
+      revision: 1,
+      settings: { installationDecisions: { [associationId]: 'DENIED' } },
+    });
+    expect(tx.simulationState.update.mock.calls[0][0].data).toMatchObject({
+      revision: { increment: 1 },
+      settings: {
+        installationDecisions: { [associationId]: 'DENIED' },
+        applicationRules: { [associationId]: false, [deviceId]: true },
+      },
+    });
+    expect(tx.simulationState.update.mock.calls[0][0].data).not.toHaveProperty(
+      'appliedRevision',
+    );
   });
 
   it('publishes inventory, decisions and acknowledgement atomically in one transaction', async () => {
