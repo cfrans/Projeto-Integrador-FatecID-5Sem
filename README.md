@@ -4,11 +4,14 @@
 
 <h1 align="center">piplup</h1>
 
+<p align="center">Parental Insight Platform for Lux User Protection</p>
+
 <p align="center">
   <a href="https://expo.dev/"><img src="https://img.shields.io/badge/Expo-SDK%2057-000020?logo=expo&amp;logoColor=white" alt="Expo SDK 57"></a>
   <a href="https://reactnative.dev/"><img src="https://img.shields.io/badge/React_Native-0.86-20232A?logo=react&amp;logoColor=white" alt="React Native"></a>
   <a href="https://www.typescriptlang.org/"><img src="https://img.shields.io/badge/TypeScript-6-3178C6?logo=typescript&amp;logoColor=white" alt="TypeScript"></a>
   <a href="https://nodejs.org/"><img src="https://img.shields.io/badge/Node.js-24-5FA04E?logo=nodedotjs&amp;logoColor=white" alt="Node.js 24"></a>
+  <a href="https://creativecommons.org/licenses/by-nc-nd/4.0/deed.pt-br"><img src="https://img.shields.io/badge/Licen%C3%A7a-CC%20BY--NC--ND%204.0-blue?logo=creativecommons&amp;logoColor=white" alt="Licença: CC BY-NC-ND 4.0"></a>
   <br>
   <a href="https://nestjs.com/"><img src="https://img.shields.io/badge/NestJS-12-E0234E?logo=nestjs&amp;logoColor=white" alt="NestJS"></a>
   <a href="https://www.prisma.io/"><img src="https://img.shields.io/badge/Prisma-7-2D3748?logo=prisma&amp;logoColor=white" alt="Prisma"></a>
@@ -38,6 +41,7 @@
 - [Limites de validação dos fluxos](#limites-de-validação-dos-fluxos)
 - [Problemas e referências](#problemas-e-referências)
 - [Documentação](#documentação)
+- [📜 Licença](#-licença)
 
 ---
 
@@ -304,3 +308,9 @@ Os fluxos com e sem Docker usam os mesmos scripts, configuração e migrations. 
 ## Documentação
 
 Testes: [backend](docs/backend.md#verificações), [mobile](docs/mobile.md#configuração-e-verificações) e [checklist no celular](docs/mobile.md#validação-manual-no-celular). Builds: [EAS](docs/mobile.md#builds-com-eas). Projeto: [índice](docs/README.md), [arquitetura](docs/architecture.md), [design](docs/design.md) e [Lux Agent](docs/lux-integration.md).
+
+---
+
+## 📜 Licença
+
+Este projeto está sob a licença [**CC BY-NC-ND 4.0**](https://creativecommons.org/licenses/by-nc-nd/4.0/deed.pt-br) (Creative Commons — Atribuição, Não Comercial, Sem Derivações). O compartilhamento é permitido com atribuição, para fins não comerciais e sem distribuição de versões modificadas. Materiais de terceiros mantêm suas respectivas licenças.
