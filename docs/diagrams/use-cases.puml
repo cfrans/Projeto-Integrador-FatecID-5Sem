@@ -1,0 +1,49 @@
+@startuml
+!pragma layout smetana
+left to right direction
+skinparam shadowing false
+actor "Responsável" as Guardian
+actor "Usuário do PC\nsimulado" as Child
+actor "Client simulado" as Client
+
+rectangle "piplup — MVP acadêmico" {
+  usecase "UC01 — Criar conta e\nautenticar responsável" as UC01
+  usecase "UC02 — Validar e consumir\npareamento temporário" as UC02
+  usecase "UC03 — Consultar PCs e\nrevogar vínculo" as UC03
+  usecase "UC04 — Consultar inventário e\nconfigurar restrições demonstrativas" as UC04
+  usecase "UC05 — Acompanhar pendência,\nconfirmação e indisponibilidade" as UC05
+  usecase "UC06 — Decidir pedido\nde instalação" as UC06
+  usecase "UC07 — Gerenciar conta,\nrecuperação e preferências" as UC07
+  usecase "UC08 — Salvar e aplicar\nperfis locais" as UC08
+  usecase "Cadastrar PC demonstrativo\ne emitir QR temporário" as RegisterPC
+  usecase "Publicar inventário, pedidos\ne confirmação simulada" as Report
+  usecase "Solicitar instalação\ndemonstrativa" as Request
+}
+
+Guardian --> UC01
+Guardian --> UC02
+Guardian --> UC03
+Guardian --> UC04
+Guardian --> UC05
+Guardian --> UC06
+Guardian --> UC07
+Guardian --> UC08
+Guardian --> RegisterPC
+Client --> RegisterPC
+Client --> Report
+Child --> Request
+Client --> Request
+UC08 ..> UC04 : <<include>>
+UC04 ..> UC05 : <<include>>
+UC06 ..> UC05 : <<include>>
+
+note bottom of UC02
+  Responsável autenticado, token de uso único,
+  validade de 5 minutos e um vínculo ativo por PC.
+  A leitura física pela câmera exige teste em aparelho.
+end note
+note bottom of Report
+  Confirmação válida somente no simulador.
+  Aplicação de políticas no Lux fica fora deste MVP.
+end note
+@enduml

@@ -95,7 +95,7 @@ export function SimulationProvider({ computer, children }: { computer: PairedCom
         </Text> : null}
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 7 }}>
           <View style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: error ? colors.danger : snapshot?.appliedRevision === snapshot?.revision && snapshot && !busy ? colors.success : colors.textMuted }} />
-          <Text accessibilityLiveRegion="polite" style={{ color: colors.textSecondary, fontSize: 12, flexShrink: 1 }}>
+          <Text testID="simulation-status" accessibilityLiveRegion="polite" style={{ color: colors.textSecondary, fontSize: 12, flexShrink: 1 }}>
             {t(!isDemo ? 'simulation.realUnavailable' : busy ? 'simulation.saving' : !snapshot ? 'simulation.loading' : snapshot.appliedRevision === snapshot.revision ? 'simulation.applied' : 'simulation.pending')}
             {snapshot?.appliedAt && snapshot.appliedRevision === snapshot.revision ? ` · ${new Intl.DateTimeFormat(language, { hour: '2-digit', minute: '2-digit', second: '2-digit' }).format(new Date(snapshot.appliedAt))}` : ''}
           </Text>

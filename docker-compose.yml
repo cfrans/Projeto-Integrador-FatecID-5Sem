@@ -38,6 +38,7 @@ services:
       start_period: 20s
   mysql:
     image: mysql:8.4
+    command: ["--log-bin-trust-function-creators=ON"]
     environment:
       MYSQL_DATABASE: ${MYSQL_DATABASE:?Set MYSQL_DATABASE in .env}
       MYSQL_USER: ${MYSQL_USER:?Set MYSQL_USER in .env}

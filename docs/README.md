@@ -9,6 +9,8 @@ Para instalar e abrir o aplicativo no celular, comece pelo [tutorial da raiz](..
 | [Mobile](mobile.md) | Organização, sessão REST, URL da API e Expo Go |
 | [Backend](backend.md) | Responsabilidades, implementação e contrato da API |
 | [Banco](database.md) | MySQL 8.4 com Docker ou local, Prisma e migrations |
+| [Engenharia de Software III](software-engineering-iii.md) | Casos de uso, classes, backlog, padrões e metodologia ágil |
+| [Testes](testing.md) | Cobertura, limites e execução Cypress/API/MySQL em Docker |
 | [Lux](lux-integration.md) | Agent Python/systemd, interface GTK, hipóteses GNOME, segurança e provas técnicas |
 | [HTTPS do Agent](lux-https-development.md) | Proxy temporário, CA explícita, testes e evidências de transporte seguro |
 | [Protocolo do Agent](agent-protocol.md) | Contrato v1 implementado para ping, idempotência, reserva e recuperação |

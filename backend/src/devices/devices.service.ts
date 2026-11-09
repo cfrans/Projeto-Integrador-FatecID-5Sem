@@ -7,6 +7,15 @@ import { PrismaService } from '../prisma/prisma.service.js';
 import { PairingService } from '../pairing/pairing.service.js';
 import { simulationPresence } from '../simulation/simulation-presence.js';
 
+type DeviceOverview = {
+  id: string;
+  name: string;
+  managedUser: string | null;
+  isDemo: number | boolean;
+  associationId: string | null;
+  lastSeenAt: Date | null;
+};
+
 @Injectable()
 export class DevicesService {
   constructor(
@@ -17,41 +26,23 @@ export class DevicesService {
   async listForGuardian(guardianId: string) {
     let devices;
     try {
-      devices = await this.prisma.device.findMany({
-        where: { guardianId },
-        select: {
-          id: true,
-          name: true,
-          managedUser: true,
-          isDemo: true,
-          agentIdentity: { select: { revokedAt: true } },
-          associations: {
-            where: {
-              guardianId,
-              activeDeviceId: { not: null },
-              revokedAt: null,
-            },
-            select: { id: true, simulation: { select: { lastSeenAt: true } } },
-            take: 1,
-          },
-        },
-        orderBy: [{ name: 'asc' }, { id: 'asc' }],
-      });
+      devices = await this.prisma.$queryRaw<DeviceOverview[]>`
+        SELECT id, name, managedUser, isDemo, associationId, lastSeenAt
+        FROM vw_device_overview WHERE guardianId = ${guardianId}
+        ORDER BY name ASC, id ASC
+      `;
     } catch {
       throw new ServiceUnavailableException(
         'Serviço de dispositivos indisponível.',
       );
     }
 
-    return devices.map(({ associations, agentIdentity, ...device }) => ({
+    return devices.map(({ associationId, lastSeenAt, isDemo, ...device }) => ({
       ...device,
-      ...simulationPresence(
-        device.isDemo && agentIdentity?.revokedAt === null
-          ? (associations[0]?.simulation?.lastSeenAt ?? null)
-          : null,
-      ),
-      paired: associations.length > 0,
-      ...(associations[0] ? { associationId: associations[0].id } : {}),
+      isDemo: Boolean(isDemo),
+      ...simulationPresence(isDemo ? lastSeenAt : null),
+      paired: associationId !== null,
+      ...(associationId ? { associationId } : {}),
     }));
   }
 

@@ -56,15 +56,28 @@ Migrations Prisma são versionadas junto ao código e aplicadas de forma control
 
 `backend/prisma/schema.prisma` define `Guardian` com UUID, email único, nome, hash Argon2id da senha e campos opcionais de pergunta/hash Argon2id da resposta de segurança, e `Device` com UUID, nome, usuário gerenciado opcional, `guardianId` e `isDemo`. As migrations versionadas criam esses modelos. A relação usa comportamento restritivo para exclusão e índice simples por `guardianId`; nomes não são identidade única. `prisma:generate` gera código ignorado pelo Git, sem alterar o banco. Comandos e execução estão em [Backend](backend.md).
 
-### Objetos SQL programáveis (planejado, não aplicado)
+### Objetos SQL programáveis
 
-`backend/prisma/sql/sql-objects.sql` contém a função `fn_pairing_session_status`, a view `vw_device_overview`, a procedure `sp_revoke_device_association` e o trigger `trg_pairing_session_keep_consumed`. O arquivo fica fora de `prisma/migrations`, portanto não é aplicado automaticamente e a API ainda não usa esses objetos. Foi executado apenas em um banco descartável `_test`, sem testes automatizados no repositório. Antes de ativar: movê-lo para uma migration, ligar a API aos objetos e cobrir com teste MySQL. A procedure replica a revogação de `PairingService` (incluindo cancelamento de comandos); a regra não pode divergir. Com log binário ativo, criar função e trigger exige `SUPER` ou `log_bin_trust_function_creators=1` (erro 1419 sem isso). Não use `DELIMITER` em migrations.
+A migration `20261109190000_academic_sql_objects` instala os quatro objetos. O SQL planejado separado foi removido para manter uma única fonte versionada. Não usa `DELIMITER`, que é um comando do cliente MySQL, não do servidor.
+
+| Objeto | Uso efetivo |
+| --- | --- |
+| `fn_pairing_session_status` | `PairingService` calcula estado do token com precedência revogado → consumido → expirado → pendente; o instante é argumento explícito, tornando a função determinística |
+| `vw_device_overview` | `DevicesService` lista os PCs filtrando pelo responsável autenticado; reúne vínculo atual e presença demonstrativa, sem expor hashes ou credenciais |
+| `sp_revoke_device_association` | Revogação pelo responsável e pelo Agent, após autorização no service; invalida vínculo/sessões, cancela comandos pendentes e torna comandos em execução incertos |
+| `trg_pairing_session_keep_consumed` | Rejeita alterações de data/responsável de consumo após um token ter sido consumido, incluindo tentativas de reabri-lo |
+
+A procedure recebe o computador e o vínculo já autorizado, bloqueia a linha de `Device` e sinaliza associação inválida com `SIGNAL SQLSTATE '45000'`. Participa da transação `READ COMMITTED` aberta por `PairingService`: não inicia nem confirma uma transação própria. Exceções propagam ao Prisma, que desfaz todas as alterações; a API preserva 404 para associação não autorizada e 503 para falha operacional. O teste injeta erro depois de atualizações parciais e verifica rollback de comandos, vínculo, dispositivo e sessão.
+
+Função, view e procedure usam `SQL SECURITY INVOKER`. A conta de migrations precisa de permissões de criação e a conta que executa a API precisa de SELECT/EXECUTE e das permissões usadas pela procedure. O Compose de desenvolvimento/testes habilita `log_bin_trust_function_creators=ON` para permitir criação de função/trigger pelo usuário do banco sem conceder `SUPER`. Isso vale para o servidor de desenvolvimento; em MySQL administrado externamente, o administrador deve preparar os privilégios/configuração antes de `migrate deploy` (erro 1419 com binlog ativo sem a preparação). A configuração não altera as senhas de volumes existentes.
+
+`backend/test/sql-objects.mysql-test.mjs` cobre estados/limite de expiração, imutabilidade do consumo, autorização e efeitos da revogação, rollback e presença da view. A suíte existente cobre consumo concorrente e isolamento entre responsáveis. Execute em banco exclusivo conforme [Testes](testing.md); não é necessário alterar o schema Prisma para objetos SQL não expressáveis nele. [Stored programs MySQL 8.4](https://dev.mysql.com/doc/refman/8.4/en/stored-programs-defining.html) e [SQL parametrizado no Prisma 7](https://www.prisma.io/docs/orm/v7/prisma-client/using-raw-sql/raw-queries).
 
 ### Inventário e pedidos persistidos
 
 `InstalledApplication` guarda UUID, computador, `sourceId` estável, nome, categoria e o valor reportado de `allowed`. `InstallationRequest` guarda UUID, computador, `sourceId` estável, aplicativo solicitado, solicitante, data UTC, faixa etária e estado `PENDING`, `APPROVED` ou `DENIED`. A migration `20261104200000_agent_report_idempotency` cria unicidade por dispositivo e `sourceId`, além de `AgentReport`, que registra `reportId`, hash do conteúdo, horário de coleta, horário de recebimento e contagens. Ambos pertencem a `Device` e são removidos em cascata com o computador; revogar vínculo não apaga esses registros.
 
-Os marcadores opcionais `Device.applicationsReportedAt` e `Device.installationRequestsReportedAt` distinguem relatório ausente de relatório vazio. Registros, `AgentReport` e marcadores devem ser atualizados atomicamente pela futura ingestão autenticada do Agent, ainda não implementada. Não representam presença online ou aplicação confirmada de restrições. Os contratos de leitura estão em [Backend](backend.md#consultas-de-aplicativos-e-pedidos-de-instalação).
+Os marcadores opcionais `Device.applicationsReportedAt` e `Device.installationRequestsReportedAt` distinguem relatório ausente de relatório vazio. A ingestão autenticada em `PUT /agent/reports` atualiza inventário, pedidos, `AgentReport` e marcadores atomicamente. Não representam presença online ou aplicação confirmada de restrições. Os contratos de leitura estão em [Backend](backend.md#consultas-de-aplicativos-e-pedidos-de-instalação).
 
 Para **aplicar migrations existentes**, use `npm run prisma:migrate:deploy` em `backend/` ou a inicialização automática do Compose. Esse comando não cria migrations nem exige shadow database.
 

@@ -118,6 +118,7 @@ export default function LoginScreen() {
                     <MailIcon color={colors.textSecondary} />
                   </View>
                   <Input
+                    testID="login-email"
                     ref={emailInput}
                     style={styles.iconInput}
                     accessibilityLabel={t('common.email')}
@@ -151,6 +152,7 @@ export default function LoginScreen() {
                       <LockIcon color={colors.textSecondary} />
                     </View>
                     <Input
+                      testID="login-password"
                       ref={passwordInput}
                       accessibilityLabel={t('common.password')}
                       accessibilityHint={errors.password ? localize(errors.password) : undefined}
@@ -202,6 +204,7 @@ export default function LoginScreen() {
               ) : null}
 
               <Button
+                testID="login-submit"
                 label={busy ? t('auth.signingIn') : t('auth.signIn')}
                 variant="solid"
                 loading={busy}

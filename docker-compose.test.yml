@@ -1,0 +1,38 @@
+services:
+  mysql:
+    image: mysql:8.4
+    command: ["--log-bin-trust-function-creators=ON"]
+    environment:
+      MYSQL_DATABASE: ${MYSQL_DATABASE:?Use um banco exclusivo terminado em _test}
+      MYSQL_USER: ${MYSQL_USER:?Defina o usuário de teste}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD:?}
+      MYSQL_RANDOM_ROOT_PASSWORD: "yes"
+    tmpfs:
+      - /var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "--protocol=tcp", "-h", "127.0.0.1", "--silent"]
+      interval: 2s
+      timeout: 5s
+      retries: 60
+  tests:
+    build:
+      context: .
+      dockerfile: e2e/Dockerfile
+    environment:
+      NODE_ENV: test
+      PIPLUP_TEST_CONTAINER: "1"
+      PIPLUP_TEST_BROWSER: ${PIPLUP_TEST_BROWSER:-electron}
+      MYSQL_HOST: mysql
+      MYSQL_PORT: 3306
+      MYSQL_DATABASE: ${MYSQL_DATABASE:?Use um banco exclusivo terminado em _test}
+      MYSQL_USER: ${MYSQL_USER:?Defina o usuário de teste}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD:?}
+      MYSQL_ALLOW_PUBLIC_KEY_RETRIEVAL: "true"
+      JWT_SECRET: ${JWT_SECRET:?Defina um segredo exclusivo para testes}
+    depends_on:
+      mysql:
+        condition: service_healthy
+    volumes:
+      - ./e2e/results:/workspace/e2e/results
+      - ./e2e/cypress/screenshots:/workspace/e2e/cypress/screenshots
+    shm_size: 1gb

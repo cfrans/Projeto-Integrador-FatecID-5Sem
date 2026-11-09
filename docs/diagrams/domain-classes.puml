@@ -1,0 +1,120 @@
+@startuml
+!pragma layout smetana
+skinparam classAttributeIconSize 0
+skinparam shadowing false
+hide empty methods
+
+class Guardian <<persistência>> {
+  id: UUID
+  email: String {unique}
+  name: String
+  passwordHash: String
+  securityQuestion: String [0..1]
+  securityAnswerHash: String [0..1]
+}
+class Device <<persistência>> {
+  id: UUID
+  name: String
+  managedUser: String [0..1]
+  isDemo: Boolean
+  applicationsReportedAt: DateTime [0..1]
+  installationRequestsReportedAt: DateTime [0..1]
+}
+class AgentIdentity <<persistência>> {
+  id: UUID
+  credentialHash: String {unique}
+  revokedAt: DateTime [0..1]
+}
+class PairingSession <<persistência>> {
+  id: UUID
+  tokenHash: String {unique}
+  expiresAt: DateTime
+  consumedAt: DateTime [0..1]
+  revokedAt: DateTime [0..1]
+}
+class DeviceAssociation <<persistência>> {
+  id: UUID
+  activeDeviceId: UUID [0..1] {unique}
+  createdAt: DateTime
+  revokedAt: DateTime [0..1]
+}
+class SimulationState <<persistência>> {
+  associationId: UUID
+  settings: JSON
+  revision: Integer
+  appliedRevision: Integer [0..1]
+  appliedAt: DateTime [0..1]
+  lastSeenAt: DateTime [0..1]
+}
+class InstalledApplication <<persistência>> {
+  id: UUID
+  sourceId: String
+  name: String
+  category: String
+  allowed: Boolean
+}
+class InstallationRequest <<persistência>> {
+  id: UUID
+  sourceId: String
+  applicationName: String
+  requesterName: String
+  requestedAt: DateTime
+  ageRating: String
+  status: InstallationRequestStatus
+}
+enum InstallationRequestStatus {
+  PENDING
+  APPROVED
+  DENIED
+}
+class AgentReport <<persistência>> {
+  id: UUID
+  reportId: UUID
+  contentHash: String
+  collectedAt: DateTime
+  receivedAt: DateTime
+}
+class AgentCommand <<persistência>> {
+  id: UUID
+  requestId: UUID
+  type: String
+  status: CommandStatus
+  expiresAt: DateTime
+  claimId: UUID [0..1]
+  result: JSON [0..1]
+}
+enum CommandStatus {
+  pending
+  running
+  succeeded
+  failed
+  expired
+  cancelled
+  unknown
+}
+
+Guardian "0..1" -- "0..*" Device : responsável atual
+Guardian "1" -- "0..*" DeviceAssociation
+Guardian "0..1" -- "0..*" PairingSession : consumiu
+Device "1" -- "0..1" AgentIdentity
+Device "1" -- "0..*" PairingSession
+Device "1" -- "0..*" DeviceAssociation
+DeviceAssociation "1" -- "0..1" SimulationState
+Device "1" -- "0..*" InstalledApplication
+Device "1" -- "0..*" InstallationRequest
+Device "1" -- "0..*" AgentReport
+Device "1" -- "0..*" AgentCommand
+DeviceAssociation "1" -- "0..*" AgentCommand
+AgentIdentity "0..1" -- "0..*" AgentCommand : reservou
+InstallationRequest --> InstallationRequestStatus
+AgentCommand --> CommandStatus
+
+note bottom of DeviceAssociation
+  No máximo um vínculo ativo por computador.
+  Histórico preservado após revogação.
+end note
+note bottom of InstalledApplication
+  sourceId único por computador;
+  InstallationRequest usa a mesma regra.
+end note
+@enduml

@@ -9,7 +9,6 @@ import {
 import { randomBytes, createHash, randomUUID } from 'node:crypto';
 import type { Prisma } from '../../generated/prisma/client.js';
 import { PrismaService } from '../prisma/prisma.service.js';
-import { revokeCommands } from '../commands/revoke-commands.js';
 import type { AuthenticatedAgent } from './agent-auth/agent-auth.guard.js';
 
 const SESSION_TTL_MS = 5 * 60 * 1000;
@@ -85,7 +84,7 @@ export class PairingService {
           },
         },
       });
-      this.assertUsableSession(session, new Date());
+      await this.assertUsableSession(this.prisma, session, new Date());
       if (!session || session.device.guardianId) {
         throw new ConflictException(
           'Computador já associado a um responsável.',
@@ -136,7 +135,7 @@ export class PairingService {
               },
             },
           });
-          this.assertUsableSession(current, new Date());
+          await this.assertUsableSession(tx, current, new Date());
           this.assertDemoAllowed(device.isDemo);
           if (device.guardianId)
             throw new ConflictException(
@@ -145,7 +144,7 @@ export class PairingService {
 
           await this.requireActiveIdentityForDevice(tx, device.id);
           const now = new Date();
-          this.assertUsableSession(current, now);
+          await this.assertUsableSession(tx, current, now);
           const consume = await tx.pairingSession.updateMany({
             where: {
               id: current!.id,
@@ -218,7 +217,6 @@ export class PairingService {
             tx,
             association.id,
             deviceId,
-            new Date(),
           );
         },
         { isolationLevel: 'ReadCommitted' },
@@ -273,7 +271,6 @@ export class PairingService {
             tx,
             current.id,
             agent.deviceId,
-            new Date(),
           );
         },
         { isolationLevel: 'ReadCommitted' },
@@ -287,21 +284,8 @@ export class PairingService {
     tx: Prisma.TransactionClient,
     associationId: string,
     deviceId: string,
-    now: Date,
   ) {
-    await revokeCommands(tx, deviceId, associationId);
-    await tx.deviceAssociation.update({
-      where: { id: associationId },
-      data: { revokedAt: now, activeDeviceId: null },
-    });
-    await tx.device.updateMany({
-      where: { id: deviceId },
-      data: { guardianId: null },
-    });
-    await tx.pairingSession.updateMany({
-      where: { deviceId, consumedAt: null, revokedAt: null },
-      data: { revokedAt: now },
-    });
+    await tx.$executeRaw`CALL sp_revoke_device_association(${deviceId}, ${associationId})`;
   }
 
   private async findSessionDevice(hash: string) {
@@ -359,7 +343,8 @@ export class PairingService {
     }
   }
 
-  private assertUsableSession(
+  private async assertUsableSession(
+    tx: Pick<Prisma.TransactionClient, '$queryRaw'>,
     session: {
       expiresAt: Date;
       consumedAt: Date | null;
@@ -368,12 +353,17 @@ export class PairingService {
     now: Date,
   ) {
     if (!session) throw new GoneException('Token de pareamento inválido.');
-    if (session.revokedAt)
+    const [result] = await tx.$queryRaw<{ status: string }[]>`
+      SELECT fn_pairing_session_status(${session.consumedAt}, ${session.revokedAt}, ${session.expiresAt}, ${now}) AS status
+    `;
+    if (result?.status === 'revoked')
       throw new GoneException('Sessão de pareamento foi revogada.');
-    if (session.consumedAt)
+    if (result?.status === 'consumed')
       throw new GoneException('Token de pareamento já foi consumido.');
-    if (session.expiresAt <= now)
+    if (result?.status === 'expired')
       throw new GoneException('Sessão de pareamento expirada.');
+    if (result?.status !== 'pending')
+      throw new ServiceUnavailableException('Serviço de pareamento indisponível.');
   }
 
   private deviceSummary(device: {

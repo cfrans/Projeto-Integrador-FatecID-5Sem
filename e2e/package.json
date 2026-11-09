@@ -1,0 +1,12 @@
+{
+  "name": "piplup-e2e",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "engines": { "node": ">=24.15 <25" },
+  "scripts": {
+    "test": "node run.mjs",
+    "lint": "node --check run.mjs && node --check tasks.mjs && node --check cypress.config.cjs && node --check cypress/e2e/mvp.cy.js"
+  },
+  "devDependencies": { "cypress": "16.2.1" }
+}

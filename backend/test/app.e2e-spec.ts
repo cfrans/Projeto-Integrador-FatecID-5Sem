@@ -40,7 +40,12 @@ describe('AppController (e2e)', () => {
   const prisma = {
     $connect: vi.fn(),
     $disconnect: vi.fn(),
-    $queryRaw: vi.fn().mockResolvedValue([{ 1: 1 }]),
+    $queryRaw: vi.fn((query: TemplateStringsArray, guardianId?: string) => {
+      if (!query.join('').includes('vw_device_overview')) return Promise.resolve([{ 1: 1 }]);
+      return Promise.resolve(devices.filter((entry) => entry.guardianId === guardianId)
+        .sort((a, b) => a.name.localeCompare(b.name) || a.id.localeCompare(b.id))
+        .map(({ guardianId: _guardianId, ...device }) => ({ ...device, associationId: null, lastSeenAt: null })));
+    }),
     guardian: {
       create: vi.fn(),
       update: vi.fn(),
@@ -58,18 +63,7 @@ describe('AppController (e2e)', () => {
     },
     device: {
       findFirst: vi.fn(),
-      findMany: vi.fn(({ where, select }: {
-        where: { guardianId: string };
-        select: Record<string, boolean>;
-        orderBy: Array<Record<string, 'asc' | 'desc'>>;
-      }) => Promise.resolve(devices
-        .filter((entry) => entry.guardianId === where.guardianId)
-        .sort((a, b) => a.name.localeCompare(b.name) || a.id.localeCompare(b.id))
-        .map((entry) => Object.fromEntries(Object.keys(select).map((key) => [
-          key,
-          key === 'associations' ? [] : entry[key as keyof typeof entry],
-        ])))),
-      ),
+
     },
   };
 
@@ -231,7 +225,7 @@ describe('AppController (e2e)', () => {
     const otherLogin = await http.post('/auth/login')
       .send({ email: guardianTwo.email, password: 'correct-horse-battery' }).expect(200);
 
-    prisma.device.findMany.mockResolvedValueOnce([]);
+    prisma.$queryRaw.mockResolvedValueOnce([]);
     await http.get('/devices')
       .set('Authorization', `Bearer ${primaryLogin.body.accessToken}`)
       .expect(200)
@@ -249,22 +243,7 @@ describe('AppController (e2e)', () => {
       lastSeen: null,
       paired: false,
     }]);
-    expect(prisma.device.findMany).toHaveBeenLastCalledWith({
-      where: { guardianId: guardian.id },
-      select: {
-        id: true,
-        name: true,
-        managedUser: true,
-        isDemo: true,
-        agentIdentity: { select: { revokedAt: true } },
-        associations: {
-          where: { guardianId: guardian.id, activeDeviceId: { not: null }, revokedAt: null },
-          select: { id: true, simulation: { select: { lastSeenAt: true } } },
-          take: 1,
-        },
-      },
-      orderBy: [{ name: 'asc' }, { id: 'asc' }],
-    });
+    expect(prisma.$queryRaw).toHaveBeenLastCalledWith(expect.any(Array), guardian.id);
 
     const other = await http.get('/devices')
       .set('Authorization', `Bearer ${otherLogin.body.accessToken}`)

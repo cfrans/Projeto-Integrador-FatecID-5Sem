@@ -67,7 +67,7 @@ export function InstallationRestrictionScreen({ computer }: { computer: PairedCo
   }
 
   return (
-    <SafeAreaView edges={['left', 'right']} style={styles.safeArea}>
+    <SafeAreaView testID="installation-screen" edges={['left', 'right']} style={styles.safeArea}>
       <View style={styles.container}>
         <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
           <Text accessibilityRole="header" style={styles.screenTitle}>{t('nav.install')}</Text>

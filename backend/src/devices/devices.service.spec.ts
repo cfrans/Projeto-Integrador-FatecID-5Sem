@@ -1,24 +1,24 @@
 import { DevicesService } from './devices.service.js';
 
 describe('DevicesService', () => {
-  const prisma = { device: { findMany: vi.fn(), findFirst: vi.fn() } };
+  const prisma = { $queryRaw: vi.fn(), device: { findFirst: vi.fn() } };
   const pairingService = { revokeGuardianAssociation: vi.fn() };
   const service = new DevicesService(prisma as never, pairingService as never);
 
   beforeEach(() => {
-    prisma.device.findMany.mockReset();
+    prisma.$queryRaw.mockReset();
     prisma.device.findFirst.mockReset();
   });
 
   it('queries only the owner and returns the deterministic public representation', async () => {
-    prisma.device.findMany.mockResolvedValue([
+    prisma.$queryRaw.mockResolvedValue([
       {
         id: 'device-id',
         name: 'Notebook',
         managedUser: null,
         isDemo: true,
-        agentIdentity: { select: { revokedAt: true } },
-        associations: [],
+        associationId: null,
+        lastSeenAt: null,
       },
     ]);
 
@@ -33,30 +33,14 @@ describe('DevicesService', () => {
         paired: false,
       },
     ]);
-    expect(prisma.device.findMany).toHaveBeenCalledWith({
-      where: { guardianId: 'guardian-id' },
-      select: {
-        id: true,
-        name: true,
-        managedUser: true,
-        isDemo: true,
-        agentIdentity: { select: { revokedAt: true } },
-        associations: {
-          where: {
-            guardianId: 'guardian-id',
-            activeDeviceId: { not: null },
-            revokedAt: null,
-          },
-          select: { id: true, simulation: { select: { lastSeenAt: true } } },
-          take: 1,
-        },
-      },
-      orderBy: [{ name: 'asc' }, { id: 'asc' }],
-    });
+    const [query, guardianId] = prisma.$queryRaw.mock.calls[0];
+    expect(query.join('?')).toContain('FROM vw_device_overview WHERE guardianId = ?');
+    expect(query.join('?')).toContain('ORDER BY name ASC, id ASC');
+    expect(guardianId).toBe('guardian-id');
   });
 
   it('maps database errors to service unavailable', async () => {
-    prisma.device.findMany.mockRejectedValue(new Error('database unavailable'));
+    prisma.$queryRaw.mockRejectedValue(new Error('database unavailable'));
 
     await expect(service.listForGuardian('guardian-id')).rejects.toMatchObject({
       status: 503,

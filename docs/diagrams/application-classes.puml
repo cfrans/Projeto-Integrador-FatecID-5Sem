@@ -1,0 +1,67 @@
+@startuml
+!pragma layout smetana
+skinparam classAttributeIconSize 0
+skinparam shadowing false
+
+class AuthController <<controller>>
+class AuthService <<service>> {
+  register()
+  login()
+  updateEmail()
+  updatePassword()
+}
+class JwtStrategy <<strategy>> {
+  validate()
+}
+class DevicesController <<controller>>
+class DevicesService <<service>> {
+  listForGuardian()
+  listApplications()
+  listInstallationRequests()
+  revokeAssociation()
+}
+class PairingController <<controller>>
+class AgentPairingController <<controller>>
+class PairingService <<service>> {
+  createSession()
+  validate()
+  complete()
+  revokeGuardianAssociation()
+  revokeAgentAssociation()
+}
+class SimulationController <<controller>>
+class SimulationService <<service>>
+class PrismaService <<infraestrutura>> {
+  onModuleInit()
+  onModuleDestroy()
+}
+class PrismaClient <<gerado>>
+class PrismaMariaDb <<adapter>>
+class MySQL <<infraestrutura>>
+
+AuthController --> AuthService
+AuthService --> PrismaService
+JwtStrategy --> PrismaService
+DevicesController --> DevicesService
+DevicesService --> PairingService
+DevicesService --> PrismaService
+PairingController --> PairingService
+AgentPairingController --> PairingService
+PairingService --> PrismaService
+SimulationController --> SimulationService
+SimulationService --> PrismaService
+PrismaService --|> PrismaClient
+PrismaService --> PrismaMariaDb
+PrismaMariaDb --> MySQL
+
+note bottom of PairingService
+  Dependências recebidas no construtor via NestJS.
+  Não executa políticas parentais no computador.
+end note
+note bottom of MySQL
+  View: listagem autorizada
+  Função: estado do token
+  Procedure: revogação na transação do serviço
+  Trigger: consumo imutável
+end note
+@enduml
