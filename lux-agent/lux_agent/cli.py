@@ -117,7 +117,7 @@ def run_read_policies(args: argparse.Namespace) -> int:
     try:
         result = query_policies(user)
     except DiagnosticError as error:
-        print(str(error), file=sys.stderr)
+        print(f"Erro: {error}", file=sys.stderr)
         return error.code
     print(json.dumps(result, ensure_ascii=False, indent=2))
     return 0

@@ -20,7 +20,7 @@ def read_policies(manager: Any, flags: Any, user: pwd.struct_passwd) -> dict[str
     }
 
 
-def query_policies(user: pwd.struct_passwd) -> dict[str, Any]:
+def load_malcontent() -> tuple[Any, Any, Any]:
     try:
         import gi
 
@@ -28,12 +28,19 @@ def query_policies(user: pwd.struct_passwd) -> dict[str, Any]:
         from gi.repository import Gio, GLib, Malcontent
     except (ImportError, ValueError):
         raise DiagnosticError(
-            "Erro: PyGObject e bindings Malcontent 0 são necessários; execute no Lux com o Python do sistema.",
+            "PyGObject e bindings Malcontent 0 são necessários; execute no Lux com o Python do sistema.",
             1,
         ) from None
+    return Gio, GLib, Malcontent
+
+
+
+def query_policies(user: pwd.struct_passwd) -> dict[str, Any]:
+    Gio, GLib, Malcontent = load_malcontent()
     try:
         connection = Gio.bus_get_sync(Gio.BusType.SYSTEM, None)
         manager = Malcontent.Manager.new(connection)
         return read_policies(manager, Malcontent.ManagerGetValueFlags.NONE, user)
     except GLib.Error as error:
-        raise DiagnosticError(f"Erro ao consultar políticas: {error}", 1) from None
+        raise DiagnosticError(f"falha ao consultar políticas: {error}", 1) from None
+
