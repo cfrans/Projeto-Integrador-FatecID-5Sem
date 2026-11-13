@@ -7,6 +7,7 @@ agent.env.example
 check_backend.py
 poll_associations.py
 read_policies.py
+prove_app_filter.py
 lux_agent/__init__.py
 lux_agent/__main__.py
 lux_agent/backend.py
@@ -25,6 +26,7 @@ tests/test_cli.py
 tests/test_commands.py
 tests/test_collector.py
 tests/test_https_transport.py
+tests/test_parental_write.py
 tests/test_poll_associations.py
 tests/test_read_policies.py
 tests/test_reports.py

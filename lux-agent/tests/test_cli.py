@@ -68,6 +68,7 @@ assert "gi" not in sys.modules
             ('check_backend.py', 'check-backend', ['--backend-url', 'http://remote.example', '--credential-file', '/missing'], 2),
             ('poll_associations.py', 'poll', ['--backend-url', 'https://api.example', '--credential-file', '/missing', '--max-queries', '0'], 2),
             ('read_policies.py', 'read-policies', ['--user', 'lux-agent-user-that-does-not-exist'], 1),
+            ('prove_app_filter.py', 'prove-app-filter', ['--user', 'lux-agent-user-that-does-not-exist', '--block', 'desktop:x.desktop'], 1),
         ]
         for script, command, args, expected in cases:
             with self.subTest(command=command):
@@ -88,7 +89,7 @@ assert "gi" not in sys.modules
             self.assertTrue((ROOT / path).is_file(), entry)
             self.assertTrue(entry in allowed_metadata or path.suffix == '.py', entry)
         required = {str(path.relative_to(ROOT)) for folder in ('lux_agent', 'tests') for path in (ROOT / folder).glob('*.py')}
-        required.update({'check_backend.py', 'poll_associations.py', 'read_policies.py'})
+        required.update({'check_backend.py', 'poll_associations.py', 'read_policies.py', 'prove_app_filter.py'})
         self.assertTrue(required.issubset(entries), required.difference(entries))
 
     def test_parental_missing_bindings_keeps_exit_code_and_message(self):

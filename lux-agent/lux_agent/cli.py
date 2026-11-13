@@ -41,6 +41,11 @@ def create_parser() -> argparse.ArgumentParser:
     parental = commands.add_parser("read-policies", help="Lê políticas locais sem alterá-las", description="Consulta políticas malcontent sem alterá-las ou pedir autorização interativa.")
     parental.add_argument("--user", required=True, help="Nome de login do usuário alvo")
     parental.set_defaults(handler=run_read_policies)
+    prove = commands.add_parser("prove-app-filter", help="Prova escrita e releitura do filtro de aplicativos", description="Grava bloqueio de aplicativos e de instalação na conta gerenciada, relê e sempre restaura o filtro anterior.")
+    prove.add_argument("--user", required=True, help="Nome de login da conta gerenciada")
+    prove.add_argument("--block", action="append", required=True, metavar="SOURCE_ID", help="Aplicativo a bloquear, no formato desktop:<id>.desktop; repetível")
+    prove.add_argument("--hold", type=float, default=0, help="Segundos com o bloqueio ativo antes de restaurar, até 600 (padrão: 0)")
+    prove.set_defaults(handler=run_prove_app_filter)
     return parser
 
 
@@ -123,6 +128,26 @@ def run_read_policies(args: argparse.Namespace) -> int:
     return 0
 
 
+def run_prove_app_filter(args: argparse.Namespace) -> int:
+    from .parental import prove_app_filter
+
+    try:
+        user = pwd.getpwnam(args.user)
+    except KeyError:
+        print("Erro: usuário não encontrado.", file=sys.stderr)
+        return 1
+    if not 0 <= args.hold <= 600:
+        print("Erro: --hold deve estar entre 0 e 600 segundos.", file=sys.stderr)
+        return 2
+    try:
+        result = prove_app_filter(user, args.block, args.hold)
+    except DiagnosticError as error:
+        print(f"Erro: {error}", file=sys.stderr)
+        return error.code
+    print(json.dumps(result, ensure_ascii=False, indent=2))
+    return 0 if result["matches"] and result["restored"] else 1
+
+
 def main(argv: list[str] | None = None) -> int:
     args = create_parser().parse_args(argv)
     return args.handler(args)
@@ -138,3 +163,7 @@ def poll_main(argv: list[str] | None = None) -> int:
 
 def read_policies_main(argv: list[str] | None = None) -> int:
     return main(["read-policies", *(sys.argv[1:] if argv is None else argv)])
+
+
+def prove_app_filter_main(argv: list[str] | None = None) -> int:
+    return main(["prove-app-filter", *(sys.argv[1:] if argv is None else argv)])
