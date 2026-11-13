@@ -1,10 +1,10 @@
 # Lux Agent
 
-Pacote Python `lux_agent` com três subcomandos: `read-policies` lê políticas nativas; `check-backend` valida uma vez a identidade provisionada; `poll` consulta vínculos, processa `agent.ping` e, com `--collect-report-file` e `--state-dir`, coleta aplicativos Linux e envia relatórios autenticados para `PUT /agent/reports`. Não há comandos parentais, pareamento local, serviço systemd ou GTK.
+Pacote Python `lux_agent` com quatro subcomandos: `read-policies` lê políticas nativas; `prove-app-filter` prova a escrita do filtro de aplicativos com releitura e restauração; `check-backend` valida uma vez a identidade provisionada; `poll` consulta vínculos, processa `agent.ping` e, com `--collect-report-file` e `--state-dir`, coleta aplicativos Linux e envia relatórios autenticados para `PUT /agent/reports`. Não há comandos parentais vindos do backend, pareamento local, serviço systemd instalado ou GTK.
 
 O [protocolo v1](../docs/agent-protocol.md) implementa reserva única e resultado idempotente de ping com diário privado. A [validação ponta a ponta](../docs/agent-ping-validation.md) usou NestJS/MySQL e Lux reais por HTTPS. Operações parentais continuam fora do executor.
 
-A PoC de leitura usa PyGObject/libmalcontent e AccountsService, sem alterar políticas ou solicitar elevação. A VM de referência é Lux 3/Canopus, GNOME 50.4 e malcontent 0.13.1-5. Leituras com e sem restrições foram validadas; consultar outra conta exigiu autenticação administrativa. Privilégios mínimos do futuro serviço permanecem pendentes. O [client simulado](../docs/simulated-client.md) é um programa separado para demonstração; seu contrato não implementa comandos ou políticas Linux neste Agent.
+A PoC de leitura usa PyGObject/libmalcontent e AccountsService, sem alterar políticas ou solicitar elevação. A VM de referência é Lux 3/Canopus, GNOME 50.4 e malcontent 0.13.1-5. Leituras com e sem restrições foram validadas; consultar outra conta exigiu autenticação administrativa. A escrita do filtro de aplicativos pelo usuário de sistema `lux-agent`, sem root, foi provada com a regra polkit em `polkit/` ([evidência](../docs/lux-integration.md#escrita-do-filtro-de-aplicativos-via-polkit--2026-11-13)). O [client simulado](../docs/simulated-client.md) é um programa separado para demonstração; seu contrato não implementa comandos ou políticas Linux neste Agent.
 
 ## Organização e execução
 
@@ -17,6 +17,9 @@ lux-agent/
 ├── check_backend.py          compatibilidade de execução
 ├── poll_associations.py      compatibilidade de execução
 ├── read_policies.py          compatibilidade de execução
+├── prove_app_filter.py       atalho para prove-app-filter
+├── polkit/
+│   └── 50-lux-agent.rules
 ├── lux_agent/
 │   ├── __init__.py
 │   ├── __main__.py
@@ -36,20 +39,21 @@ lux-agent/
     ├── test_commands.py
     ├── test_https_transport.py
     ├── test_read_policies.py
+    ├── test_parental_write.py
     ├── test_reports.py
     └── test_cli.py
 ```
 
 | Módulo | Responsabilidade |
 | --- | --- |
-| `cli` / `__main__` | argparse, três subcomandos, montagem do executor e tratamento de saída/sinais do ciclo. |
+| `cli` / `__main__` | argparse, subcomandos, montagem do executor e tratamento de saída/sinais do ciclo. |
 | `config` | Validação de URL, leitura segura da credencial e limites de configuração. Não lê `.env` automaticamente. |
 | `errors` | `DiagnosticError` compartilhado, sem dependência da CLI ou do transporte. |
 | `backend` | HTTP/HTTPS/JSON, Bearer, CA, redirects, validação de associações e prazo total de requisições. |
 | `polling` | Cadência, backoff/jitter, Retry-After e consultas sequenciais. |
 | `commands` | Contrato e processamento exclusivo de ping, claim e reenvio de resultados. |
 | `journal` | SQLite privado, exclusão e persistência; formato e vínculo com origem/credencial preservados. |
-| `parental` | Leitura malcontent; carrega GI somente ao consultar políticas. Independente de polling/comandos. |
+| `parental` | Leitura e escrita malcontent, conversão `desktop:<id>` → executável e recusa de conta administrativa; carrega GI somente ao acessar políticas. Independente de polling/comandos. |
 
 O diagnóstico de backend não mantém ciclo; `poll` executa em primeiro plano, apropriado para futura supervisão systemd; `read-policies` é diagnóstico local independente. A futura GTK continua separada. Não há serviço instalado, arquivo de configuração novo ou dependência de execução adicionada. `errors.py` evita que configuração/diário dependam do módulo HTTP; o prazo total foi centralizado porque polling e comandos duplicavam o mesmo tratamento.
 
@@ -61,6 +65,7 @@ python3 -B -m lux_agent --help
 python3 -B -m lux_agent check-backend --help
 python3 -B -m lux_agent poll --help
 python3 -B -m lux_agent read-policies --help
+python3 -B -m lux_agent prove-app-filter --help
 ```
 
 O pacote pode ser executado dos fontes, sem pip. O `pyproject.toml` declara somente metadados, empacotamento por setuptools e a entrada opcional `lux-agent`; para instalar, use um ambiente virtual próprio (`python3 -m pip install .`). Essa instalação não inclui os testes ou wrappers. Para a leitura malcontent, o Python selecionado precisa enxergar os bindings GI do sistema Lux; o procedimento SSH usa diretamente esse Python e dispensa instalação.
@@ -91,6 +96,24 @@ python3 -B -m lux_agent poll --backend-url https://api.exemplo \
 Os três scripts antigos permanecem como wrappers para a mesma CLI; argumentos, mensagens operacionais e códigos de saída são preservados. O texto de uso do argparse passa a identificar os subcomandos. Imports internos devem usar `lux_agent.*`; `command_processor.py` e `command_journal.py` foram movidos para `commands.py` e `journal.py`, sem wrappers de biblioteca. Registros históricos abaixo mantêm os nomes usados nas provas anteriores.
 
 Configuração continua explícita nos argumentos. Credencial/CA ficam fora dos fontes; por exemplo, `~/.config/lux-agent/credential` e `~/.config/lux-agent/ca.pem`, em diretório privado. O diário deve ficar em armazenamento persistente, por exemplo `~/.local/state/lux-agent/commands`, com pai existente e confiável. Não use `~/lux-agent-poc/`, caches de build ou diretórios temporários de deploy para estado. A refatoração não move, apaga ou migra diários existentes; continue apontando `--state-dir` para o mesmo diretório, com a mesma origem e credencial.
+
+## Prova de escrita do filtro de aplicativos
+
+`prove-app-filter` grava um filtro de bloqueio na conta gerenciada, relê e compara, e **sempre** restaura o filtro anterior, inclusive em erro ou Ctrl+C. Bloqueia os aplicativos de `--block desktop:<id>.desktop` (repetível) e proíbe instalação de usuário e de sistema. `--hold N` (até 600 s) mantém o bloqueio ativo por N segundos antes de restaurar, para observação na sessão gráfica.
+
+Recusa conta administrativa (root ou grupo `sudo`) antes de carregar GI. Códigos de saída: `0` gravado, relido igual e restaurado; `1` releitura diferente, restauração não confirmada ou falha; `2` argumento ou aplicativo inválido; `3` conta administrativa; `4` permissão negada pelo polkit.
+
+Preparação no Lux, com sudo pelo administrador (o `install.sh` futuro substitui estes passos):
+
+```bash
+sudo useradd --system --no-create-home --home-dir /nonexistent --shell /usr/sbin/nologin lux-agent
+sudo install -d -m 0755 -o root -g root /opt/lux-agent-poc
+sudo rsync -a --delete --chown=root:root --chmod=D755,F644 ~/lux-agent-poc/ /opt/lux-agent-poc/
+sudo install -m 0644 -o root -g root /opt/lux-agent-poc/polkit/50-lux-agent.rules /etc/polkit-1/rules.d/50-lux-agent.rules
+cd /opt/lux-agent-poc && sudo -u lux-agent python3 -B prove_app_filter.py --user CONTA_GERENCIADA --block desktop:firefox-esr.desktop
+```
+
+O código fica com dono root para que o usuário do serviço não possa alterá-lo. Para desfazer: remover a regra de `/etc/polkit-1/rules.d/`, o diretório `/opt/lux-agent-poc` e o usuário (`sudo userdel lux-agent`).
 
 ## Diagnóstico autenticado
 
@@ -204,6 +227,7 @@ cd lux-agent
 python3 -B -m unittest discover -s tests -v
 python3 -B -m compileall -q lux_agent tests
 python3 -B -m lux_agent read-policies --help
+python3 -B -m lux_agent prove-app-filter --help
 ```
 
 Os 63 testes originais foram preservados em `tests/`; seis testes adicionais cobrem CLI/imports, wrappers e lista restrita de deploy. O comando antigo `python3 -m unittest discover -s lux-agent -v`, na raiz do repositório, continua descobrindo a suíte. O diretório ainda não tem ferramentas Python de lint/typecheck configuradas. Compilação verifica sintaxe; os testes de comunicação usam um servidor HTTP local temporário e verificam Bearer, respostas, redirecionamento, falhas e proteção da credencial. Os testes da PoC verificam usuário obrigatório/inexistente, dependência ausente, flags sem interação, valores nativos, políticas desativadas e falha sem saída parcial. Esses testes isolados não comprovam permissões nem aplicação de restrições no Lux.
