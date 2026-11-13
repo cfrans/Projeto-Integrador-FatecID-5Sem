@@ -1,0 +1,8 @@
+polkit.addRule(function(action, subject) {
+    if ((action.id == "com.endlessm.ParentalControls.AppFilter.ReadAny" ||
+         action.id == "com.endlessm.ParentalControls.AppFilter.ChangeAny") &&
+        subject.user == "lux-agent") {
+        return polkit.Result.YES;
+    }
+    return polkit.Result.NOT_HANDLED;
+});
