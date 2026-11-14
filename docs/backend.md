@@ -117,6 +117,8 @@ O arquivo deve definir todas as variáveis da conexão e `NODE_ENV=test`, que t�
 
 O teste de pareamento cobre autenticação independente do Agent, dados inválidos, expiração durante espera por lock, consumo concorrente e reutilização, autorização por recurso, revogação, restrições e rollback reais. Também executa a ferramenta administrativa, verificando arquivo exclusivo `0600`, ausência do segredo no stdout e invalidação da identidade. Esses testes não validam Agent real ou autorização Linux.
 
+O teste de autorregistro cobre validação estrita do corpo, hash já usado (ativo ou revogado), reregistro revogando a sessão anterior, expiração, conclusão com criação de computador, identidade e vínculo, guard antes e depois do `complete`, a CHECK de alvo da sessão e o limite de taxa.
+
 Lint, typecheck, validação do schema e testes unitários/HTTP verificam aspectos distintos do backend; os testes HTTP usam Prisma mockado e exigem permissão para abrir porta local. `/health` verifica a conexão real com MySQL, mas não substitui testes num banco dedicado ou comparação entre migrations e schema. A validação completa do fluxo sem Docker e da instalação do zero permanece pendente. Execute as verificações com a versão Node declarada; resultados obtidos em outra versão não comprovam compatibilidade suportada.
 
 ## Autenticação implementada
@@ -151,10 +153,11 @@ O mobile usa a API para autenticação (`POST /auth/login` e `GET /auth/me`) e l
 
 ## Contratos de pareamento
 
-O MVP permite um responsável ativo por computador. A identidade do Agent é independente do JWT do responsável: uma credencial aleatória exclusiva é provisionada por operação administrativa no backend e instalada por um administrador local no Lux. Não há endpoint público de cadastro de computadores. A API armazena somente o hash da credencial; o `deviceId` não autentica o Agent. A decisão e a obrigação de autorização administrativa local estão em [Integração Lux](lux-integration.md).
+O MVP permite um responsável ativo por computador. A identidade do Agent é independente do JWT do responsável: uma credencial aleatória exclusiva, gerada pelo Agent no autorregistro ou pela ferramenta administrativa. A API armazena somente o hash da credencial; o `deviceId` não autentica o Agent. A decisão e a obrigação de autorização administrativa local estão em [Integração Lux](lux-integration.md).
 
 | Endpoint | Autenticação e finalidade |
 | --- | --- |
+| `POST /agent/registrations` | Público, com limite de taxa; registra um computador sem identidade e cria a sessão. Nada é criado até o `complete`. |
 | `POST /agent/pairing-sessions` | Credencial individual do Agent; cria sessão após autorização local obrigatória no futuro Agent. |
 | `GET /agent/associations` | Credencial do Agent; consulta vínculos somente do seu computador. |
 | `DELETE /agent/associations/:associationId` | Credencial do Agent; revoga vínculo do seu computador, após autorização local. |
@@ -165,15 +168,17 @@ O MVP permite um responsável ativo por computador. A identidade do Agent é ind
 
 Os contratos estão implementados nesta etapa; a autorização local e a integração Linux continuam pendentes. O token de pareamento contém 32 bytes aleatórios codificados em base64url, expira em cinco minutos e só pode ser consumido uma vez. Seu hash SHA-256 é único no banco; o token original não aparece em consultas de sessões ou associações. O QR usa `piplup://pair?token=<token>` e não transporta URL da API, senha Linux ou credencial do Agent. O cliente utiliza exclusivamente a API já configurada.
 
-`POST /agent/pairing-sessions` recebe corpo vazio e retorna `{ token, expiresAt, qrPayload }`. `POST /pairing/validate` retorna `{ valid: true, expiresAt, device: { id, name, managedUser, isDemo } }`; `POST /pairing/complete` retorna a representação de dispositivo com `paired: true` e `associationId`. `GET /agent/associations` retorna histórico `{ id, createdAt, revokedAt, guardian: { id, name } }`, sem tokens, hashes ou email do responsável. As operações DELETE bem-sucedidas retornam `204`.
+`POST /agent/registrations` recebe `{ credentialHash, name, managedUser }` (64 hex minúsculos; 1–100 caracteres; sem campos extras) e `POST /agent/pairing-sessions` recebe corpo vazio; ambos retornam `{ token, expiresAt, qrPayload }`. `POST /pairing/validate` retorna `{ valid: true, expiresAt, device: { id, name, managedUser, isDemo } }`; `POST /pairing/complete` retorna a representação de dispositivo com `paired: true` e `associationId`. `GET /agent/associations` retorna histórico `{ id, createdAt, revokedAt, guardian: { id, name } }`, sem tokens, hashes ou email do responsável. As operações DELETE bem-sucedidas retornam `204`.
+
+No autorregistro, a sessão guarda o registro pendente (hash, nome, usuário e o UUID futuro do computador). Um novo registro com o mesmo hash revoga as sessões pendentes anteriores; hash já usado por uma `AgentIdentity`, ativa ou revogada, é recusado. A validação mostra nome e usuário registrados, e o `complete` cria `Device` (`isDemo: false`), `AgentIdentity` e vínculo numa transação. Até lá a credencial recebe `401`. O limite é de 5 registros por minuto por IP, só nessa rota, em memória por instância; sem `trust proxy`, atrás de um proxy o limite vale para o IP do proxy.
 
 A validação não reserva o dispositivo nem prolonga o prazo. O consumo revalida token e identidade dentro de uma transação serializada por dispositivo. Dispositivo já associado não pode ganhar outro responsável. Revogar um vínculo retira o acesso imediatamente na API e invalida sessões pendentes; novo pareamento exige nova sessão. A revogação não executa ações GNOME nem confirma alterações no Linux.
 
-Corpos inválidos retornam `400`; autenticação ausente/inválida retorna `401`; recurso de terceiros retorna `404`; conflito com vínculo existente retorna `409`; token inválido, expirado, consumido ou revogado retorna `410`; indisponibilidade do banco retorna `503`. Não enviar tokens em URLs HTTP, registrar credenciais em logs ou armazená-las no mobile. HTTPS é obrigatório fora do desenvolvimento local. Identidades demonstrativas só são aceitas quando `NODE_ENV` é `development` ou `test`; produção e ambiente não definido recusam essas credenciais.
+Corpos inválidos retornam `400`; autenticação ausente/inválida retorna `401`; recurso de terceiros retorna `404`; conflito com vínculo existente ou credencial já registrada retorna `409`; excesso de registros retorna `429`; token inválido, expirado, consumido ou revogado retorna `410`; indisponibilidade do banco retorna `503`. Não enviar tokens em URLs HTTP, registrar credenciais em logs ou armazená-las no mobile. HTTPS é obrigatório fora do desenvolvimento local. Identidades demonstrativas só são aceitas quando `NODE_ENV` é `development` ou `test`; produção e ambiente não definido recusam essas credenciais.
 
 ### Provisionamento e invalidação administrativa
 
-A ferramenta administrativa deverá ser executada por quem administra o backend, com suas credenciais MySQL protegidas. Seu acesso não é disponibilizado ao mobile nem ao Agent por HTTP. Após migrations e build, o procedimento é:
+O provisionamento continua como ferramenta de desenvolvimento e operação; computadores reais usam o autorregistro. A ferramenta administrativa deverá ser executada por quem administra o backend, com suas credenciais MySQL protegidas. Seu acesso não é disponibilizado ao mobile nem ao Agent por HTTP. Após migrations e build, o procedimento é:
 
 ```bash
 npm run agent:provision -- --name "Lux sala" --output /caminho/seguro/agent-credential
