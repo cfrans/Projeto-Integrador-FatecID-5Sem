@@ -44,10 +44,8 @@ export class ReportsService {
     try {
       return await this.prisma.$transaction(
         async (tx) => {
-          const device = await tx.device.findUnique({
-            where: { id: agent.deviceId },
-            select: { id: true, isDemo: true },
-          });
+          const [device] = await tx.$queryRaw<{ id: string }[]>`
+            SELECT id FROM Device WHERE id = ${agent.deviceId} FOR UPDATE`;
           if (!device) throw new UnauthorizedException('Dispositivo inválido.');
 
           const identity = await tx.agentIdentity.findFirst({
