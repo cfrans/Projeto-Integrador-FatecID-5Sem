@@ -2,6 +2,7 @@
 Description=Lux parental agent
 After=network-online.target
 Wants=network-online.target
+ConditionPathExists=/etc/lux-agent/credential
 
 [Service]
 Type=simple
@@ -9,9 +10,10 @@ User=lux-agent
 Group=lux-agent
 WorkingDirectory=/opt/lux-agent
 EnvironmentFile=/etc/lux-agent/agent.env
-ExecStart=/usr/bin/python3 -B -m lux_agent poll --backend-url ${LUX_AGENT_BACKEND_URL} --credential-file /var/lib/lux-agent/credential --state-dir /var/lib/lux-agent/state --collect-report-file /var/lib/lux-agent/report.json
+ExecStart=/usr/bin/python3 -B -m lux_agent poll --backend-url ${LUX_AGENT_BACKEND_URL} --credential-file /etc/lux-agent/credential --state-dir /var/lib/lux-agent/state --collect-report-file /var/lib/lux-agent/report.json $LUX_AGENT_POLL_OPTIONS
 Restart=on-failure
 RestartSec=10s
+RestartPreventExitStatus=2 3 6
 UMask=0077
 NoNewPrivileges=yes
 PrivateTmp=yes
