@@ -124,7 +124,9 @@ O corpo de `PUT /agent/reports` é JSON, limitado a 16 KiB inicialmente:
 
 `reportId` é um UUID v4 criado pelo Agent e identifica uma coleta. `collectedAt` é o horário UTC informado pelo computador; `receivedAt` é sempre definido pelo servidor e não é confiável para substituir o horário da coleta. `sourceId` é estável para o mesmo aplicativo ou pedido no computador e é obrigatório para reconciliar uma repetição sem duplicar linhas.
 
-O relatório representa um retrato completo, não um conjunto de eventos. Portanto, a lista `applications` substitui o inventário anterior e a lista `installationRequests` reconcilia os pedidos observados. O Agent não envia decisões do responsável como se fossem observações locais; estados `APPROVED` e `DENIED` continuam sendo decisões do backend e só retornam ao computador por comandos próprios.
+O relatório representa um retrato completo de aplicativos, não um conjunto de eventos: a lista `applications` substitui o inventário anterior. A lista `installationRequests` só insere ou atualiza os pedidos enviados; pedidos ausentes não são removidos, porque outros fluxos (como o [client simulado](simulated-client.md)) também criam pedidos `PENDING` no mesmo dispositivo. O Agent real envia lista vazia enquanto não houver fonte Linux validada; mesmo assim, o backend atualiza `installationRequestsReportedAt`. O Agent não envia decisões do responsável como se fossem observações locais; estados `APPROVED` e `DENIED` continuam sendo decisões do backend e só retornam ao computador por comandos próprios.
+
+Textos são medidos em code points Unicode, como o `VARCHAR` utf8mb4 do MySQL e o `len()` do Python: `sourceId` 1–191, `name`/`applicationName` 1–200, `category`/`requesterName` 1–100 e `ageRating` 0–20. O limite de 16 KiB vale para o corpo enviado, que o Agent serializa como JSON compacto em UTF-8. Ao coletar mais de 200 aplicativos ou passar de 16 KiB, o Agent ordena por `sourceId`, envia o maior prefixo que cabe nos dois limites e registra um aviso no stderr. Nomes acima de 200 code points são truncados e `.desktop` com `sourceId` acima de 191 é ignorado.
 
 ### Resposta e erros
 
@@ -155,7 +157,7 @@ As respostas de erro possuem somente um código estável, por exemplo `{ "error"
 
 ### Estados e confirmação
 
-O relatório possui os estados efetivos `accepted`, `duplicate`, `rejected` e `unavailable` no diário do Agent. O backend persiste somente relatórios aceitos e conflitos auditáveis; `unavailable` é uma condição de transporte, não uma confirmação de falha do computador.
+O relatório possui os estados efetivos `accepted`, `duplicate`, `rejected` e `unavailable` no diário do Agent. No diário, `pending` vira `acknowledged` com o recibo, ou `rejected` com `400`, `409`, `413` ou `422`. Um relatório rejeitado não é reenviado, nem após reinício, e o polling continua com um aviso no stderr. `401`, TLS e `501`/`505` continuam encerrando; `429` e os demais `5xx` mantêm o relatório `pending` para o próximo ciclo. O backend persiste somente relatórios aceitos e conflitos auditáveis; `unavailable` é uma condição de transporte, não uma confirmação de falha do computador.
 
 Uma operação parental só é **confirmada** quando o Agent recebe um comando válido, reserva-o, executa a ação local permitida e consulta novamente o estado do sistema para verificar o efeito esperado. O recebimento do comando, o `claim`, uma resposta HTTP 200 ou a gravação de uma configuração desejada não significam aplicação. O resultado deve ser `succeeded` somente com essa verificação; caso contrário deve ser `failed` com código tipado ou `unknown` quando não for possível distinguir execução de perda de comunicação.
 

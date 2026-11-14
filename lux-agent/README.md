@@ -80,7 +80,7 @@ Os exemplos com `PYTHONPATH=lux-agent` abaixo partem da raiz do repositório; os
 
 ### Coleta de aplicativos Linux
 
-O Agent coleta entradas `.desktop` visíveis em `$XDG_DATA_HOME/applications` e nos diretórios `applications` de `$XDG_DATA_DIRS`. Entradas `Hidden=true`, `NoDisplay=true` e tipos diferentes de `Application` são ignoradas. O relatório usa o nome do arquivo `.desktop` como `sourceId`, gera um novo `reportId`, não inventa pedidos de instalação e é gravado com modo `0600`.
+O Agent coleta entradas `.desktop` visíveis em `$XDG_DATA_HOME/applications` e nos diretórios `applications` de `$XDG_DATA_DIRS`. Entradas `Hidden=true`, `NoDisplay=true` e tipos diferentes de `Application` são ignoradas. O relatório usa o nome do arquivo `.desktop` como `sourceId`, gera um novo `reportId`, não inventa pedidos de instalação e é gravado com modo `0600`. Os aplicativos são ordenados por `sourceId`. Com mais de 200 aplicativos ou mais de 16 KiB, só o maior prefixo que cabe nos dois limites é enviado, com aviso no stderr (detalhes em [protocolo](../docs/agent-protocol.md#relatório-enviado)). Com uma média de ~85 bytes por aplicativo, o limite de 16 KiB costuma chegar antes do limite de 200.
 
 Para coletar e enviar um relatório no primeiro ciclo do polling:
 
@@ -91,7 +91,7 @@ python3 -B -m lux_agent poll --backend-url https://api.exemplo \
     --collect-report-file /caminho/privado/report.json
 ```
 
-`--collect-report-file` e `--report-file` são alternativas. A coleta atualiza o arquivo uma vez no início do processo; o diário conserva o mesmo `reportId` e reenvia o payload após timeout, reinício ou resposta perdida. A coleta de pedidos de instalação e a leitura de políticas parentais ainda dependem de fontes Linux que não foram validadas.
+`--collect-report-file` e `--report-file` são alternativas. A coleta atualiza o arquivo uma vez no início do processo; o diário conserva o mesmo `reportId` e reenvia o payload após timeout, reinício ou resposta perdida. Uma rejeição definitiva (`400`, `409`, `413` ou `422`) marca o relatório como `rejected` no diário, que não é reenviado, e o polling continua. A coleta de pedidos de instalação e a leitura de políticas parentais ainda dependem de fontes Linux que não foram validadas.
 
 Os três scripts antigos permanecem como wrappers para a mesma CLI; argumentos, mensagens operacionais e códigos de saída são preservados. O texto de uso do argparse passa a identificar os subcomandos. Imports internos devem usar `lux_agent.*`; `command_processor.py` e `command_journal.py` foram movidos para `commands.py` e `journal.py`, sem wrappers de biblioteca. Registros históricos abaixo mantêm os nomes usados nas provas anteriores.
 
