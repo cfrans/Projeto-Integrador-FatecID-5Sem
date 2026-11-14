@@ -1,4 +1,5 @@
 import os
+import sys
 import json
 import tempfile
 import uuid
@@ -6,7 +7,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 from .errors import DiagnosticError
-from .reports import MAX_REPORT_BYTES, validate_report
+from .reports import MAX_ENTRIES, MAX_REPORT_BYTES, serialized_size, validate_report
 
 
 def data_directories():
@@ -35,13 +36,14 @@ def desktop_entry(path):
         values[key] = value
     if values.get('Type') != 'Application' or values.get('NoDisplay') == 'true' or values.get('Hidden') == 'true':
         return None
-    name = values.get('Name', '').strip()
-    if not name:
+    name = values.get('Name', '').strip()[:200]
+    source_id = f'desktop:{path.name}'
+    if not name or len(source_id) > 191:
         return None
     categories = [item for item in values.get('Categories', '').split(';') if item]
     category = categories[0].lower() if categories else 'application'
     return {
-        'sourceId': f'desktop:{path.name}',
+        'sourceId': source_id,
         'name': name,
         'category': category[:100],
         'allowed': True,
@@ -59,10 +61,24 @@ def collect_applications(paths=None):
             entry = desktop_entry(path)
             if entry is not None:
                 applications.setdefault(entry['sourceId'], entry)
-    result = sorted(applications.values(), key=lambda item: (item['name'].casefold(), item['sourceId']))
-    if len(result) > 200:
-        raise DiagnosticError('Inventário excede o limite de 200 aplicativos.', 2)
-    return result
+    return sorted(applications.values(), key=lambda item: item['sourceId'])
+
+
+def fit_applications(report, applications):
+    low, high = 0, min(len(applications), MAX_ENTRIES)
+    while low < high:
+        middle = (low + high + 1) // 2
+        if serialized_size({**report, 'applications': applications[:middle]}) <= MAX_REPORT_BYTES:
+            low = middle
+        else:
+            high = middle - 1
+    if low < len(applications):
+        print(
+            f'Aviso: inventário com {len(applications)} aplicativos excede os limites do relatório; '
+            f'enviando os {low} primeiros por sourceId.',
+            file=sys.stderr, flush=True,
+        )
+    return applications[:low]
 
 
 def collect_report(output_path, paths=None):
@@ -70,9 +86,10 @@ def collect_report(output_path, paths=None):
         'protocolVersion': 1,
         'reportId': str(uuid.uuid4()),
         'collectedAt': datetime.now(timezone.utc).isoformat(timespec='milliseconds').replace('+00:00', 'Z'),
-        'applications': collect_applications(paths),
+        'applications': [],
         'installationRequests': [],
     }
+    report['applications'] = fit_applications(report, collect_applications(paths))
     validate_report(report)
     output = Path(output_path)
     try:

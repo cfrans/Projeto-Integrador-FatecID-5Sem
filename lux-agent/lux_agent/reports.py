@@ -3,10 +3,11 @@ import uuid
 from datetime import datetime, timezone
 from pathlib import Path
 
-from .backend import network_deadline, request_json
+from .backend import network_deadline, request_json, serialize_payload
 from .errors import DiagnosticError
 
 MAX_REPORT_BYTES = 16 * 1024
+MAX_ENTRIES = 200
 
 
 def invalid_report():
@@ -37,6 +38,10 @@ def source_id(value):
     return isinstance(value, str) and 0 < len(value) <= 191
 
 
+def serialized_size(report):
+    return len(serialize_payload(report))
+
+
 def validate_report(report):
     if not isinstance(report, dict):
         raise invalid_report()
@@ -47,7 +52,7 @@ def validate_report(report):
     report_timestamp(report.get('collectedAt'))
     for key in ('applications', 'installationRequests'):
         entries = report.get(key)
-        if not isinstance(entries, list) or len(entries) > 200:
+        if not isinstance(entries, list) or len(entries) > MAX_ENTRIES:
             raise invalid_report()
         seen = set()
         for entry in entries:
