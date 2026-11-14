@@ -32,3 +32,4 @@ tests/test_poll_associations.py
 tests/test_read_policies.py
 tests/test_reports.py
 install.sh
+uninstall.sh
