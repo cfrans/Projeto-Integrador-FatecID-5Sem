@@ -39,12 +39,16 @@ def parse_retry_after(value: str | None) -> float | None:
         return None
 
 
+def serialize_payload(payload):
+    return json.dumps(payload, allow_nan=False, ensure_ascii=False, separators=(",", ":")).encode("utf-8")
+
+
 def request_json(
     endpoint: str, credential: str, timeout: float, ca_file: str | None = None,
     *, method: str = "GET", payload: dict[str, Any] | None = None,
     max_bytes: int = 1024 * 1024, expected_statuses: tuple[int, ...] = (200,),
 ) -> Any:
-    data = None if payload is None else json.dumps(payload, allow_nan=False).encode("utf-8")
+    data = None if payload is None else serialize_payload(payload)
     if data is not None and len(data) > max_bytes:
         raise DiagnosticError("Corpo da requisição excede o limite.", 6, category="configuration")
     request = Request(endpoint, data=data, method=method, headers={
