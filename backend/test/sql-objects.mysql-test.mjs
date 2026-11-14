@@ -98,6 +98,7 @@ test('SQL objects preserve pairing invariants and participate in API transaction
     for (const device of devices) {
       await prisma.agentCommand.deleteMany({ where: { deviceId: device.id } });
       await prisma.deviceAssociation.deleteMany({ where: { deviceId: device.id } });
+      await prisma.pairingSession.deleteMany({ where: { deviceId: device.id } });
       await prisma.device.delete({ where: { id: device.id } });
     }
     await prisma.guardian.delete({ where: { id: guardian.id } });

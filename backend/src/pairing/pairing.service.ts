@@ -17,6 +17,26 @@ const tokenHash = (token: string) =>
 
 type DeviceLock = { id: string; guardianId: string | null; isDemo: boolean };
 
+export type AgentRegistration = {
+  credentialHash: string;
+  name: string;
+  managedUser: string;
+};
+
+const registrationSelect = {
+  registrationDeviceId: true,
+  registrationCredentialHash: true,
+  registrationName: true,
+  registrationManagedUser: true,
+} as const;
+
+type RegistrationFields = {
+  registrationDeviceId: string | null;
+  registrationCredentialHash: string | null;
+  registrationName: string | null;
+  registrationManagedUser: string | null;
+};
+
 @Injectable()
 export class PairingService {
   constructor(private readonly prisma: PrismaService) {}
@@ -55,11 +75,50 @@ export class PairingService {
       this.rethrowKnown(error);
     }
 
-    return {
-      token,
-      expiresAt: expiresAt.toISOString(),
-      qrPayload: `piplup://pair?token=${token}`,
-    };
+    return this.sessionResponse(token, expiresAt);
+  }
+
+  async register(registration: AgentRegistration) {
+    const token = randomBytes(32).toString('base64url');
+    const hash = tokenHash(token);
+    let expiresAt!: Date;
+
+    try {
+      await this.prisma.$transaction(
+        async (tx) => {
+          await this.assertCredentialUnused(
+            tx,
+            registration.credentialHash,
+            ConflictException,
+          );
+          const now = new Date();
+          expiresAt = new Date(now.getTime() + SESSION_TTL_MS);
+          await tx.pairingSession.updateMany({
+            where: {
+              registrationCredentialHash: registration.credentialHash,
+              consumedAt: null,
+              revokedAt: null,
+            },
+            data: { revokedAt: now },
+          });
+          await tx.pairingSession.create({
+            data: {
+              registrationDeviceId: randomUUID(),
+              registrationCredentialHash: registration.credentialHash,
+              registrationName: registration.name,
+              registrationManagedUser: registration.managedUser,
+              tokenHash: hash,
+              expiresAt,
+            },
+          });
+        },
+        { isolationLevel: 'ReadCommitted' },
+      );
+    } catch (error) {
+      this.rethrowKnown(error);
+    }
+
+    return this.sessionResponse(token, expiresAt);
   }
 
   async validate(token: string) {
@@ -72,6 +131,7 @@ export class PairingService {
           expiresAt: true,
           consumedAt: true,
           revokedAt: true,
+          ...registrationSelect,
           device: {
             select: {
               id: true,
@@ -85,7 +145,20 @@ export class PairingService {
         },
       });
       await this.assertUsableSession(this.prisma, session, new Date());
-      if (!session || session.device.guardianId) {
+      const registered = session && this.registeredDevice(session);
+      if (registered) {
+        await this.assertCredentialUnused(
+          this.prisma,
+          registered.credentialHash,
+          GoneException,
+        );
+        return {
+          valid: true as const,
+          expiresAt: session.expiresAt.toISOString(),
+          device: registered.device,
+        };
+      }
+      if (!session?.device || session.device.guardianId) {
         throw new ConflictException(
           'Computador já associado a um responsável.',
         );
@@ -111,10 +184,12 @@ export class PairingService {
     const hash = tokenHash(token);
     const session = await this.findSessionDevice(hash);
     if (!session) throw new GoneException('Token de pareamento inválido.');
+    if (!session.deviceId) return this.completeRegistration(guardianId, hash);
+    const deviceId = session.deviceId;
     try {
       return await this.prisma.$transaction(
         async (tx) => {
-          const [device] = await this.lockDevice(tx, session.deviceId);
+          const [device] = await this.lockDevice(tx, deviceId);
           if (!device)
             throw new GoneException('Computador não está mais disponível.');
           const current = await tx.pairingSession.findUnique({
@@ -136,6 +211,8 @@ export class PairingService {
             },
           });
           await this.assertUsableSession(tx, current, new Date());
+          if (!current?.device)
+            throw new GoneException('Token de pareamento inválido.');
           this.assertDemoAllowed(device.isDemo);
           if (device.guardianId)
             throw new ConflictException(
@@ -180,13 +257,89 @@ export class PairingService {
             data: { revokedAt: now },
           });
 
-          return {
-            ...this.deviceSummary(current!.device),
-            status: 'unverified' as const,
-            lastSeen: null,
-            paired: true as const,
-            associationId,
-          };
+          return this.pairedResponse(current.device, associationId);
+        },
+        { isolationLevel: 'ReadCommitted' },
+      );
+    } catch (error) {
+      this.rethrowKnown(error);
+    }
+  }
+
+  private async completeRegistration(guardianId: string, hash: string) {
+    try {
+      return await this.prisma.$transaction(
+        async (tx) => {
+          await tx.$queryRaw`SELECT id FROM PairingSession WHERE tokenHash = ${hash} FOR UPDATE`;
+          const current = await tx.pairingSession.findUnique({
+            where: { tokenHash: hash },
+            select: {
+              id: true,
+              expiresAt: true,
+              consumedAt: true,
+              revokedAt: true,
+              ...registrationSelect,
+            },
+          });
+          const now = new Date();
+          await this.assertUsableSession(tx, current, now);
+          const registered = current && this.registeredDevice(current);
+          if (!registered)
+            throw new GoneException('Token de pareamento inválido.');
+          await this.assertCredentialUnused(
+            tx,
+            registered.credentialHash,
+            GoneException,
+          );
+
+          const consume = await tx.pairingSession.updateMany({
+            where: {
+              id: current.id,
+              consumedAt: null,
+              revokedAt: null,
+              expiresAt: { gt: now },
+            },
+            data: { consumedAt: now, consumedByGuardianId: guardianId },
+          });
+          if (consume.count !== 1)
+            throw new GoneException('Token de pareamento já foi consumido.');
+
+          const { device } = registered;
+          await tx.device.create({
+            data: {
+              id: device.id,
+              name: device.name,
+              managedUser: device.managedUser,
+              isDemo: false,
+              guardianId,
+            },
+          });
+          await tx.agentIdentity.create({
+            data: {
+              deviceId: device.id,
+              credentialHash: registered.credentialHash,
+            },
+          });
+          const associationId = randomUUID();
+          await tx.deviceAssociation.create({
+            data: {
+              id: associationId,
+              deviceId: device.id,
+              guardianId,
+              activeDeviceId: device.id,
+            },
+          });
+          await tx.pairingSession.updateMany({
+            where: {
+              registrationCredentialHash: registered.credentialHash,
+              id: { not: current.id },
+              consumedAt: null,
+              revokedAt: null,
+            },
+            data: { revokedAt: now },
+          });
+
+          return this.pairedResponse(device, associationId);
         },
         { isolationLevel: 'ReadCommitted' },
       );
@@ -299,6 +452,59 @@ export class PairingService {
         'Serviço de pareamento indisponível.',
       );
     }
+  }
+
+  private registeredDevice(session: RegistrationFields) {
+    const {
+      registrationDeviceId: id,
+      registrationCredentialHash: credentialHash,
+      registrationName: name,
+      registrationManagedUser: managedUser,
+    } = session;
+    if (!id || !credentialHash || !name || !managedUser) return null;
+    return {
+      credentialHash,
+      device: { id, name, managedUser, isDemo: false },
+    };
+  }
+
+  private async assertCredentialUnused(
+    tx: Pick<Prisma.TransactionClient, 'agentIdentity'>,
+    credentialHash: string,
+    Rejection: typeof ConflictException | typeof GoneException,
+  ) {
+    const identity = await tx.agentIdentity.findUnique({
+      where: { credentialHash },
+      select: { id: true },
+    });
+    if (identity)
+      throw new Rejection('Credencial do computador já foi registrada.');
+  }
+
+  private sessionResponse(token: string, expiresAt: Date) {
+    return {
+      token,
+      expiresAt: expiresAt.toISOString(),
+      qrPayload: `piplup://pair?token=${token}`,
+    };
+  }
+
+  private pairedResponse(
+    device: {
+      id: string;
+      name: string;
+      managedUser: string | null;
+      isDemo: boolean;
+    },
+    associationId: string,
+  ) {
+    return {
+      ...this.deviceSummary(device),
+      status: 'unverified' as const,
+      lastSeen: null,
+      paired: true as const,
+      associationId,
+    };
   }
 
   private async lockDevice(tx: Prisma.TransactionClient, deviceId: string) {

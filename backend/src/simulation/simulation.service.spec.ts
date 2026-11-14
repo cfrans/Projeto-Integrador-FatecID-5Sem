@@ -20,6 +20,7 @@ describe('Simulated computer synchronization', () => {
     },
     deviceAssociation: { findFirst: vi.fn(), deleteMany: vi.fn() },
     agentCommand: { deleteMany: vi.fn() },
+    pairingSession: { deleteMany: vi.fn() },
     simulationState: { upsert: vi.fn(), update: vi.fn() },
     installedApplication: {
       count: vi.fn(),
@@ -143,7 +144,13 @@ describe('Simulated computer synchronization', () => {
     expect(tx.deviceAssociation.deleteMany).toHaveBeenCalledWith({
       where: { deviceId },
     });
+    expect(tx.pairingSession.deleteMany).toHaveBeenCalledWith({
+      where: { deviceId },
+    });
     expect(tx.device.delete).toHaveBeenCalledWith({ where: { id: deviceId } });
+    expect(
+      tx.pairingSession.deleteMany.mock.invocationCallOrder[0],
+    ).toBeLessThan(tx.device.delete.mock.invocationCallOrder[0]);
     expect(tx.agentCommand.deleteMany.mock.invocationCallOrder[0]).toBeLessThan(
       tx.deviceAssociation.deleteMany.mock.invocationCallOrder[0],
     );

@@ -78,6 +78,7 @@ export class SimulationService {
         throw new NotFoundException('Computador simulado indisponível.');
       await tx.agentCommand.deleteMany({ where: { deviceId } });
       await tx.deviceAssociation.deleteMany({ where: { deviceId } });
+      await tx.pairingSession.deleteMany({ where: { deviceId } });
       await tx.device.delete({ where: { id: deviceId } });
       return { deletedDeviceId: deviceId };
     });

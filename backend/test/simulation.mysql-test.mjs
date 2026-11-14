@@ -125,6 +125,7 @@ test('demo registration, secure pairing, policy acknowledgement and revocation w
   } finally {
     process.env.NODE_ENV = 'test';
     await prisma.deviceAssociation.deleteMany({ where: { deviceId: { in: devices } } });
+    await prisma.pairingSession.deleteMany({ where: { deviceId: { in: devices } } });
     await prisma.device.deleteMany({ where: { id: { in: devices } } });
     await prisma.guardian.deleteMany({ where: { id: { in: guardians.map((guardian) => guardian.id) } } });
     await app.close();
