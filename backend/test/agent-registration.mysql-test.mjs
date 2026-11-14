@@ -275,3 +275,14 @@ test('registration creates the computer only when a guardian completes pairing',
     );
   });
 });
+
+test('registration is rate limited per address without affecting other routes', async () => {
+  await withApp(async ({ http }) => {
+    for (let attempt = 0; attempt < 5; attempt += 1) {
+      await http.post('/agent/registrations').send({}).expect(400);
+    }
+    await http.post('/agent/registrations').send({}).expect(429);
+    await http.post('/agent/pairing-sessions').expect(401);
+    await http.post('/pairing/validate').expect(401);
+  });
+});
