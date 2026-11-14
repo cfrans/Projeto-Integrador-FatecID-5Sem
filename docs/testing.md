@@ -6,7 +6,7 @@
 | --- | --- | --- |
 | Backend unitário | Vitest, `backend/src/**/*.spec.ts` | Regras de autenticação, consultas, contratos e tratamento de falhas com persistência substituída |
 | API HTTP | Vitest/Supertest, `backend/test/app.e2e-spec.ts` | Guards, DTOs, rotas e status HTTP com Prisma substituído |
-| Banco e API reais | Node test runner, `backend/test/*.mysql-test.mjs` | Migrations, autenticação, isolamento, concorrência, relatórios, comandos e objetos SQL em MySQL 8.4 |
+| Banco e API reais | Node test runner, `backend/test/*.mysql-test.mjs` e `*.mysql-serial-test.mjs` (à parte) | Migrations, autenticação, isolamento, concorrência, relatórios, comandos e objetos SQL em MySQL 8.4 |
 | Mobile | `mobile/scripts/api.test.mjs` | Contratos, seleção, traduções, temas, armazenamento, prazos locais, perfis e falhas |
 | Client | `simulated-client/test/` | Cadastro, identidade, sincronização, pedidos e integração com serviços mobile/API/MySQL |
 | Interface web | Cypress 16.2.1, `e2e/cypress/e2e/mvp.cy.js` | Login/erro, restrições pendentes e confirmadas, recusa de instalação, falha de rede e revogação |

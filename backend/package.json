@@ -32,7 +32,7 @@
     "agent:revoke": "npm run prisma:generate && npm run build && node dist/src/agent/agent-admin.js revoke",
     "prisma:migrate:dev": "prisma migrate dev",
     "prisma:migrate:deploy": "prisma migrate deploy",
-    "test:mysql": "node --test test/*.mysql-test.mjs"
+    "test:mysql": "node --test test/*.mysql-test.mjs && node --test test/*.mysql-serial-test.mjs"
   },
   "dependencies": {
     "@nestjs/common": "^12.0.1",

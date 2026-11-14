@@ -108,7 +108,10 @@ node --env-file=/caminho/privado.env node_modules/prisma/build/index.js migrate 
 npm run prisma:generate
 npm run build
 node --env-file=/caminho/privado.env --test test/*.mysql-test.mjs
+node --env-file=/caminho/privado.env --test test/*.mysql-serial-test.mjs
 ```
+
+Arquivos `*.mysql-serial-test.mjs` rodam depois e sozinhos: o teste de rollback cria e remove um trigger em `Device`, e esse DDL, em paralelo, causa deadlocks de metadata lock (1213) em outros testes.
 
 O arquivo deve definir todas as variáveis da conexão e `NODE_ENV=test`, que têm precedência sobre `.env` da raiz. Não aponte esses testes para o banco da aplicação. Não é necessário Docker.
 

@@ -22,7 +22,6 @@ test('SQL objects preserve pairing invariants and participate in API transaction
   const guardian = await prisma.guardian.create({ data: { email: `${randomUUID()}@example.test`, name: 'SQL fixture', passwordHash: 'not-a-login-account' } });
   const devices = [];
   const now = new Date('2026-11-09T12:00:00.000Z');
-  let failureTriggerCreated = false;
 
   async function fixture(name = 'SQL fixture') {
     const device = await prisma.device.create({ data: { name, guardianId: guardian.id, isDemo: true } });
@@ -82,27 +81,6 @@ test('SQL objects preserve pairing invariants and participate in API transaction
       await assert.rejects(prisma.$transaction((tx) => tx.$executeRaw`CALL sp_revoke_device_association(${device.id}, ${association.id})`));
     });
 
-    await suite.test('an SQL error after partial updates rolls back commands, association, device and session', async () => {
-      const { device, association, session, commands } = await fixture('SQL rollback fixture');
-      await connection.query(`CREATE TRIGGER trg_test_revoke_failure BEFORE UPDATE ON Device FOR EACH ROW
-        BEGIN
-          IF OLD.name = 'SQL rollback fixture' AND NEW.guardianId IS NULL THEN
-            SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'TEST_REVOKE_FAILURE';
-          END IF;
-        END`);
-      failureTriggerCreated = true;
-      await assert.rejects(pairing.revokeGuardianAssociation(guardian.id, device.id), (error) => error.getStatus() === 503);
-      assert.equal((await prisma.device.findUniqueOrThrow({ where: { id: device.id } })).guardianId, guardian.id);
-      const unchanged = await prisma.deviceAssociation.findUniqueOrThrow({ where: { id: association.id } });
-      assert.equal(unchanged.revokedAt, null);
-      assert.equal(unchanged.activeDeviceId, device.id);
-      assert.equal((await prisma.pairingSession.findUniqueOrThrow({ where: { id: session.id } })).revokedAt, null);
-      const statuses = await Promise.all(commands.map((command) => prisma.agentCommand.findUniqueOrThrow({ where: { id: command.id } }).then((entry) => entry.status)));
-      assert.deepEqual(statuses, ['pending', 'running', 'succeeded']);
-      await connection.query('DROP TRIGGER trg_test_revoke_failure');
-      failureTriggerCreated = false;
-    });
-
     await suite.test('view exposes one current link and discards presence after identity revocation', async () => {
       const { device, association } = await fixture();
       const identity = await prisma.agentIdentity.create({ data: { deviceId: device.id, credentialHash: randomUUID().replaceAll('-', '').padEnd(64, '0') } });
@@ -117,7 +95,6 @@ test('SQL objects preserve pairing invariants and participate in API transaction
       assert.deepEqual(await read(), []);
     });
   } finally {
-    if (failureTriggerCreated) await connection.query('DROP TRIGGER trg_test_revoke_failure');
     for (const device of devices) {
       await prisma.agentCommand.deleteMany({ where: { deviceId: device.id } });
       await prisma.deviceAssociation.deleteMany({ where: { deviceId: device.id } });
