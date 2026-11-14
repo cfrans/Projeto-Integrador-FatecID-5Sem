@@ -9,9 +9,11 @@ import unittest
 import uuid
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
+from unittest.mock import Mock, patch
 
 from lux_agent.errors import DiagnosticError
 from lux_agent.journal import CommandJournal
+from lux_agent.polling import poll_associations
 from lux_agent.reports import ReportProcessor, load_report
 
 
@@ -136,3 +138,26 @@ class ReportTests(unittest.TestCase):
 
 if __name__ == '__main__':
     unittest.main()
+
+
+class ReportPollingTests(unittest.TestCase):
+    def poll(self, associations):
+        processor = Mock()
+        processor.run_once.return_value = 1
+        stdout = io.StringIO()
+        with patch('lux_agent.polling.query_associations', return_value=associations), contextlib.redirect_stdout(stdout):
+            code = poll_associations('https://api.invalid/agent/associations', 'x', max_queries=1,
+                                     report_processor=processor, report_file='report.json')
+        self.assertEqual(code, 0)
+        return processor, stdout.getvalue()
+
+    def test_report_waits_without_active_association(self):
+        for associations in ([], [{'revokedAt': '2026-11-01T00:00:00Z'}]):
+            with self.subTest(associations=associations):
+                processor, output = self.poll(associations)
+                processor.run_once.assert_not_called()
+                self.assertIn('aguardando vínculo ativo', output)
+
+    def test_report_is_sent_with_active_association(self):
+        processor, _ = self.poll([{'revokedAt': '2026-11-01T00:00:00Z'}, {'revokedAt': None}])
+        processor.run_once.assert_called_once_with('report.json')

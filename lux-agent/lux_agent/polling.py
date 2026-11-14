@@ -49,8 +49,11 @@ def poll_associations(
         try:
             associations = query_associations(endpoint, credential, timeout, ca_file)
             if report_processor is not None:
-                confirmed_reports = report_processor.run_once(report_file)
-                print(f"Relatórios: {confirmed_reports} resultado(s) confirmado(s).", flush=True)
+                if any(item["revokedAt"] is None for item in associations):
+                    confirmed_reports = report_processor.run_once(report_file)
+                    print(f"Relatórios: {confirmed_reports} resultado(s) confirmado(s).", flush=True)
+                else:
+                    print("Relatórios: aguardando vínculo ativo com um responsável.", flush=True)
             if command_processor is not None:
                 confirmed = command_processor.run_once()
                 print(f"Comandos: {confirmed} resultado(s) confirmado(s).", flush=True)
