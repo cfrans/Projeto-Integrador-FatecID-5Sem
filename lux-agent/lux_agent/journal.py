@@ -83,6 +83,9 @@ class CommandJournal:
     def acknowledge_report(self, report_id):
         self.write("UPDATE reports SET state='acknowledged' WHERE report_id=?", (report_id,))
 
+    def reject_report(self, report_id):
+        self.write("UPDATE reports SET state='rejected' WHERE report_id=?", (report_id,))
+
     def write(self, sql, values):
         try:
             with self.db:

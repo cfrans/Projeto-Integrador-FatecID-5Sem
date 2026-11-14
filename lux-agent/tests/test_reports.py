@@ -1,3 +1,5 @@
+import contextlib
+import io
 import json
 import secrets
 import socket
@@ -32,6 +34,7 @@ class ReportTests(unittest.TestCase):
         self.credential = secrets.token_urlsafe(32)
         self.requests = []
         self.drop_response = False
+        self.reject_status = None
         owner = self
 
         class Handler(BaseHTTPRequestHandler):
@@ -42,6 +45,10 @@ class ReportTests(unittest.TestCase):
                 if owner.drop_response:
                     owner.drop_response = False
                     self.connection.shutdown(socket.SHUT_RDWR)
+                    return
+                if owner.reject_status is not None:
+                    self.send_response(owner.reject_status)
+                    self.end_headers()
                     return
                 status = 201 if len(owner.requests) == 1 else 200
                 self.send_response(status)
@@ -93,6 +100,30 @@ class ReportTests(unittest.TestCase):
         self.restart()
         self.assertEqual(self.processor.run_once(str(self.file)), 1)
         self.assertEqual([body for _, body, _ in self.requests], [payload, payload])
+
+    def test_definitive_rejection_is_recorded_and_not_resent_after_restart(self):
+        for status in (400, 409, 413, 422):
+            with self.subTest(status=status):
+                payload = report()
+                self.write_report(payload)
+                self.reject_status = status
+                self.requests.clear()
+                with contextlib.redirect_stderr(io.StringIO()) as stderr:
+                    self.assertEqual(self.processor.run_once(str(self.file)), 0)
+                self.assertIn(f'HTTP {status}', stderr.getvalue())
+                self.assertEqual(self.journal.get_report(payload['reportId'])[2], 'rejected')
+                self.restart()
+                self.assertEqual(self.processor.run_once(str(self.file)), 0)
+                self.assertEqual(len(self.requests), 1)
+
+    def test_transient_failure_keeps_report_pending(self):
+        payload = report()
+        self.write_report(payload)
+        self.reject_status = 503
+        with self.assertRaises(DiagnosticError) as raised:
+            self.processor.run_once(str(self.file))
+        self.assertTrue(raised.exception.retryable)
+        self.assertEqual(self.journal.get_report(payload['reportId'])[2], 'pending')
 
     def test_invalid_report_is_rejected_before_network(self):
         payload = report()

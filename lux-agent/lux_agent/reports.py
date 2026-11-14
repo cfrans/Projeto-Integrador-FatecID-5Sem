@@ -1,4 +1,5 @@
 import json
+import sys
 import uuid
 from datetime import datetime, timezone
 from pathlib import Path
@@ -8,6 +9,7 @@ from .errors import DiagnosticError
 
 MAX_REPORT_BYTES = 16 * 1024
 MAX_ENTRIES = 200
+REJECTED_STATUSES = (400, 409, 413, 422)
 
 
 def invalid_report():
@@ -114,7 +116,17 @@ class ReportProcessor:
         confirmed = 0
         for report_id, raw_payload, state in self.journal.pending_reports():
             payload = json.loads(raw_payload)
-            response = self.request(payload)
+            try:
+                response = self.request(payload)
+            except DiagnosticError as error:
+                if error.http_status not in REJECTED_STATUSES:
+                    raise
+                self.journal.reject_report(report_id)
+                print(
+                    f'Aviso: relatório {report_id} rejeitado pelo backend (HTTP {error.http_status}); não será reenviado.',
+                    file=sys.stderr, flush=True,
+                )
+                continue
             if not isinstance(response, dict) or response.get('reportId') != report_id or response.get('accepted') is not True:
                 raise invalid_report()
             self.journal.acknowledge_report(report_id)
