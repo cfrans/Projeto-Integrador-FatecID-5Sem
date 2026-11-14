@@ -176,6 +176,10 @@ test('authenticated agent reports are transactional and idempotent', async () =>
       'PENDING',
     );
 
+    const duplicated = report();
+    duplicated.applications.push({ ...duplicated.applications[0] });
+    await http.put('/agent/reports').set(agentHeaders).send(duplicated).expect(422);
+
     await prisma.agentIdentity.updateMany({
       where: { deviceId: device.id },
       data: { revokedAt: new Date() },

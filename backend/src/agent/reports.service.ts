@@ -3,6 +3,7 @@ import {
   Injectable,
   ServiceUnavailableException,
   UnauthorizedException,
+  UnprocessableEntityException,
 } from '@nestjs/common';
 import { createHash } from 'node:crypto';
 import type { AgentReport } from '../../generated/prisma/client.js';
@@ -21,6 +22,10 @@ function canonical(value: unknown): string {
   return JSON.stringify(value);
 }
 
+function hasDuplicateSourceId(entries: { sourceId: string }[]): boolean {
+  return new Set(entries.map((entry) => entry.sourceId)).size !== entries.length;
+}
+
 function reportHash(report: AgentReportDto): string {
   return createHash('sha256').update(canonical(report)).digest('hex');
 }
@@ -30,6 +35,11 @@ export class ReportsService {
   constructor(private readonly prisma: PrismaService) {}
 
   async ingest(agent: AuthenticatedAgent, report: AgentReportDto) {
+    if (
+      hasDuplicateSourceId(report.applications) ||
+      hasDuplicateSourceId(report.installationRequests)
+    )
+      throw new UnprocessableEntityException('sourceId duplicado no relatório.');
     const contentHash = reportHash(report);
     try {
       return await this.prisma.$transaction(
