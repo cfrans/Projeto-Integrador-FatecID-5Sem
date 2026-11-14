@@ -65,9 +65,9 @@ Falha usa `status: "failed"`, `result: null` e `error: { "code": "EXECUTION_TIME
 
 Erros: 400 contrato inválido; 401 autenticação/identidade revogada; 404 recurso alheio/inexistente; 409 conflito; 410 vínculo original revogado, identidade indisponível na criação ou comando vencido/cancelado antes da reserva; 413 corpo excessivo; 503 indisponibilidade operacional. Erros não expõem exceções ou corpos do backend na CLI.
 
-## Contrato proposto de relatórios do Agent
+## Contrato de relatórios do Agent
 
-Esta seção define a próxima extensão do protocolo. Ela é uma especificação; os endpoints abaixo ainda não existem no backend e não devem ser confundidos com o client simulado. O objetivo é permitir que o Agent real envie um retrato do computador e que o responsável consulte dados cuja origem e horário de coleta sejam conhecidos.
+Esta seção define a extensão de relatórios, implementada no backend (`PUT /agent/reports`) e no Agent. Não deve ser confundida com o client simulado. O objetivo é permitir que o Agent real envie um retrato do computador e que o responsável consulte dados cuja origem e horário de coleta sejam conhecidos.
 
 ### Endpoints usados pelo Agent
 
@@ -157,7 +157,7 @@ As respostas de erro possuem somente um código estável, por exemplo `{ "error"
 
 ### Estados e confirmação
 
-O relatório possui os estados efetivos `accepted`, `duplicate`, `rejected` e `unavailable` no diário do Agent. No diário, `pending` vira `acknowledged` com o recibo, ou `rejected` com `400`, `409`, `413` ou `422`. Um relatório rejeitado não é reenviado, nem após reinício, e o polling continua com um aviso no stderr. `401`, TLS e `501`/`505` continuam encerrando; `429` e os demais `5xx` mantêm o relatório `pending` para o próximo ciclo. O backend persiste somente relatórios aceitos e conflitos auditáveis; `unavailable` é uma condição de transporte, não uma confirmação de falha do computador.
+O relatório possui os estados efetivos `accepted`, `duplicate`, `rejected` e `unavailable` no diário do Agent. No diário, `pending` vira `acknowledged` com o recibo, ou `rejected` com `400`, `409`, `413` ou `422`. Um relatório rejeitado não é reenviado, nem após reinício, e o polling continua com um aviso no stderr. O Agent só envia quando a consulta de vínculos do ciclo traz um vínculo ativo, porque o backend responde `401` a computador sem vínculo; sem vínculo, o relatório fica pendente. `401`, TLS e `501`/`505` continuam encerrando; `429` e os demais `5xx` mantêm o relatório `pending` para o próximo ciclo. O backend persiste somente relatórios aceitos e conflitos auditáveis; `unavailable` é uma condição de transporte, não uma confirmação de falha do computador.
 
 Uma operação parental só é **confirmada** quando o Agent recebe um comando válido, reserva-o, executa a ação local permitida e consulta novamente o estado do sistema para verificar o efeito esperado. O recebimento do comando, o `claim`, uma resposta HTTP 200 ou a gravação de uma configuração desejada não significam aplicação. O resultado deve ser `succeeded` somente com essa verificação; caso contrário deve ser `failed` com código tipado ou `unknown` quando não for possível distinguir execução de perda de comunicação.
 
@@ -211,6 +211,6 @@ Cadência/backoff/jitter/`Retry-After` e sinais são os do polling existente. 42
 
 [Testes MySQL](../backend/test/commands.mysql-test.mjs): vínculo/identidade, fixture legada, isolamento, criação/claim/resultado idempotentes, concorrência, expiração após espera por lock, revogação administrativa/do responsável e resultado tardio. [Testes Python](../lux-agent/tests/test_commands.py): diário, exclusão, permissões, corrupção, troca de identidade/origem, respostas perdidas, reinício ambíguo e contratos não suportados. [Evidência real no Lux](agent-ping-validation.md#evidência--2026-10-26).
 
-Ficam pendentes: UI mobile de comandos, usuário/instalação do serviço, pareamento/autorização local, quotas/retenção, presença, hospedagem HTTPS definitiva, primeira leitura remota e reconciliação antes de escritas parentais. `status: "unverified"`/`lastSeen: null` dos dispositivos permanecem. Sucesso de ping não comprova política aplicada ou identidade física do equipamento.
+Ficam pendentes: UI mobile de comandos, pareamento/autorização local, quotas/retenção, presença, hospedagem HTTPS definitiva, primeira leitura remota e reconciliação antes de escritas parentais. `status: "unverified"`/`lastSeen: null` dos dispositivos permanecem. Sucesso de ping não comprova política aplicada ou identidade física do equipamento.
 
 Referências: [Prisma 7: transações](https://www.prisma.io/docs/orm/v7/prisma-client/queries/transactions), [Prisma 7: migrations](https://www.prisma.io/docs/orm/v7/prisma-migrate/workflows/development-and-production), [SQLite no Python](https://docs.python.org/3.12/library/sqlite3.html) e [flock](https://docs.python.org/3.12/library/fcntl.html#fcntl.flock).
