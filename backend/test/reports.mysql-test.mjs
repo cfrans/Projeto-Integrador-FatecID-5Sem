@@ -151,6 +151,31 @@ test('authenticated agent reports are transactional and idempotent', async () =>
       'APPROVED',
     );
 
+    const otherFlow = await prisma.installationRequest.create({
+      data: {
+        deviceId: device.id,
+        sourceId: `simulated:${randomUUID()}`,
+        applicationName: 'Pedido do simulador',
+        requesterName: 'Conta gerenciada',
+        requestedAt: new Date(),
+        ageRating: 'L',
+        status: 'PENDING',
+      },
+    });
+    await http
+      .put('/agent/reports')
+      .set(agentHeaders)
+      .send({ ...report(), installationRequests: [] })
+      .expect(201);
+    assert.equal(
+      (
+        await prisma.installationRequest.findUniqueOrThrow({
+          where: { id: otherFlow.id },
+        })
+      ).status,
+      'PENDING',
+    );
+
     await prisma.agentIdentity.updateMany({
       where: { deviceId: device.id },
       data: { revokedAt: new Date() },

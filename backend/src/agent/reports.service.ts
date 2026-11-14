@@ -80,14 +80,6 @@ export class ReportsService {
           await tx.installedApplication.deleteMany({ where: { deviceId: device.id } });
           await tx.installedApplication.createMany({ data: applications });
 
-          const sourceIds = requests.map((request) => request.sourceId);
-          await tx.installationRequest.deleteMany({
-            where: {
-              deviceId: device.id,
-              sourceId: { notIn: sourceIds.length ? sourceIds : ['__empty_report__'] },
-              status: 'PENDING',
-            },
-          });
           for (const request of requests) {
             await tx.installationRequest.upsert({
               where: {
