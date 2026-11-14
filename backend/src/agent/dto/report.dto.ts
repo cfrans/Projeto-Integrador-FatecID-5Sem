@@ -7,25 +7,25 @@ import {
   Equals,
   IsString,
   IsUUID,
-  MaxLength,
   ValidateNested,
 } from 'class-validator';
 import { Type } from 'class-transformer';
+import { CodePointLength } from './code-point-length.js';
 
 export class AgentApplicationReportDto {
-  @ApiProperty({ maxLength: 191 })
+  @ApiProperty({ minLength: 1, maxLength: 191 })
   @IsString()
-  @MaxLength(191)
+  @CodePointLength(1, 191)
   sourceId!: string;
 
-  @ApiProperty({ maxLength: 200 })
+  @ApiProperty({ minLength: 1, maxLength: 200 })
   @IsString()
-  @MaxLength(200)
+  @CodePointLength(1, 200)
   name!: string;
 
-  @ApiProperty({ maxLength: 100 })
+  @ApiProperty({ minLength: 1, maxLength: 100 })
   @IsString()
-  @MaxLength(100)
+  @CodePointLength(1, 100)
   category!: string;
 
   @ApiProperty()
@@ -34,19 +34,19 @@ export class AgentApplicationReportDto {
 }
 
 export class AgentInstallationRequestReportDto {
-  @ApiProperty({ maxLength: 191 })
+  @ApiProperty({ minLength: 1, maxLength: 191 })
   @IsString()
-  @MaxLength(191)
+  @CodePointLength(1, 191)
   sourceId!: string;
 
-  @ApiProperty({ maxLength: 200 })
+  @ApiProperty({ minLength: 1, maxLength: 200 })
   @IsString()
-  @MaxLength(200)
+  @CodePointLength(1, 200)
   applicationName!: string;
 
-  @ApiProperty({ maxLength: 100 })
+  @ApiProperty({ minLength: 1, maxLength: 100 })
   @IsString()
-  @MaxLength(100)
+  @CodePointLength(1, 100)
   requesterName!: string;
 
   @ApiProperty({ format: 'date-time' })
@@ -55,7 +55,7 @@ export class AgentInstallationRequestReportDto {
 
   @ApiProperty({ maxLength: 20 })
   @IsString()
-  @MaxLength(20)
+  @CodePointLength(0, 20)
   ageRating!: string;
 }
 

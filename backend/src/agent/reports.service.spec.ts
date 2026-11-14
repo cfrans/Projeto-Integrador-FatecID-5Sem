@@ -1,4 +1,6 @@
 import { UnprocessableEntityException } from '@nestjs/common';
+import { plainToInstance } from 'class-transformer';
+import { validate } from 'class-validator';
 import { AgentReportDto } from './dto/report.dto.js';
 import { ReportsService } from './reports.service.js';
 
@@ -11,6 +13,28 @@ const report = (overrides: Partial<AgentReportDto> = {}) => ({
   ],
   installationRequests: [],
   ...overrides,
+});
+
+async function errors(value: unknown) {
+  return validate(plainToInstance(AgentReportDto, value));
+}
+
+describe('AgentReportDto', () => {
+  it('measures text by code points like the Agent and MySQL', async () => {
+    const name = 'a'.repeat(199) + '❤️';
+    expect(await errors(report({ applications: [
+      { sourceId: 'desktop:a.desktop', name, category: 'x', allowed: true },
+    ] }))).not.toHaveLength(0);
+    expect(await errors(report({ applications: [
+      { sourceId: 'desktop:a.desktop', name: '😀'.repeat(200), category: 'x', allowed: true },
+    ] }))).toHaveLength(0);
+  });
+
+  it('rejects empty required text', async () => {
+    expect(await errors(report({ applications: [
+      { sourceId: 'desktop:a.desktop', name: '', category: 'x', allowed: true },
+    ] }))).not.toHaveLength(0);
+  });
 });
 
 describe('ReportsService', () => {
