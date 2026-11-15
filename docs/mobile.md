@@ -187,7 +187,7 @@ A lista oferece remoção somente para vínculo ativo, com confirmação antes d
 
 ## Teste manual de pareamento com dispositivo de demonstração
 
-Este roteiro usa Docker e um registro fictício com `isDemo: true`. O trecho Python solicita uma sessão autenticada como faria o futuro Agent; o vínculo é persistido pela API, mas nenhum computador físico é controlado. Não são testadas autorização administrativa Linux, instalação systemd ou integração GNOME. Identidades demonstrativas só autenticam em desenvolvimento/teste.
+Este roteiro usa Docker e um registro fictício com `isDemo: true`. O trecho Python solicita uma sessão autenticada como faz o Agent; o vínculo é persistido pela API, mas nenhum computador físico é controlado. Não são testadas autorização administrativa Linux, instalação systemd ou integração GNOME. Identidades demonstrativas só autenticam em desenvolvimento/teste.
 
 ### 1. Preparar API e celular
 

@@ -78,7 +78,7 @@ Projeto Integrador: aplicativo Expo para controle parental em computadores Lenov
 2. Integrar confirmação de operações reais; o client simulado confirma suas próprias revisões, mas não comprova aplicação no GNOME.
 3. Definir privilégios mínimos do Agent e validar operações de escrita; a leitura de políticas na VM Lux já foi validada com e sem restrições, exigindo autenticação administrativa para outra conta.
 4. Implementar a coleta real de pedidos de instalação e suas decisões, registrando sucesso, falha e indisponibilidade no backend.
-5. Implementar a interface local GTK4/libadwaita para autorização administrativa e provisionamento/pareamento do Agent.
+5. Implementar a janela GTK4/libadwaita de pareamento do Agent (o QR no terminal já existe).
 6. Conectar o Agent às decisões de instalação e restrições, registrando confirmação posterior no backend.
 7. Expandir a cobertura de testes para troca de idioma e tema, múltiplos computadores, ausência de conexão, pedidos de instalação e fluxo ponta a ponta.
 

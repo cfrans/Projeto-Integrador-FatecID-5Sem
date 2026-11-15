@@ -24,13 +24,13 @@ Investigar quais contas podem ser administradas, quais restrições podem ser co
 
 ### Decisão para a confiança inicial do Agent
 
-A identidade inicial do computador nasce do autorregistro: o Agent gera no Lux uma credencial de 256 bits aleatórios, guarda-a em arquivo restrito ao serviço e envia só o SHA-256 a `POST /agent/registrations`. SHA-256 simples basta pela entropia da credencial. Ela nunca é enviada ao mobile, incluída no QR ou registrada em logs. Registrar não concede nada: sem confirmação de um responsável autenticado em cinco minutos, o registro expira sem criar computador nem identidade. O backend permite invalidar a identidade, e o identificador do computador sozinho não autoriza solicitações. O endpoint está implementado no backend; seu uso pelo Agent está pendente.
+A identidade inicial do computador nasce do autorregistro: o Agent gera no Lux uma credencial de 256 bits aleatórios, guarda-a em arquivo restrito ao serviço e envia só o SHA-256 a `POST /agent/registrations`. SHA-256 simples basta pela entropia da credencial. Ela nunca é enviada ao mobile, incluída no QR ou registrada em logs. Registrar não concede nada: sem confirmação de um responsável autenticado em cinco minutos, o registro expira sem criar computador nem identidade. O backend permite invalidar a identidade, e o identificador do computador sozinho não autoriza solicitações. O Agent faz o autorregistro em `lux-agent pair` ([Pareamento pelo Agent](#pareamento-pelo-agent)).
 
-A ferramenta administrativa (`agent:provision`, `agent:revoke`) continua para desenvolvimento e operação; nesse caso a credencial é transferida por canal seguro. A credencial autentica uma instalação autorizada; não comprova por si só o modelo físico do equipamento nem que uma autorização administrativa local aconteceu em cada solicitação.
+A ferramenta administrativa (`agent:provision`, `agent:revoke`) fica só para desenvolvimento e operação; nesse caso a credencial é transferida por canal seguro e instalada manualmente, fora do `install.sh`. A credencial autentica uma instalação autorizada; não comprova por si só o modelo físico do equipamento nem que uma autorização administrativa local aconteceu em cada solicitação.
 
-Após o provisionamento, o futuro Agent deverá exigir autorização administrativa local antes de solicitar cada sessão de pareamento. A autorização local precisa ser implementada e testada no Lux real; a proteção do arquivo já é verificada pelo diagnóstico e a instalação do serviço a grava em `/etc/lux-agent`; um campo booleano enviado à API não será tratado como prova independente de autorização Linux. O backend confiará no Agent previamente provisionado para cumprir essa obrigação. O mecanismo local concreto permanece pendente de investigação, sem assumir suporte a polkit.
+Cada sessão de pareamento exige autorização administrativa local: o auxiliar roda via `pkexec` com uma ação polkit própria (`auth_admin`). Um campo booleano enviado à API não é prova independente de autorização Linux; o backend confia no Agent para cumprir essa obrigação.
 
-O QR transportará somente um token temporário de uso único, separado da credencial do Agent. O provisionamento e o pareamento são operações distintas: preparar a identidade do computador não concede acesso a um responsável. HTTPS será obrigatório fora do ambiente local de desenvolvimento. A infraestrutura de identidade e pareamento está implementada no backend; a proteção do arquivo e a autenticação do diagnóstico foram validadas no Agent; autorização local e pareamento permanecem pendentes; a instalação do serviço existe.
+O QR transportará somente um token temporário de uso único, separado da credencial do Agent. O provisionamento e o pareamento são operações distintas: preparar a identidade do computador não concede acesso a um responsável. HTTPS será obrigatório fora do ambiente local de desenvolvimento. Identidade, autorização local e pareamento estão implementados no backend e no Agent.
 
 O backend implementa hashing Argon2id de senhas, JWT de responsáveis, credenciais individuais do Agent, sessões temporárias e revogação de vínculos. As obrigações abaixo incluem etapas locais ainda pendentes de implementação e validação no Lux:
 
@@ -45,32 +45,43 @@ O backend implementa hashing Argon2id de senhas, JWT de responsáveis, credencia
 
 QR Code transporta somente o token temporário de pareamento, com validade de cinco minutos e uso único. Não é uma credencial administrativa permanente. O protocolo deve proteger tokens em trânsito e impedir reutilização após consumo ou expiração.
 
-## Contrato do futuro Agent
+## Contrato do Agent
 
 Os endpoints e formatos HTTP ficam em [Backend](backend.md); o Agent não terá acesso ao MySQL nem utilizará o JWT do responsável.
 
-1. Um administrador local instala a credencial individual previamente provisionada. O serviço deve protegê-la contra usuários não autorizados e utilizá-la como Bearer exclusivamente no backend configurado e autenticado por HTTPS.
-2. Para iniciar pareamento, o Agent verifica autorização administrativa local. Só então solicita `POST /agent/pairing-sessions`; a interface local exibe o QR retornado e informa sua expiração, inicialmente podendo usar o terminal na prova de conceito. O administrador não precisa fornecer senha Linux ao backend ou mobile.
-3. O responsável autenticado lê o QR, valida a solicitação e confirma o vínculo. O Agent consulta `GET /agent/associations` por polling para observar a associação no backend. Isso confirma um vínculo persistido, não aplicação de controles GNOME.
+1. O auxiliar de pareamento gera a credencial individual no primeiro pareamento (ou quando a atual é recusada com `401`) e registra só o hash. O serviço a protege contra usuários não autorizados e a usa como Bearer exclusivamente no backend configurado e autenticado por HTTPS.
+2. Para iniciar pareamento, o Agent exige autorização administrativa local (`pkexec`). Só então solicita `POST /agent/registrations` ou, com credencial válida, `POST /agent/pairing-sessions`; o terminal exibe o QR retornado e sua expiração. O administrador não precisa fornecer senha Linux ao backend ou mobile.
+3. O responsável autenticado lê o QR, valida a solicitação e confirma o vínculo. O auxiliar consulta `GET /agent/associations` até haver vínculo ativo e reinicia o serviço. Isso confirma um vínculo persistido, não aplicação de controles GNOME.
 4. O administrador local poderá revogar um vínculo pelo Agent usando `DELETE /agent/associations/:associationId`. O responsável poderá revogar o próprio vínculo no mobile. O Agent deverá observar a revogação no polling e deixar de aceitar trabalho daquele responsável. Não se presume remoção ou alteração automática de restrições Linux.
 5. Sem identidade válida, o Agent não cria sessões nem consulta vínculos. Diante de `401`, deve interromper operações autenticadas e exigir intervenção administrativa; diante de falha de rede/`503`, deve mostrar indisponibilidade e não afirmar sucesso. QR expirado ou consumido exige nova solicitação após nova autorização local. Dispositivo ocupado por outro vínculo não deve transferir acesso automaticamente.
 
-A interface administrativa local, seu mecanismo de autorização, a apresentação do QR e comandos parentais ainda precisam ser implementados no Agent Python; a instalação systemd existe. O transporte mínimo de `agent.ping` está implementado com diário privado e resultados idempotentes. O polling de vínculos já repete consultas com backoff/jitter e Retry-After, distingue TLS de conexão e encerra em falhas permanentes; o diagnóstico de execução única permanece disponível. Credencial perdida ou comprometida deve ser invalidada pela operação administrativa do backend; um novo autorregistro cria outro computador e exige novo pareamento, sem transferir vínculos. Testes de API e fixtures de desenvolvimento não comprovam essas obrigações nem identificam fisicamente um Lenovo Lux.
+Autorização local, QR no terminal e instalação systemd existem; a janela GTK, a revogação local e os comandos parentais ainda precisam ser implementados no Agent Python. O transporte mínimo de `agent.ping` está implementado com diário privado e resultados idempotentes. O polling de vínculos já repete consultas com backoff/jitter e Retry-After, distingue TLS de conexão e encerra em falhas permanentes; o diagnóstico de execução única permanece disponível. Credencial perdida ou comprometida deve ser invalidada pela operação administrativa do backend; um novo autorregistro cria outro computador e exige novo pareamento, sem transferir vínculos. Testes de API e fixtures de desenvolvimento não comprovam essas obrigações nem identificam fisicamente um Lenovo Lux.
 
 ## Interface gráfica local de pareamento
 
-Componente planejado em Python com GTK4/libadwaita, visualmente integrado ao GNOME e aberto sob demanda por um administrador local. É distinto do serviço Python/systemd: o Agent inicia no boot e continua em segundo plano mesmo quando a interface é fechada. O transporte local entre interface e Agent e o mecanismo de autorização ainda precisam ser definidos e validados; não há contrato IPC implementado.
+Componente planejado em Python com GTK4/libadwaita, visualmente integrado ao GNOME e aberto sob demanda por um administrador local. É distinto do serviço Python/systemd: o Agent inicia no boot e continua em segundo plano mesmo quando a interface é fechada. A janela reutilizará o auxiliar de [Pareamento pelo Agent](#pareamento-pelo-agent) via `pkexec`, lendo seus eventos JSON; não há outro IPC.
 
 Fluxo esperado:
 
 1. O administrador abre a interface no Lux e autoriza localmente o pareamento.
-2. A interface solicita ao Agent uma sessão; o Agent previamente provisionado autentica-se no backend e solicita o token temporário.
+2. A interface executa o auxiliar, que registra ou autentica o computador e solicita o token temporário.
 3. A interface exibe QR e expiração, sem expor a credencial permanente do Agent.
 4. O responsável autenticado lê o QR no mobile e confirma o computador.
 5. O backend valida autenticação, autorização, identidade e token e cria o vínculo somente após as verificações, conforme o contrato implementado.
 6. O computador aparece na lista autorizada; o Agent observa a associação no polling. Isso não confirma aplicação de restrições.
 
-O futuro Agent mínimo poderá usar QR no terminal antes da interface GTK; a PoC de políticas permanece exclusivamente de leitura local, separada do diagnóstico HTTP. O roteiro demonstrativo em [Mobile](mobile.md#teste-manual-de-pareamento-com-dispositivo-de-demonstração) já gera QR localmente usando a API, mas é ferramenta de desenvolvimento, não implementação do Agent ou autorização Linux.
+O roteiro demonstrativo em [Mobile](mobile.md#teste-manual-de-pareamento-com-dispositivo-de-demonstração) gera QR localmente usando a API; é ferramenta de desenvolvimento, não o pareamento do Agent.
+
+## Pareamento pelo Agent
+
+`lux-agent pair`, sem privilégio, executa `pkexec /opt/lux-agent/lux-agent-pair-helper`. A ação [`org.piplup.luxagent.pair`](../lux-agent/polkit/org.piplup.luxagent.pair.policy) exige `auth_admin` em qualquer sessão e fixa o caminho do auxiliar; usuário sem senha de administrador é negado. O auxiliar roda como root, não aceita argumentos e lê só `/etc/lux-agent` (URL, conta gerenciada e `ca.pem`, se existir).
+
+1. Testa a credencial atual com `GET /agent/associations`. Vínculo ativo, ou `409` na sessão, encerra como "já pareado". Falha de rede, TLS ou `5xx` encerra sem tocar na credencial.
+2. Sem credencial ou com `401`, gera 32 bytes aleatórios, grava `/etc/lux-agent/credential` de forma atômica (temporário no mesmo diretório, `0600`, dono `lux-agent`, `fsync`, `rename`) e envia `{credentialHash, name: hostname, managedUser}` a `POST /agent/registrations`, sem Bearer. Não distingue credencial nunca registrada de revogada: as duas não valem nada. Com credencial válida, usa `POST /agent/pairing-sessions`.
+3. Escreve no stdout só eventos JSON, um por linha: `session` (`uri`, `expiresAt`), depois `paired`, `expired`, `already-paired` ou `error` (`message`). A credencial nunca sai do processo nem aparece em saída ou log.
+4. Consulta `GET /agent/associations` a cada 3 s até a expiração. Durante o registro pendente a credencial nova recebe `401`, tratado como espera. Com vínculo ativo, roda `systemctl restart lux-agent`; na expiração, sai sem mexer no serviço. O `pkexec` fica aberto até 5 min, com o administrador presente.
+
+O lado sem privilégio desenha o QR com `python3-qrcode` (meio-blocos Unicode, cores ANSI fixas, legível em tema claro ou escuro) e mostra a hora de expiração. O serviço não muda: `401` continua encerrando com código 3, sem reinício, e a recuperação é um novo `lux-agent pair`. Phishing de QR é limitação declarada, mitigada pela tela de confirmação no mobile, que mostra nome e conta registrados.
 
 ## Escrita privilegiada do filtro de aplicativos
 
@@ -88,7 +99,7 @@ O Agent roda como usuário de sistema `lux-agent` (sem login, sem home, sem shel
 - Permissões polkit e efeito de horários (SessionLimits) e classificação etária (OARS); o filtro de aplicativos já foi provado.
 - Login de conta com limite de horário ativo falha nesta VM (ver [escrita via polkit](#escrita-do-filtro-de-aplicativos-via-polkit--2026-11-13)); investigar antes do LUX-11.
 - UTC, fronteiras de dia, encerramento automático de sessões e efeito real do bloqueio de instalação.
-- Autorização local do administrador, comunicação interface/Agent, QR temporário e revogação com computador real.
+- Revogação local de vínculo pelo Agent e comunicação da janela GTK com o auxiliar.
 - Hospedagem HTTPS definitiva e recuperação em indisponibilidade real do backend; HTTPS com proxy temporário, recusas TLS e polling de vínculos já foram validados. Recuperação transitória simulada está coberta. O transporte de `agent.ping` foi validado; repetição/reconciliação de operações parentais e confirmação de aplicação ainda dependem de contrato próprio.
 
 Essas verificações podem continuar na VM disponível; não bloqueiam a experiência mobile com mocks identificados. O estado das oito etapas fica em [Arquitetura](architecture.md#etapas-de-implementação).

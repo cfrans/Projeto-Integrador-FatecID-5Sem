@@ -84,7 +84,7 @@ Esperado: HTTP 200 com `database: "ok"`. Se o nome do container ou a porta já e
 
 ## Identidade e consultas reais
 
-Use uma identidade demonstrativa exclusiva, sem vínculos. O backend saudável já possui o código compilado pelo watch. Registre o UUID retornado como `LUX_DEVICE_ID`, sem imprimir o conteúdo da credencial.
+O provisionamento abaixo é ferramenta de desenvolvimento para testar o transporte com o Agent dos fontes; o serviço instalado obtém a credencial por `lux-agent pair` ([pareamento](../lux-agent/README.md#parear-com-um-responsável)), usando a mesma CA em `install.sh --ca-file`. Use uma identidade demonstrativa exclusiva, sem vínculos. O backend saudável já possui o código compilado pelo watch. Registre o UUID retornado como `LUX_DEVICE_ID`, sem imprimir o conteúdo da credencial.
 
 ```bash
 docker compose exec -T backend node dist/src/agent/agent-admin.js provision \

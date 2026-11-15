@@ -158,7 +158,7 @@ O MVP permite um responsável ativo por computador. A identidade do Agent é ind
 | Endpoint | Autenticação e finalidade |
 | --- | --- |
 | `POST /agent/registrations` | Público, com limite de taxa; registra um computador sem identidade e cria a sessão. Nada é criado até o `complete`. |
-| `POST /agent/pairing-sessions` | Credencial individual do Agent; cria sessão após autorização local obrigatória no futuro Agent. |
+| `POST /agent/pairing-sessions` | Credencial individual do Agent; cria sessão após autorização administrativa local (`pkexec`) no Agent. |
 | `GET /agent/associations` | Credencial do Agent; consulta vínculos somente do seu computador. |
 | `DELETE /agent/associations/:associationId` | Credencial do Agent; revoga vínculo do seu computador, após autorização local. |
 | `POST /pairing/validate` | JWT do responsável; recebe `{ token }` e valida sem consumir. |
@@ -166,7 +166,7 @@ O MVP permite um responsável ativo por computador. A identidade do Agent é ind
 | `GET /devices` | JWT do responsável; lista somente os dispositivos atualmente acessíveis. |
 | `DELETE /devices/:id/association` | JWT do responsável; revoga seu vínculo ativo, sem excluir o computador. |
 
-Os contratos estão implementados nesta etapa; a autorização local e a integração Linux continuam pendentes. O token de pareamento contém 32 bytes aleatórios codificados em base64url, expira em cinco minutos e só pode ser consumido uma vez. Seu hash SHA-256 é único no banco; o token original não aparece em consultas de sessões ou associações. O QR usa `piplup://pair?token=<token>` e não transporta URL da API, senha Linux ou credencial do Agent. O cliente utiliza exclusivamente a API já configurada.
+Os contratos estão implementados; o Agent os usa em `lux-agent pair` ([Integração Lux](lux-integration.md#pareamento-pelo-agent)). O token de pareamento contém 32 bytes aleatórios codificados em base64url, expira em cinco minutos e só pode ser consumido uma vez. Seu hash SHA-256 é único no banco; o token original não aparece em consultas de sessões ou associações. O QR usa `piplup://pair?token=<token>` e não transporta URL da API, senha Linux ou credencial do Agent. O cliente utiliza exclusivamente a API já configurada.
 
 `POST /agent/registrations` recebe `{ credentialHash, name, managedUser }` (64 hex minúsculos; 1–100 caracteres; sem campos extras) e `POST /agent/pairing-sessions` recebe corpo vazio; ambos retornam `{ token, expiresAt, qrPayload }`. `POST /pairing/validate` retorna `{ valid: true, expiresAt, device: { id, name, managedUser, isDemo } }`; `POST /pairing/complete` retorna a representação de dispositivo com `paired: true` e `associationId`. `GET /agent/associations` retorna histórico `{ id, createdAt, revokedAt, guardian: { id, name } }`, sem tokens, hashes ou email do responsável. As operações DELETE bem-sucedidas retornam `204`.
 
@@ -185,7 +185,7 @@ npm run agent:provision -- --name "Lux sala" --output /caminho/seguro/agent-cred
 npm run agent:revoke -- --device-id <uuid>
 ```
 
-O provisionamento cria o computador sem responsável e grava a credencial em arquivo novo e exclusivo, com permissão `0600`; nunca imprime o segredo no terminal. O administrador transfere esse arquivo por canal seguro e o instalará no Lux com acesso restrito ao serviço. A invalidação administrativa da identidade também revoga sessões e o vínculo ativo. Reprovisionar uma instalação após perda/comprometimento da credencial exige novo procedimento administrativo, que cria novo registro/identidade; o histórico anterior é preservado, sem transferência automática de vínculos. Não há recuperação pública de segredo.
+O provisionamento cria o computador sem responsável e grava a credencial em arquivo novo e exclusivo, com permissão `0600`; nunca imprime o segredo no terminal. O administrador transfere esse arquivo por canal seguro e o instala manualmente em `/etc/lux-agent/credential` (dono `lux-agent`, `0600`); `install.sh` não recebe credencial. A invalidação administrativa da identidade também revoga sessões e o vínculo ativo. Reprovisionar uma instalação após perda/comprometimento da credencial exige novo procedimento administrativo, que cria novo registro/identidade; o histórico anterior é preservado, sem transferência automática de vínculos. Não há recuperação pública de segredo.
 
 Para uma fixture de desenvolvimento, acrescente `--demo` ao provisionamento, com `NODE_ENV=development`. O computador recebe `isDemo: true`; essa identidade não autentica em produção. A ferramenta não implementa o Agent, autorização Linux ou exibição de QR. Não provisione fixtures como computadores reais.
 
@@ -206,7 +206,7 @@ O Agent real publica aplicativos por `PUT /agent/reports` ([protocolo](agent-pro
 
 O [protocolo v1 do Agent](agent-protocol.md) implementa o primeiro diagnóstico remoto `agent.ping`, com modelo/migration, endpoints de criação/polling/reserva/resultado e diário no Python. Foi validado com MySQL isolado e Lux real por HTTPS; comandos parentais continuam excluídos.
 
-O Agent Python já roda como serviço systemd no Lux; as próximas etapas implementarão a interface independente Python/GTK4/libadwaita, autorização local e QR. Coordenação de comandos parentais continua planejada: a infraestrutura existe apenas para ping e precisa de novos contratos tipados, autorização e reconciliação antes de operações Linux. O backend deverá distinguir pendência, falha/indisponibilidade e aplicação confirmada; aceite HTTP não comprova alteração no GNOME. Estados, repetição segura e sincronização serão definidos antes da implementação. Autenticação e listagem já estão integradas ao mobile; comportamento offline ainda não foi acordado. O backend não aplica restrições Linux nem envia comandos arbitrários para execução.
+O Agent Python já roda como serviço systemd no Lux e pareia com autorização local e QR no terminal; a próxima etapa local é a janela GTK4/libadwaita. Coordenação de comandos parentais continua planejada: a infraestrutura existe apenas para ping e precisa de novos contratos tipados, autorização e reconciliação antes de operações Linux. O backend deverá distinguir pendência, falha/indisponibilidade e aplicação confirmada; aceite HTTP não comprova alteração no GNOME. Estados, repetição segura e sincronização serão definidos antes da implementação. Autenticação e listagem já estão integradas ao mobile; comportamento offline ainda não foi acordado. O backend não aplica restrições Linux nem envia comandos arbitrários para execução.
 
 Referências: [Nest CLI](https://docs.nestjs.com/cli/overview), [comandos da CLI](https://docs.nestjs.com/cli/usages), [Swagger](https://docs.nestjs.com/openapi/introduction) e [Prisma 7/MySQL](https://www.prisma.io/docs/v7/prisma-orm/quickstart/mysql).
 
