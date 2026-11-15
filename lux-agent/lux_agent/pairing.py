@@ -1,4 +1,5 @@
 import hashlib
+import importlib.util
 import json
 import os
 import pwd
@@ -23,6 +24,7 @@ CREDENTIAL_FILE = f"{CONFIG_DIR}/credential"
 CA_FILE = f"{CONFIG_DIR}/ca.pem"
 SERVICE_USER = "lux-agent"
 SERVICE_UNIT = "lux-agent.service"
+HELPER_PATH = "/opt/lux-agent/lux-agent-pair-helper"
 REQUEST_TIMEOUT = 10.0
 WAIT_INTERVAL = 3.0
 PAIRING_URI = re.compile(r"piplup://pair\?token=[A-Za-z0-9_-]{16,128}")
@@ -193,3 +195,70 @@ def run_helper(output: TextIO = sys.stdout) -> int:
         emit(output, "error", message="Pareamento interrompido.")
         return 130
 
+
+def render_qr(matrix: list[list[bool]]) -> str:
+    width = len(matrix[0])
+    rows = matrix if len(matrix) % 2 == 0 else [*matrix, [False] * width]
+    color = {True: 16, False: 231}
+    lines = []
+    for top, bottom in zip(rows[0::2], rows[1::2]):
+        cells = "".join(f"\x1b[38;5;{color[a]}m\x1b[48;5;{color[b]}m\u2580" for a, b in zip(top, bottom))
+        lines.append(cells + "\x1b[0m")
+    return "\n".join(lines)
+
+
+def qr_matrix(uri: str) -> list[list[bool]]:
+    import qrcode
+
+    code = qrcode.QRCode(border=2)
+    code.add_data(uri)
+    code.make(fit=True)
+    return code.get_matrix()
+
+
+def show_session(event: dict[str, Any], output: TextIO) -> None:
+    expires = datetime.fromisoformat(event["expiresAt"]).astimezone()
+    minutes = max(0, round((expires.timestamp() - time.time()) / 60))
+    output.write(render_qr(qr_matrix(event["uri"])) + "\n\n")
+    output.write("Escaneie o QR com o app Piplup e confirme o pareamento.\n")
+    output.write(f"O código expira às {expires:%H:%M} (em {minutes} min). Aguardando confirmação...\n")
+    output.flush()
+
+
+def run_pair(output: TextIO = sys.stdout, errors: TextIO = sys.stderr) -> int:
+    if importlib.util.find_spec("qrcode") is None:
+        errors.write("Erro: python3-qrcode não encontrado; reinstale o Agent.\n")
+        return 2
+    try:
+        process = subprocess.Popen(["pkexec", HELPER_PATH], stdout=subprocess.PIPE, text=True)
+    except FileNotFoundError:
+        errors.write("Erro: pkexec não encontrado.\n")
+        return 2
+    seen = False
+    try:
+        for line in process.stdout:
+            try:
+                event = json.loads(line)
+                kind = event["event"]
+            except (ValueError, TypeError, KeyError):
+                continue
+            seen = True
+            if kind == "session":
+                show_session(event, output)
+            elif kind == "paired":
+                output.write("Computador pareado. O serviço lux-agent foi reiniciado e já sincroniza.\n")
+            elif kind == "already-paired":
+                output.write("Este computador já está pareado com um responsável.\n")
+            elif kind == "expired":
+                output.write("O código expirou sem confirmação. Execute lux-agent pair novamente.\n")
+            elif kind == "error":
+                errors.write(f"Erro: {event.get('message', 'falha no pareamento.')}\n")
+        code = process.wait()
+    except KeyboardInterrupt:
+        process.wait()
+        errors.write("Pareamento interrompido.\n")
+        return 130
+    if not seen and code in (126, 127):
+        errors.write("Erro: autorização de administrador negada ou cancelada.\n")
+        return 4
+    return code

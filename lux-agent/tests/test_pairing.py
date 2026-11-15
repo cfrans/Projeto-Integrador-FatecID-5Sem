@@ -260,5 +260,67 @@ class HelperTests(PairingTestCase):
         self.assertEqual(json.loads(output.getvalue())["event"], "error")
 
 
+class FakeProcess:
+    def __init__(self, lines: list[str], code: int):
+        self.stdout = iter(lines)
+        self.code = code
+
+    def wait(self):
+        return self.code
+
+
+class PairCommandTests(unittest.TestCase):
+    def run_pair(self, lines: list[str], code: int):
+        output, errors = io.StringIO(), io.StringIO()
+        matrix = [[True, False], [False, True], [True, True]]
+        with patch("lux_agent.pairing.importlib.util.find_spec", return_value=object()), \
+                patch("lux_agent.pairing.qr_matrix", return_value=matrix) as qr, \
+                patch("lux_agent.pairing.subprocess.Popen", return_value=FakeProcess(lines, code)) as popen:
+            result = pairing.run_pair(output, errors)
+        popen.assert_called_once_with(["pkexec", pairing.HELPER_PATH], stdout=pairing.subprocess.PIPE, text=True)
+        return result, output.getvalue(), errors.getvalue(), qr
+
+    def test_shows_qr_with_expiration_then_success(self):
+        session = json.dumps({"event": "session", "uri": URI, "expiresAt": session_body()["expiresAt"]})
+        code, output, errors, qr = self.run_pair([session + "\n", '{"event": "paired"}\n'], 0)
+        self.assertEqual((code, errors), (0, ""))
+        qr.assert_called_once_with(URI)
+        self.assertIn("\u2580", output)
+        self.assertIn("(em 5 min)", output)
+        self.assertIn("pareado", output)
+
+    def test_expired_already_paired_and_helper_error(self):
+        code, output, _, _ = self.run_pair(['{"event": "expired"}\n'], 1)
+        self.assertEqual(code, 1)
+        self.assertIn("expirou", output)
+        code, output, _, _ = self.run_pair(['{"event": "already-paired"}\n'], 0)
+        self.assertEqual(code, 0)
+        self.assertIn("já está pareado", output)
+        code, _, errors, _ = self.run_pair(['{"event": "error", "message": "Backend indisponível."}\n'], 5)
+        self.assertEqual((code, errors), (5, "Erro: Backend indisponível.\n"))
+
+    def test_denied_authorization(self):
+        for pkexec_code in (126, 127):
+            code, _, errors, _ = self.run_pair([], pkexec_code)
+            self.assertEqual(code, 4)
+            self.assertIn("autorização", errors)
+
+    def test_missing_qr_dependency(self):
+        errors = io.StringIO()
+        with patch("lux_agent.pairing.importlib.util.find_spec", return_value=None), \
+                patch("lux_agent.pairing.subprocess.Popen") as popen:
+            self.assertEqual(pairing.run_pair(io.StringIO(), errors), 2)
+        popen.assert_not_called()
+        self.assertIn("python3-qrcode", errors.getvalue())
+
+    def test_render_uses_half_blocks_and_pads_odd_rows(self):
+        rendered = pairing.render_qr([[True, False], [False, True], [True, True]])
+        lines = rendered.split("\n")
+        self.assertEqual(len(lines), 2)
+        self.assertEqual(lines[0].count("\u2580"), 2)
+        self.assertTrue(lines[0].startswith("\x1b[38;5;16m\x1b[48;5;231m"))
+        self.assertIn("\x1b[38;5;16m\x1b[48;5;231m", lines[1])
+
+
 if __name__ == "__main__":
     unittest.main()

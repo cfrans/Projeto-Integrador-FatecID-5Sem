@@ -46,6 +46,8 @@ def create_parser() -> argparse.ArgumentParser:
     prove.add_argument("--block", action="append", required=True, metavar="SOURCE_ID", help="Aplicativo a bloquear, no formato desktop:<id>.desktop; repetível")
     prove.add_argument("--hold", type=float, default=0, help="Segundos com o bloqueio ativo antes de restaurar, até 600 (padrão: 0)")
     prove.set_defaults(handler=run_prove_app_filter)
+    pair = commands.add_parser("pair", help="Pareia este computador com um responsável por QR", description="Pede a senha de administrador, mostra um QR para o app Piplup e reinicia o serviço após a confirmação.")
+    pair.set_defaults(handler=run_pair)
     return parser
 
 
@@ -146,6 +148,12 @@ def run_prove_app_filter(args: argparse.Namespace) -> int:
         return error.code
     print(json.dumps(result, ensure_ascii=False, indent=2))
     return 0 if result["matches"] and result["restored"] else 1
+
+
+def run_pair(args: argparse.Namespace) -> int:
+    from .pairing import run_pair as pair
+
+    return pair()
 
 
 def main(argv: list[str] | None = None) -> int:
