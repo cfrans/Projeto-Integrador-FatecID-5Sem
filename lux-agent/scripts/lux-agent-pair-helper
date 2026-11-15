@@ -1,0 +1,7 @@
+#!/usr/bin/python3 -BI
+import sys
+
+sys.path.insert(0, "/opt/lux-agent")
+from lux_agent.pairing import run_helper
+
+sys.exit(run_helper())

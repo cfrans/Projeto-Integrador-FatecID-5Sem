@@ -9,6 +9,9 @@ poll_associations.py
 read_policies.py
 prove_app_filter.py
 polkit/50-lux-agent.rules
+polkit/org.piplup.luxagent.pair.policy
+scripts/lux-agent
+scripts/lux-agent-pair-helper
 lux_agent/__init__.py
 lux_agent/__main__.py
 lux_agent/backend.py

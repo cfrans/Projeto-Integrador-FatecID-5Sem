@@ -11,17 +11,20 @@ CA_FILE=$CONFIG_DIR/ca.pem
 STATE_DIR=/var/lib/lux-agent
 UNIT=/etc/systemd/system/lux-agent.service
 POLKIT_RULE=/etc/polkit-1/rules.d/50-lux-agent.rules
+PAIR_HELPER=$APP_DIR/lux-agent-pair-helper
+PAIR_ACTION=/usr/share/polkit-1/actions/org.piplup.luxagent.pair.policy
+COMMAND=/usr/local/bin/lux-agent
 
 usage() {
     cat <<'EOF'
 Uso: sudo ./install.sh [opções]
 
-Instala o Lux Agent como serviço systemd. Pode ser executado novamente para
-atualizar código e configuração; a credencial existente nunca é sobrescrita.
+Instala o Lux Agent como serviço systemd e o comando lux-agent. Pode ser
+executado novamente para atualizar código e configuração; a credencial
+existente é mantida. O pareamento (lux-agent pair) gera a credencial.
 
   --backend-url URL        Origem HTTPS do backend (pergunta se ausente)
   --managed-user CONTA     Conta infantil gerenciada (pergunta se ausente)
-  --credential-file PATH   Credencial provisionada, instalada só se ainda não houver uma
   --ca-file PATH           CA PEM explícita do backend (desenvolvimento)
   -h, --help               Mostra esta ajuda
 EOF
@@ -64,13 +67,11 @@ validate_managed_user() {
 
 backend_url=""
 managed_user=""
-credential_source=""
 ca_source=""
 while (( $# > 0 )); do
     case $1 in
         --backend-url) backend_url=${2:?}; shift 2 ;;
         --managed-user) managed_user=${2:?}; shift 2 ;;
-        --credential-file) credential_source=${2:?}; shift 2 ;;
         --ca-file) ca_source=${2:?}; shift 2 ;;
         -h|--help) usage; exit 0 ;;
         *) usage >&2; exit 2 ;;
@@ -80,7 +81,8 @@ done
 (( EUID == 0 )) || die "execute com sudo."
 command -v python3 >/dev/null || die "python3 não encontrado."
 command -v systemctl >/dev/null || die "systemd não encontrado."
-for file in lux-agent.service polkit/50-lux-agent.rules lux_agent/__main__.py; do
+for file in lux-agent.service polkit/50-lux-agent.rules polkit/org.piplup.luxagent.pair.policy \
+        scripts/lux-agent scripts/lux-agent-pair-helper lux_agent/__main__.py; do
     [[ -f $SOURCE_DIR/$file ]] || die "arquivo ausente na origem: $file."
 done
 
@@ -98,9 +100,13 @@ if [[ -n $ca_source ]]; then
     poll_options="--ca-file $CA_FILE"
 fi
 
-if [[ -n $credential_source && ! -e $CREDENTIAL ]]; then
-    [[ -f $credential_source ]] || die "credencial não encontrada: $credential_source."
-    grep -Eqx '[A-Za-z0-9_-]{43}' "$credential_source" || die "formato da credencial provisionada inválido."
+missing_packages=()
+python3 -c 'import qrcode' 2>/dev/null || missing_packages+=(python3-qrcode)
+command -v pkexec >/dev/null || missing_packages+=(pkexec)
+if (( ${#missing_packages[@]} > 0 )); then
+    echo "Instalando dependências: ${missing_packages[*]}."
+    DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends "${missing_packages[@]}" >/dev/null \
+        || die "não foi possível instalar ${missing_packages[*]}."
 fi
 
 if ! id -u "$SERVICE_USER" >/dev/null 2>&1; then
@@ -112,6 +118,8 @@ install -d -m 0755 -o root -g root "$APP_DIR"
 rm -rf -- "$APP_DIR/lux_agent"
 install -d -m 0755 -o root -g root "$APP_DIR/lux_agent"
 install -m 0644 -o root -g root "$SOURCE_DIR"/lux_agent/*.py "$APP_DIR/lux_agent/"
+install -m 0755 -o root -g root "$SOURCE_DIR/scripts/lux-agent-pair-helper" "$PAIR_HELPER"
+install -m 0755 -o root -g root "$SOURCE_DIR/scripts/lux-agent" "$COMMAND"
 
 install -d -m 0750 -o root -g "$SERVICE_USER" "$CONFIG_DIR"
 env_tmp=$(mktemp "$CONFIG_DIR/.agent.env.XXXXXX")
@@ -125,17 +133,14 @@ if [[ -n $ca_source ]]; then
 fi
 
 if [[ -e $CREDENTIAL ]]; then
-    [[ -z $credential_source ]] || echo "Credencial existente mantida; $credential_source não foi usado."
     chown "$SERVICE_USER:$SERVICE_USER" "$CREDENTIAL"
     chmod 0600 "$CREDENTIAL"
-elif [[ -n $credential_source ]]; then
-    install -m 0600 -o "$SERVICE_USER" -g "$SERVICE_USER" "$credential_source" "$CREDENTIAL"
-    echo "Credencial instalada em $CREDENTIAL."
 fi
 
 install -d -m 0700 -o "$SERVICE_USER" -g "$SERVICE_USER" "$STATE_DIR"
 install -m 0644 -o root -g root "$SOURCE_DIR/lux-agent.service" "$UNIT"
 install -m 0644 -o root -g root "$SOURCE_DIR/polkit/50-lux-agent.rules" "$POLKIT_RULE"
+install -m 0644 -o root -g root "$SOURCE_DIR/polkit/org.piplup.luxagent.pair.policy" "$PAIR_ACTION"
 
 systemctl daemon-reload
 systemctl enable lux-agent.service >/dev/null
@@ -143,6 +148,6 @@ if [[ -e $CREDENTIAL ]]; then
     systemctl restart lux-agent.service
     echo "Serviço lux-agent instalado e (re)iniciado para a conta gerenciada '$managed_user'."
 else
-    echo "Serviço lux-agent instalado, mas não iniciado: falta a credencial."
-    echo "Execute novamente com --credential-file PATH."
+    echo "Serviço lux-agent instalado; ele inicia após o pareamento."
+    echo "Para parear, um administrador executa: lux-agent pair"
 fi

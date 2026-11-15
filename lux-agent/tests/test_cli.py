@@ -80,7 +80,7 @@ assert "gi" not in sys.modules
 
     def test_deploy_allowlist_contains_sources_without_state_or_secrets(self):
         entries = (ROOT / 'deploy-files.txt').read_text().splitlines()
-        allowed_metadata = {'.gitignore', 'README.md', 'pyproject.toml', 'deploy-files.txt', 'lux-agent.service', 'agent.env.example', 'polkit/50-lux-agent.rules', 'install.sh', 'uninstall.sh'}
+        allowed_metadata = {'.gitignore', 'README.md', 'pyproject.toml', 'deploy-files.txt', 'lux-agent.service', 'agent.env.example', 'polkit/50-lux-agent.rules', 'polkit/org.piplup.luxagent.pair.policy', 'scripts/lux-agent', 'scripts/lux-agent-pair-helper', 'install.sh', 'uninstall.sh'}
         self.assertEqual(len(entries), len(set(entries)))
         for entry in entries:
             path = Path(entry)
@@ -89,7 +89,7 @@ assert "gi" not in sys.modules
             self.assertTrue((ROOT / path).is_file(), entry)
             self.assertTrue(entry in allowed_metadata or path.suffix == '.py', entry)
         required = {str(path.relative_to(ROOT)) for folder in ('lux_agent', 'tests') for path in (ROOT / folder).glob('*.py')}
-        required.update({'check_backend.py', 'poll_associations.py', 'read_policies.py', 'prove_app_filter.py', 'polkit/50-lux-agent.rules', 'install.sh', 'uninstall.sh'})
+        required.update({'check_backend.py', 'poll_associations.py', 'read_policies.py', 'prove_app_filter.py', 'polkit/50-lux-agent.rules', 'polkit/org.piplup.luxagent.pair.policy', 'scripts/lux-agent', 'scripts/lux-agent-pair-helper', 'install.sh', 'uninstall.sh'})
         self.assertTrue(required.issubset(entries), required.difference(entries))
 
     def test_install_scripts_are_valid_bash(self):
