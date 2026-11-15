@@ -44,7 +44,7 @@ def serialize_payload(payload):
 
 
 def request_json(
-    endpoint: str, credential: str, timeout: float, ca_file: str | None = None,
+    endpoint: str, credential: str | None, timeout: float, ca_file: str | None = None,
     *, method: str = "GET", payload: dict[str, Any] | None = None,
     max_bytes: int = 1024 * 1024, expected_statuses: tuple[int, ...] = (200,),
 ) -> Any:
@@ -52,7 +52,8 @@ def request_json(
     if data is not None and len(data) > max_bytes:
         raise DiagnosticError("Corpo da requisição excede o limite.", 6, category="configuration")
     request = Request(endpoint, data=data, method=method, headers={
-        "Authorization": f"Bearer {credential}", "Accept": "application/json",
+        **({"Authorization": f"Bearer {credential}"} if credential is not None else {}),
+        "Accept": "application/json",
         **({"Content-Type": "application/json"} if data is not None else {}),
     })
     try:

@@ -18,6 +18,7 @@ lux_agent/collector.py
 lux_agent/config.py
 lux_agent/errors.py
 lux_agent/journal.py
+lux_agent/pairing.py
 lux_agent/parental.py
 lux_agent/polling.py
 lux_agent/reports.py
@@ -27,6 +28,7 @@ tests/test_cli.py
 tests/test_commands.py
 tests/test_collector.py
 tests/test_https_transport.py
+tests/test_pairing.py
 tests/test_parental_write.py
 tests/test_poll_associations.py
 tests/test_read_policies.py

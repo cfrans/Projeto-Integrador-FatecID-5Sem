@@ -33,14 +33,14 @@ def backend_endpoint(url: str, allow_local_http: bool) -> str:
     return url.rstrip("/") + "/agent/associations"
 
 
-def load_credential(path: str) -> str:
+def load_credential(path: str, owner_uid: int | None = None) -> str:
     try:
         fd = os.open(path, os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK)
         with os.fdopen(fd, "rb") as source:
             metadata = os.fstat(source.fileno())
             if (
                 not stat.S_ISREG(metadata.st_mode)
-                or metadata.st_uid != os.geteuid()
+                or metadata.st_uid != (os.geteuid() if owner_uid is None else owner_uid)
                 or stat.S_IMODE(metadata.st_mode) not in (0o400, 0o600)
                 or metadata.st_nlink != 1
             ):
