@@ -59,7 +59,7 @@ Há duas fronteiras de simulação:
 
 `devices.listPairedComputers(): Promise<PairedComputer[]>` usa `GET /devices`, sem fallback para mock. A resposta traz `id`, `name`, `managedUser` opcional, `status: "unverified"`, `lastSeen: null`, `isDemo`, `paired` e `associationId` quando pareado. O nome histórico do método não implica pareamento validado. Home e Computadores consomem o serviço HTTP da feature; autenticação e erros passam pelo cliente compartilhado. Os seeds podem criar fixtures persistidas com `isDemo: true`, mas não simulam um agente online.
 
-`pairingDemo.simulatePairing()` permanece como utilitário de mock, separado do fluxo HTTP. A tela de pareamento usa a API para validar e consumir o QR; os mocks existentes e placeholders parentais são preservados. Uma fixture de identidade/pareamento deve permanecer demonstrativa, inclusive na confirmação mobile, e não comprova conexão a um Lux.
+A tela de pareamento usa a API para validar e consumir o QR, sem mock nem fallback. Uma fixture de identidade/pareamento deve permanecer demonstrativa, inclusive na confirmação mobile, e não comprova conexão a um Lux.
 
 O client demonstrativo reutiliza a identidade e o pareamento existentes, mas seu estado versionado é separado do protocolo futuro de comandos reais. Há uma única tabela adicional por vínculo e reutilização do inventário/pedidos; contrato e execução em [Client simulado](simulated-client.md). Uma confirmação simulada não comprova suporte nem aplicação da operação no GNOME.
 

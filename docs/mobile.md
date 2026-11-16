@@ -171,7 +171,7 @@ Verificação desta alteração: testes automatizados cobrem traduções/temas, 
 
 `devices.listPairedComputers()` consulta `GET /devices` com o bearer token e valida a resposta. O contrato traz `{ id, name, managedUser, status, lastSeen, isDemo, paired, associationId? }`. PCs reais/fixtures sem contato usam `unverified` e `lastSeen: null`. Somente PCs demonstrativos pareados com identidade válida têm presença `online`/`offline` e horário ISO, derivados do heartbeat do client (expira após 15 segundos). Isso não comprova conexão Linux. Home e lista atualizam no foco e a cada cinco segundos sem desmontar os cartões em consultas bem-sucedidas. Falhas da API aparecem como erro, nunca como offline ou fallback para mock; `401` invalida a sessão e `503` preserva a mensagem do serviço.
 
-`src/mocks/devices.ts` preserva três registros fictícios com `isDemo: true` e estados demonstrativos online/offline; a listagem atual não os consome. O mock `pairingDemo.simulatePairing()` é preservado em memória para desenvolvimento, mas não autoriza dispositivos e não participa do fluxo real de leitura. Não é fallback para erro da API.
+A listagem de computadores usa somente a API; o antigo mock em memória de dispositivos foi removido, e erros da API nunca caem em dados fictícios.
 
 ## Pareamento por QR e revogação
 
