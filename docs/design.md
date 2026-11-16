@@ -61,7 +61,16 @@ Escala tipográfica local usada no login, em unidades React Native:
 | `input` | 16 | Campos de entrada |
 | `button` | 15 | Ação principal |
 
-Esses valores adaptam a hierarquia do protótipo para React Native; não são conversões exatas das medidas CSS. A fonte nativa permanece em uso. Os recursos do PDF incluem fontes Type3 sem identificação suficiente para escolher outra família.
+Esses valores adaptam a hierarquia do protótipo para React Native; não são conversões exatas das medidas CSS. Os recursos do PDF incluem fontes Type3 sem identificação suficiente para escolher uma família a partir dele.
+
+Fontes (`fonts` em `mobile/src/theme/typography.ts`), carregadas com `expo-font` em `src/app/_layout.tsx` antes da navegação:
+
+| Chave | Família | Uso |
+| --- | --- | --- |
+| `title` | Inter ExtraBold (`@expo-google-fonts/inter`) | Títulos das telas e nome PIPLUP |
+| `groteskRegular`, `groteskMedium`, `groteskSemiBold`, `groteskBold` | Space Grotesk (`@expo-google-fonts/space-grotesk`) | Tela Sobre o projeto, inclusive título, integrantes, botão do GitHub e disciplinas |
+
+Os demais textos usam a fonte do sistema. Para uma nova família ou peso, instale com `npx expo install`, carregue em `_layout.tsx` e use `fontFamily` em vez de `fontWeight`, porque cada peso é uma família separada.
 
 ## Login piplup
 

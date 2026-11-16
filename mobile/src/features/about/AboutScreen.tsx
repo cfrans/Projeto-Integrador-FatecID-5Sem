@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Image, Linking, Pressable, ScrollView, StyleSheet, Text, View, type ImageSourcePropType } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { PenguinLogo } from '@/components/ui/PenguinLogo';
 import { useLanguage } from '@/features/i18n/LanguageProvider';
 import { fonts, radius, spacing, typography, type ColorPalette } from '@/theme';
 import { useTheme, useThemedStyles } from '@/features/theme/ThemeProvider';
@@ -46,7 +47,7 @@ const TEAM_MEMBERS: readonly TeamMember[] = [
     avatar: teamImages.pxdrui,
   },
   {
-    initials: 'VC',
+    initials: 'VF',
     name: 'Vitória Caroline da Silva Farias Faturi',
     username: 'vitoriafaturi',
     githubUrl: 'https://github.com/vitoriafaturi',
@@ -56,81 +57,12 @@ const TEAM_MEMBERS: readonly TeamMember[] = [
 
 const INTEGRATED_COURSES = ['about.course0', 'about.course1', 'about.course2', 'about.course3', 'about.course4'];
 
-function GitHubLogo({ size = 18, color }: { size?: number; color?: string }) {
-  const { colors } = useTheme();
-  const styles = useThemedStyles(createStyles);
-  const logoColor = color ?? colors.textPrimary;
-  const headSize = size * 0.56;
-  const earSize = size * 0.2;
-  const bodyWidth = size * 0.44;
-  const bodyHeight = size * 0.28;
-
-  return (
-    <View
-      accessible={false}
-      style={[
-        styles.ghCircle,
-        {
-          width: size,
-          height: size,
-          borderRadius: size / 2,
-          backgroundColor: logoColor,
-        },
-      ]}
-    >
-      <View
-        style={[
-          styles.ghEarLeft,
-          {
-            width: earSize,
-            height: earSize,
-            top: size * 0.16,
-            left: size * 0.23,
-          },
-        ]}
-      />
-      <View
-        style={[
-          styles.ghEarRight,
-          {
-            width: earSize,
-            height: earSize,
-            top: size * 0.16,
-            right: size * 0.23,
-          },
-        ]}
-      />
-      <View
-        style={[
-          styles.ghHead,
-          {
-            width: headSize,
-            height: headSize * 0.82,
-            borderRadius: headSize / 2,
-            top: size * 0.22,
-          },
-        ]}
-      />
-      <View
-        style={[
-          styles.ghBody,
-          {
-            width: bodyWidth,
-            height: bodyHeight,
-            borderTopLeftRadius: bodyWidth / 2,
-            borderTopRightRadius: bodyWidth / 2,
-          },
-        ]}
-      />
-    </View>
-  );
-}
-
 export function AboutScreen() {
   const [failedAvatars, setFailedAvatars] = useState<Record<string, boolean>>({});
   const { t } = useLanguage();
-  const { colors } = useTheme();
+  const { colors, scheme } = useTheme();
   const styles = useThemedStyles(createStyles);
+  const onAccent = scheme === 'dark' ? colors.background : colors.textPrimary;
 
   function openExternalUrl(url: string) {
     void Linking.openURL(url).catch(() => undefined);
@@ -140,52 +72,55 @@ export function AboutScreen() {
     <SafeAreaView edges={['bottom', 'left', 'right']} style={styles.safeArea}>
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
         <View style={styles.main}>
-          <View style={styles.intro}>
-            <Text style={styles.eyebrow}>{t('about.eyebrow')}</Text>
-            <Text style={styles.title}>{t('about.title')}</Text>
-            <Text style={styles.description}>{t('about.description')}</Text>
+          <View style={styles.hero}>
+            <PenguinLogo size={44} />
+            <View style={styles.heroText}>
+              <Text style={styles.eyebrow}>{t('about.eyebrow')}</Text>
+              <Text style={styles.title}>{t('about.title')}</Text>
+              <Text style={styles.description}>{t('about.description')}</Text>
+            </View>
           </View>
 
-          <View style={styles.membersList}>
-            {TEAM_MEMBERS.map((member) => {
-              const showImage = !failedAvatars[member.username];
+          <View style={styles.section}>
+            <Text style={styles.sectionHeader}>{t('about.members')}</Text>
+            <View style={styles.membersCard}>
+              {TEAM_MEMBERS.map((member, index) => {
+                const showImage = !failedAvatars[member.username];
 
-              return (
-                <Pressable
-                  key={member.username}
-                  accessibilityHint={t('about.profileHint', { name: member.name })}
-                  accessibilityLabel={`${member.name}, @${member.username}`}
-                  accessibilityRole="link"
-                  onPress={() => openExternalUrl(member.githubUrl)}
-                  style={({ pressed }) => [styles.memberCard, pressed && styles.pressed]}
-                >
-                  <View style={styles.avatar}>
-                    <Text style={styles.avatarText}>{member.initials}</Text>
-                    {showImage ? (
-                      <Image
-                        accessibilityIgnoresInvertColors
-                        fadeDuration={0}
-                        onError={() =>
-                          setFailedAvatars((current) => ({ ...current, [member.username]: true }))
-                        }
-                        source={member.avatar}
-                        style={styles.avatarImage}
-                      />
-                    ) : null}
-                  </View>
+                return (
+                  <Pressable
+                    key={member.username}
+                    accessibilityHint={t('about.profileHint', { name: member.name })}
+                    accessibilityLabel={`${member.name}, @${member.username}`}
+                    accessibilityRole="link"
+                    onPress={() => openExternalUrl(member.githubUrl)}
+                    style={({ pressed }) => [styles.memberRow, index > 0 && styles.memberDivider, pressed && styles.pressed]}
+                  >
+                    <View style={styles.avatar}>
+                      <Text style={styles.avatarText}>{member.initials}</Text>
+                      {showImage ? (
+                        <Image
+                          accessibilityIgnoresInvertColors
+                          fadeDuration={0}
+                          onError={() =>
+                            setFailedAvatars((current) => ({ ...current, [member.username]: true }))
+                          }
+                          source={member.avatar}
+                          style={styles.avatarImage}
+                        />
+                      ) : null}
+                    </View>
 
-                  <View style={styles.memberInfo}>
-                    <Text style={styles.memberName}>{member.name}</Text>
-                    <View style={styles.memberHandleRow}>
-                      <GitHubLogo color={colors.textSecondary} size={13} />
+                    <View style={styles.memberInfo}>
+                      <Text style={styles.memberName}>{member.name}</Text>
                       <Text style={styles.memberUsername}>@{member.username}</Text>
                     </View>
-                  </View>
 
-                  <Text style={styles.externalArrow}>↗</Text>
-                </Pressable>
-              );
-            })}
+                    <Text style={styles.externalArrow}>↗</Text>
+                  </Pressable>
+                );
+              })}
+            </View>
           </View>
 
           <Pressable
@@ -195,12 +130,11 @@ export function AboutScreen() {
             onPress={() => openExternalUrl(REPOSITORY_URL)}
             style={({ pressed }) => [styles.repoButton, pressed && styles.pressed]}
           >
-            <GitHubLogo color={colors.accentText} size={18} />
-            <Text style={styles.repoButtonText}>{t('about.github')}</Text>
-            <Text style={styles.repoButtonArrow}>↗</Text>
+            <Text style={[styles.repoButtonText, { color: onAccent }]}>{t('about.github')}</Text>
+            <Text style={[styles.repoButtonText, { color: onAccent }]}>↗</Text>
           </Pressable>
 
-          <View style={styles.coursesSection}>
+          <View style={styles.section}>
             <Text style={styles.sectionHeader}>{t('about.courses')}</Text>
             <View style={styles.coursesWrap}>
               {INTEGRATED_COURSES.map((course) => (
@@ -236,59 +170,82 @@ const createStyles = (colors: ColorPalette) => StyleSheet.create({
     maxWidth: 440,
     width: '100%',
   },
-  intro: {
+  hero: {
+    alignItems: 'flex-start',
+    backgroundColor: colors.surface,
+    borderColor: colors.border,
+    borderRadius: radius.lg + 4,
+    borderWidth: 1,
+    gap: spacing.lg,
+    padding: spacing.xl,
+  },
+  heroText: {
     gap: spacing.sm,
   },
   eyebrow: {
-    color: colors.accentText,
-    fontSize: typography.label,
-    fontWeight: '600',
-    letterSpacing: 1.1,
+    fontFamily: fonts.groteskBold,
+    color: colors.accent,
+    fontSize: 11,
+    letterSpacing: 1,
   },
   title: {
+    fontFamily: fonts.groteskBold,
     color: colors.textPrimary,
-    fontSize: 22,
-    fontFamily: fonts.title,
+    fontSize: 26,
     letterSpacing: -0.5,
+    lineHeight: 31,
   },
   description: {
+    fontFamily: fonts.groteskRegular,
     color: colors.textSecondary,
     fontSize: typography.body,
     lineHeight: 21,
   },
-  membersList: {
+  section: {
     gap: spacing.sm,
   },
-  memberCard: {
-    alignItems: 'center',
+  sectionHeader: {
+    fontFamily: fonts.groteskBold,
+    color: colors.textMuted,
+    fontSize: 11,
+    letterSpacing: 1,
+  },
+  membersCard: {
     backgroundColor: colors.surface,
     borderColor: colors.border,
-    borderRadius: radius.md,
+    borderRadius: radius.lg,
     borderWidth: 1,
+    overflow: 'hidden',
+  },
+  memberRow: {
+    alignItems: 'center',
     flexDirection: 'row',
     gap: spacing.md,
     paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm + 4,
+    paddingVertical: spacing.md,
+  },
+  memberDivider: {
+    borderTopColor: colors.border,
+    borderTopWidth: 1,
   },
   pressed: {
     opacity: 0.72,
   },
   avatar: {
     alignItems: 'center',
-    backgroundColor: colors.accentSoft,
+    backgroundColor: colors.surfaceRaised,
     borderColor: colors.accent,
     borderRadius: radius.pill,
-    borderWidth: 1,
+    borderWidth: 2,
     height: 42,
     justifyContent: 'center',
     overflow: 'hidden',
-    position: 'relative',
     width: 42,
   },
   avatarText: {
-    color: colors.accentText,
+    fontFamily: fonts.groteskBold,
+    color: colors.textPrimary,
     fontSize: typography.label,
-    fontWeight: '700',
   },
   avatarImage: {
     ...StyleSheet.absoluteFill,
@@ -298,83 +255,36 @@ const createStyles = (colors: ColorPalette) => StyleSheet.create({
   },
   memberInfo: {
     flex: 1,
-    gap: 3,
+    gap: 2,
   },
   memberName: {
+    fontFamily: fonts.groteskBold,
     color: colors.textPrimary,
     fontSize: typography.body,
-    fontWeight: '600',
-  },
-  memberHandleRow: {
-    alignItems: 'center',
-    flexDirection: 'row',
-    gap: 5,
   },
   memberUsername: {
-    color: colors.textSecondary,
+    fontFamily: fonts.groteskRegular,
+    color: colors.textMuted,
     fontSize: typography.label,
   },
   externalArrow: {
+    fontFamily: fonts.groteskMedium,
     color: colors.textMuted,
-    fontSize: 15,
-    fontWeight: '600',
+    fontSize: 14,
   },
   repoButton: {
     alignItems: 'center',
-    backgroundColor: colors.surfaceRaised,
-    borderColor: colors.accent,
-    borderRadius: radius.md,
-    borderWidth: 1,
+    backgroundColor: colors.accent,
+    borderRadius: radius.md + 2,
     flexDirection: 'row',
     gap: spacing.sm,
     justifyContent: 'center',
-    minHeight: 48,
+    minHeight: 50,
     paddingHorizontal: spacing.lg,
-    paddingVertical: spacing.sm,
   },
   repoButtonText: {
-    color: colors.accentText,
+    fontFamily: fonts.groteskBold,
     fontSize: typography.button,
-    fontWeight: '600',
-  },
-  repoButtonArrow: {
-    color: colors.accentText,
-    fontSize: 14,
-    fontWeight: '700',
-  },
-  ghCircle: {
-    alignItems: 'center',
-    justifyContent: 'flex-end',
-    overflow: 'hidden',
-    position: 'relative',
-  },
-  ghEarLeft: {
-    backgroundColor: colors.background,
-    borderTopLeftRadius: 2,
-    position: 'absolute',
-    transform: [{ rotate: '-18deg' }],
-  },
-  ghEarRight: {
-    backgroundColor: colors.background,
-    borderTopRightRadius: 2,
-    position: 'absolute',
-    transform: [{ rotate: '18deg' }],
-  },
-  ghHead: {
-    backgroundColor: colors.background,
-    position: 'absolute',
-  },
-  ghBody: {
-    backgroundColor: colors.background,
-  },
-  coursesSection: {
-    gap: spacing.sm,
-  },
-  sectionHeader: {
-    color: colors.textMuted,
-    fontSize: 11,
-    fontWeight: '600',
-    letterSpacing: 0.8,
   },
   coursesWrap: {
     flexDirection: 'row',
@@ -390,11 +300,12 @@ const createStyles = (colors: ColorPalette) => StyleSheet.create({
     paddingVertical: spacing.xs + 2,
   },
   coursePillText: {
-    color: colors.textSecondary,
+    fontFamily: fonts.groteskMedium,
+    color: colors.textPrimary,
     fontSize: typography.label,
-    fontWeight: '500',
   },
   footerText: {
+    fontFamily: fonts.groteskRegular,
     color: colors.textMuted,
     fontSize: typography.label,
     lineHeight: 18,

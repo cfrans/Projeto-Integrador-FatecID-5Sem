@@ -9,4 +9,8 @@ export const typography = {
 
 export const fonts = {
   title: 'Inter_800ExtraBold',
+  groteskRegular: 'SpaceGrotesk_400Regular',
+  groteskMedium: 'SpaceGrotesk_500Medium',
+  groteskSemiBold: 'SpaceGrotesk_600SemiBold',
+  groteskBold: 'SpaceGrotesk_700Bold',
 } as const;

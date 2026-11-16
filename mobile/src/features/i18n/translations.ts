@@ -38,7 +38,8 @@ export const translations: Record<Language, Record<TranslationKey, string>> = {
     'about.theme.light': 'Claro',
     'about.theme.dark': 'Escuro',
     'about.eyebrow': 'GRUPO 2 · FATEC INDAIATUBA',
-    'about.title': 'Projeto Integrador · 5º trimestre',
+    'about.title': 'Projeto Integrador\n5º trimestre',
+    'about.members': 'INTEGRANTES',
     'about.description': 'Sistema mobile de controle parental para o Lux, com pareamento por QR Code e comunicação via Web Service.',
     'about.github': 'Ver projeto no GitHub',
     'about.courses': 'DISCIPLINAS INTEGRADAS',
@@ -103,7 +104,8 @@ export const translations: Record<Language, Record<TranslationKey, string>> = {
     'about.theme.light': 'Light',
     'about.theme.dark': 'Dark',
     'about.eyebrow': 'GROUP 2 · FATEC INDAIATUBA',
-    'about.title': 'Integrative Project · 5th term',
+    'about.title': 'Integrative Project\n5th term',
+    'about.members': 'TEAM',
     'about.description': 'Mobile parental control system for Lux, with QR Code pairing and Web Service communication.',
     'about.github': 'View project on GitHub',
     'about.courses': 'INTEGRATED COURSES',
@@ -161,7 +163,8 @@ export const translations: Record<Language, Record<TranslationKey, string>> = {
     'about.theme.light': 'Claro',
     'about.theme.dark': 'Oscuro',
     'about.eyebrow': 'GRUPO 2 · FATEC INDAIATUBA',
-    'about.title': 'Proyecto Integrador · 5º trimestre',
+    'about.title': 'Proyecto Integrador\n5º trimestre',
+    'about.members': 'INTEGRANTES',
     'about.description': 'Sistema móvil de control parental para Lux, con vinculación por código QR y comunicación mediante Web Service.',
     'about.github': 'Ver proyecto en GitHub',
     'about.courses': 'ASIGNATURAS INTEGRADAS',
@@ -785,6 +788,22 @@ Object.assign(translations.es, {
   'recover.passwordStep': 'Respuesta correcta. Define la nueva contraseña.',
   'recover.save': 'Cambiar contraseña',
   'recover.done': 'Respuesta verificada y nueva contraseña revisada. El backend aún no está conectado, así que la contraseña de la cuenta no se cambió.',
+});
+
+Object.assign(translations['pt-BR'], {
+  'notifications.title': 'Pedido de liberação',
+  'notifications.single': '{requester} pediu acesso a {application} em {computer}',
+  'notifications.many': '{count} novos pedidos de liberação',
+});
+Object.assign(translations.en, {
+  'notifications.title': 'Access request',
+  'notifications.single': '{requester} asked for access to {application} on {computer}',
+  'notifications.many': '{count} new access requests',
+});
+Object.assign(translations.es, {
+  'notifications.title': 'Solicitud de acceso',
+  'notifications.single': '{requester} pidió acceso a {application} en {computer}',
+  'notifications.many': '{count} nuevas solicitudes de acceso',
 });
 
 export function deviceLanguage(languageTag: string): Language {
