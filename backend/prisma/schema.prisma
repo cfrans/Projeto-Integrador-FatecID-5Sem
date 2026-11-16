@@ -80,6 +80,7 @@ model DeviceAssociation {
   device         Device           @relation("AssociationDevice", fields: [deviceId], references: [id], onDelete: Restrict, onUpdate: Restrict)
   guardian       Guardian         @relation(fields: [guardianId], references: [id], onDelete: Restrict)
   simulation     SimulationState?
+  parentalPolicy ParentalPolicy?
 
   commands AgentCommand[]
 
@@ -174,6 +175,7 @@ model AgentCommand {
   result              Json?
   errorCode           String?           @db.VarChar(32)
   completedAt         DateTime?         @db.DateTime(3)
+  policyRevision      Int?
   device              Device            @relation(fields: [deviceId], references: [id], onDelete: Restrict, onUpdate: Restrict)
   association         DeviceAssociation @relation(fields: [associationId], references: [id], onDelete: Restrict, onUpdate: Restrict)
   claimedByIdentity   AgentIdentity?    @relation(fields: [claimedByIdentityId], references: [id], onDelete: Restrict, onUpdate: Restrict)
@@ -181,4 +183,16 @@ model AgentCommand {
   @@unique([associationId, requestId])
   @@unique([deviceId, claimId])
   @@index([deviceId, status, createdAt, id])
+}
+
+model ParentalPolicy {
+  associationId     String            @id @db.Char(36)
+  appFilter         Json
+  revision          Int               @default(1)
+  appliedRevision   Int?
+  appliedAt         DateTime?         @db.DateTime(3)
+  observedAppFilter Json?
+  observedAt        DateTime?         @db.DateTime(3)
+  lastErrorCode     String?           @db.VarChar(32)
+  association       DeviceAssociation @relation(fields: [associationId], references: [id], onDelete: Restrict, onUpdate: Restrict)
 }

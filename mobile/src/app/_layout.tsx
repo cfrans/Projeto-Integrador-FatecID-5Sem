@@ -3,6 +3,10 @@ import { useEffect, useState } from 'react';
 import { ActivityIndicator, Platform, StyleSheet, View } from 'react-native';
 import { useFonts } from 'expo-font';
 import { Inter_800ExtraBold } from '@expo-google-fonts/inter/800ExtraBold';
+import { SpaceGrotesk_400Regular } from '@expo-google-fonts/space-grotesk/400Regular';
+import { SpaceGrotesk_500Medium } from '@expo-google-fonts/space-grotesk/500Medium';
+import { SpaceGrotesk_600SemiBold } from '@expo-google-fonts/space-grotesk/600SemiBold';
+import { SpaceGrotesk_700Bold } from '@expo-google-fonts/space-grotesk/700Bold';
 import { Stack } from 'expo-router/js-stack';
 import { StatusBar } from 'expo-status-bar';
 import { SessionProvider, useSession } from '@/features/auth/SessionProvider';
@@ -12,6 +16,9 @@ import { type ColorPalette } from '@/theme';
 import { ComputerAppearanceProvider } from '@/features/devices/ComputerAppearanceProvider';
 import { RequestBanner } from '@/features/access/RequestBanner';
 import { preloadImages } from '@/lib/preload-images';
+import { configureNotifications } from '@/features/notifications/notifications';
+
+configureNotifications();
 
 export default function RootLayout() {
   return (
@@ -32,7 +39,13 @@ function RootNavigator() {
   const { t } = useLanguage();
   const { colors, scheme } = useTheme();
   const styles = useThemedStyles(createStyles);
-  const [fontsLoaded, fontError] = useFonts({ Inter_800ExtraBold });
+  const [fontsLoaded, fontError] = useFonts({
+    Inter_800ExtraBold,
+    SpaceGrotesk_400Regular,
+    SpaceGrotesk_500Medium,
+    SpaceGrotesk_600SemiBold,
+    SpaceGrotesk_700Bold,
+  });
   const [imagesReady, setImagesReady] = useState(false);
   useEffect(() => {
     if (Platform.OS !== 'web') return;

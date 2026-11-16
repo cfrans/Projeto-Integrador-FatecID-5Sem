@@ -1,16 +1,24 @@
 import {
-  BadRequestException,
   ConflictException,
   GoneException,
   HttpException,
   Injectable,
   NotFoundException,
+  NotImplementedException,
   ServiceUnavailableException,
   UnauthorizedException,
 } from '@nestjs/common';
 import { Prisma, type AgentCommand } from '../../generated/prisma/client.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 import type { AuthenticatedAgent } from '../pairing/agent-auth/agent-auth.guard.js';
+import {
+  canonicalResult,
+  isParental,
+  normalizeParameters,
+  normalizeResult,
+  policyState,
+  type NormalizedResult,
+} from './command-types.js';
 import type {
   ClaimCommandDto,
   CommandResultDto,
@@ -19,12 +27,6 @@ import type {
 
 const TTL_MS = 300_000;
 const EXECUTION_MS = 30_000;
-const ERROR_CODES = [
-  'UNSUPPORTED_OPERATION',
-  'INVALID_PARAMETERS',
-  'EXECUTION_TIMEOUT',
-  'LOCAL_UNAVAILABLE',
-];
 type LockedDevice = { id: string; guardianId: string | null; isDemo: boolean };
 
 @Injectable()
@@ -130,8 +132,14 @@ export class CommandsService {
   }
 
   async create(guardianId: string, deviceId: string, input: CreateCommandDto) {
-    if (Object.keys(input.parameters).length)
-      throw new BadRequestException('Ping não aceita parâmetros.');
+    if (
+      isParental(input.type) &&
+      process.env.ENABLE_PARENTAL_COMMANDS !== 'true'
+    )
+      throw new NotImplementedException(
+        'Comandos parentais ainda não estão habilitados neste servidor.',
+      );
+    const parameters = normalizeParameters(input.type, input.parameters);
     return this.transaction(deviceId, async (tx, device) => {
       const association =
         device.guardianId === guardianId
@@ -150,7 +158,9 @@ export class CommandsService {
         if (
           existing.type !== input.type ||
           existing.version !== input.version ||
-          JSON.stringify(existing.parameters) !== '{}'
+          JSON.stringify(
+            normalizeParameters(existing.type, existing.parameters),
+          ) !== JSON.stringify(parameters)
         )
           throw new ConflictException(
             'requestId já utilizado com outra intenção.',
@@ -158,6 +168,31 @@ export class CommandsService {
         return { created: false, command: this.view(existing, new Date()) };
       }
       const now = new Date();
+      let policyRevision: number | null = null;
+      if (input.type === 'parental.app_filter.set') {
+        const policy = await tx.parentalPolicy.upsert({
+          where: { associationId: association.id },
+          create: {
+            associationId: association.id,
+            appFilter: parameters as Prisma.InputJsonObject,
+          },
+          update: {
+            appFilter: parameters as Prisma.InputJsonObject,
+            revision: { increment: 1 },
+            lastErrorCode: null,
+          },
+        });
+        policyRevision = policy.revision;
+        await tx.agentCommand.updateMany({
+          where: {
+            deviceId,
+            associationId: association.id,
+            type: input.type,
+            status: 'pending',
+          },
+          data: { status: 'cancelled' },
+        });
+      }
       const command = await tx.agentCommand.create({
         data: {
           deviceId,
@@ -165,7 +200,8 @@ export class CommandsService {
           requestId,
           type: input.type,
           version: input.version,
-          parameters: {},
+          parameters: parameters as Prisma.InputJsonObject,
+          policyRevision,
           expiresAt: new Date(now.getTime() + TTL_MS),
           createdAt: now,
         },
@@ -265,40 +301,13 @@ export class CommandsService {
   }
 
   async result(agent: AuthenticatedAgent, id: string, input: CommandResultDto) {
-    const result = input.result;
-    const error = input.error;
-    let errorCode: string | null = null;
-    if (input.status === 'succeeded') {
-      if (
-        !result ||
-        typeof result !== 'object' ||
-        Array.isArray(result) ||
-        Object.keys(result).length !== 1 ||
-        !('reachable' in result) ||
-        result.reachable !== true ||
-        error !== null
-      )
-        throw new BadRequestException('Resultado de ping inválido.');
-    } else {
-      if (
-        result !== null ||
-        !error ||
-        typeof error !== 'object' ||
-        Array.isArray(error) ||
-        Object.keys(error).length !== 1 ||
-        !('code' in error) ||
-        typeof error.code !== 'string' ||
-        !ERROR_CODES.includes(error.code)
-      )
-        throw new BadRequestException('Código de falha inválido.');
-      errorCode = error.code;
-    }
     return this.transaction(agent.deviceId, async (tx, device) => {
       await this.activeIdentity(tx, device, agent);
       let command = await tx.agentCommand.findFirst({
         where: { id, deviceId: device.id },
       });
       if (!command) throw new NotFoundException('Comando não encontrado.');
+      const outcome = normalizeResult(command, input);
       if (
         !(await this.association(tx, device, undefined, command.associationId))
       )
@@ -309,30 +318,106 @@ export class CommandsService {
       )
         throw new ConflictException('Reserva incompatível.');
       if (command.status === 'succeeded' || command.status === 'failed') {
-        if (command.status !== input.status || command.errorCode !== errorCode)
+        if (
+          command.status !== outcome.status ||
+          command.errorCode !== outcome.errorCode ||
+          (outcome.status === 'succeeded' &&
+            JSON.stringify(canonicalResult(command.type, command.result)) !==
+              JSON.stringify(outcome.result))
+        )
           throw new ConflictException(
             'Resultado definitivo não pode ser alterado.',
           );
       } else {
         if (!['running', 'unknown'].includes(command.status))
           throw new GoneException('Comando não aceita resultado.');
+        const now = new Date();
         command = await tx.agentCommand.update({
           where: { id },
           data: {
-            status: input.status,
+            status: outcome.status,
             result:
-              input.status === 'succeeded'
-                ? { reachable: true }
+              outcome.status === 'succeeded'
+                ? (outcome.result as Prisma.InputJsonObject)
                 : Prisma.DbNull,
-            errorCode,
-            completedAt: new Date(),
+            errorCode: outcome.errorCode,
+            completedAt: now,
           },
         });
+        await this.reconcile(tx, command, outcome, now);
       }
       return {
         id: command.id,
         status: command.status,
         completedAt: command.completedAt!.toISOString(),
+      };
+    });
+  }
+
+  private async reconcile(
+    tx: Prisma.TransactionClient,
+    command: AgentCommand,
+    outcome: NormalizedResult,
+    now: Date,
+  ) {
+    if (!isParental(command.type)) return;
+    const policy = await tx.parentalPolicy.findUnique({
+      where: { associationId: command.associationId },
+    });
+    if (!policy) return;
+    if (command.type === 'parental.app_filter.read') {
+      if (outcome.status === 'succeeded')
+        await tx.parentalPolicy.update({
+          where: { associationId: policy.associationId },
+          data: {
+            observedAppFilter: outcome.result as Prisma.InputJsonObject,
+            observedAt: now,
+          },
+        });
+      return;
+    }
+    const revision = command.policyRevision;
+    if (revision === null) return;
+    if (outcome.status === 'succeeded') {
+      await tx.parentalPolicy.update({
+        where: { associationId: policy.associationId },
+        data: {
+          appliedRevision: Math.max(policy.appliedRevision ?? 0, revision),
+          appliedAt: now,
+          observedAppFilter: outcome.result as Prisma.InputJsonObject,
+          observedAt: now,
+          ...(revision >= policy.revision ? { lastErrorCode: null } : {}),
+        },
+      });
+    } else if (revision === policy.revision) {
+      await tx.parentalPolicy.update({
+        where: { associationId: policy.associationId },
+        data: { lastErrorCode: outcome.errorCode },
+      });
+    }
+  }
+
+  async policy(guardianId: string, deviceId: string) {
+    return this.transaction(deviceId, async (tx, device) => {
+      const association =
+        device.guardianId === guardianId
+          ? await this.association(tx, device, guardianId)
+          : null;
+      if (!association)
+        throw new NotFoundException('Associação ativa não encontrada.');
+      const policy = await tx.parentalPolicy.findUnique({
+        where: { associationId: association.id },
+      });
+      if (!policy) throw new NotFoundException('Política não encontrada.');
+      return {
+        state: policyState(policy),
+        revision: policy.revision,
+        appliedRevision: policy.appliedRevision,
+        appFilter: policy.appFilter,
+        observedAppFilter: policy.observedAppFilter,
+        appliedAt: policy.appliedAt?.toISOString() ?? null,
+        observedAt: policy.observedAt?.toISOString() ?? null,
+        error: policy.lastErrorCode ? { code: policy.lastErrorCode } : null,
       };
     });
   }

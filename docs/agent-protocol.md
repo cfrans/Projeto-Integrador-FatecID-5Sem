@@ -1,12 +1,12 @@
 # Protocolo de comandos do Lux Agent — versão 1
 
-Implementado e validado com `agent.ping` entre responsável HTTP, NestJS, MySQL e Agent Python no Lux por HTTPS. O mobile ainda não cria nem apresenta comandos. Procedimento e evidências em [Validação de ping](agent-ping-validation.md); instalação systemd, GTK, pareamento local e operações parentais continuam pendentes.
+Implementado e validado com `agent.ping` entre responsável HTTP, NestJS, MySQL e Agent Python no Lux por HTTPS. O mobile ainda não cria nem apresenta comandos. Procedimento e evidências em [Validação de ping](agent-ping-validation.md); os comandos parentais têm [contrato e backend](#comandos-parentais-contrato) testados só com Agent simulado; execução no Agent e no GNOME continua pendente.
 
 ## Escopo e revisão da proposta
 
 REST/HTTPS de saída e persistência no MySQL existente, sem broker, WebSocket, Redis ou outra autenticação. Reutiliza JWT de responsável, `AgentAuthGuard`, `AgentIdentity`, `DeviceAssociation` e o lock de `Device` usado no pareamento. `lux_agent.parental` permanece independente do transporte remoto.
 
-A única intenção válida é `{ "type": "agent.ping", "version": 1, "parameters": {} }`. Seu sucesso é `{ "reachable": true }`: confirma processamento e retorno, sem consultar hostname, contas, GNOME ou políticas. Operações/versões desconhecidas, parâmetros arbitrários, shell, scripts e URLs de retorno são recusados.
+A intenção usada na validação com o Lux real é `{ "type": "agent.ping", "version": 1, "parameters": {} }`; os tipos parentais estão em [Comandos parentais](#comandos-parentais-contrato). Seu sucesso é `{ "reachable": true }`: confirma processamento e retorno, sem consultar hostname, contas, GNOME ou políticas. Operações/versões desconhecidas, parâmetros arbitrários, shell, scripts e URLs de retorno são recusados.
 
 Decisões resolvidas antes da implementação:
 
@@ -64,6 +64,36 @@ Resultado:
 Falha usa `status: "failed"`, `result: null` e `error: { "code": "EXECUTION_TIMEOUT" }`. Códigos aceitos: `UNSUPPORTED_OPERATION`, `INVALID_PARAMETERS`, `EXECUTION_TIMEOUT`, `LOCAL_UNAVAILABLE`. O Agent atual recusa contrato/operação desconhecida antes de reservar e gera somente ping ou falha de orçamento local; não envia traceback, stderr ou dados Linux. Sucesso exige `error: null`; falha exige exatamente um código permitido.
 
 Erros: 400 contrato inválido; 401 autenticação/identidade revogada; 404 recurso alheio/inexistente; 409 conflito; 410 vínculo original revogado, identidade indisponível na criação ou comando vencido/cancelado antes da reserva; 413 corpo excessivo; 503 indisponibilidade operacional. Erros não expõem exceções ou corpos do backend na CLI.
+
+## Comandos parentais (contrato)
+
+Estado: contrato e backend implementados e cobertos por testes unitários e por um teste MySQL com um Agent simulado (`backend/test/parental-commands.mysql-test.mjs`). **Não há implementação no Lux Agent Python nem validação no GNOME**: o Agent atual só executa `agent.ping` e interromperia o polling ao receber outro tipo. Por isso o backend recusa a criação de comandos parentais com `501` enquanto `ENABLE_PARENTAL_COMMANDS` não for `true`; o padrão é desabilitado. Reutilizam o ciclo criação, polling, claim e resultado do ping, sem novos endpoints de Agent.
+
+A escrita só cobre o filtro de aplicativos, a única operação com prova técnica de escrita no Lux ([registro](lux-integration.md#escrita-do-filtro-de-aplicativos-via-polkit--2026-11-13)). A conta gerenciada é definida localmente pelo Agent, nunca pelo backend ou pelo mobile; contas administrativas são recusadas localmente.
+
+| `type` (versão 1) | `parameters` | Resultado de sucesso |
+| --- | --- | --- |
+| `parental.app_filter.set` | `{ "blockedApplications": ["org.mozilla.firefox"], "blockInstallation": false }` | O filtro **observado após reler o sistema**: `{ blockedApplications, blockInstallation }`. |
+| `parental.app_filter.read` | `{}` | O filtro observado, no mesmo formato. |
+
+`blockedApplications` aceita até 200 identificadores únicos de 1 a 191 caracteres (`[A-Za-z0-9][A-Za-z0-9._+-]*`, o mesmo `sourceId` dos relatórios), sem shell, caminhos ou URLs. O backend os ordena e normaliza; um `requestId` repetido com parâmetros equivalentes devolve o mesmo comando, com parâmetros diferentes retorna 409. Parâmetros fora do contrato retornam 400.
+
+O backend só aceita `succeeded` em `set` se o filtro observado for idêntico ao pedido (400 caso contrário). Quando a releitura divergir, o Agent informa `failed` com `VERIFICATION_FAILED`. Códigos de falha dos comandos parentais: os quatro do ping mais `PERMISSION_DENIED`, `ACCOUNT_NOT_MANAGED`, `VERIFICATION_FAILED` e `POLICY_UNAVAILABLE`; o ping continua aceitando só os quatro originais. Uma repetição do PUT com resultado diferente do definitivo retorna 409.
+
+### Reconciliação
+
+Cada vínculo tem no máximo uma política desejada (`ParentalPolicy`), versionada por `revision`. Criar um `set` grava a política desejada, incrementa `revision`, guarda essa revisão no comando (`policyRevision`) e cancela `set` ainda `pending` do mesmo vínculo; vence a intenção mais recente. Um `set` já reservado (`running`) não é interrompido.
+
+| Estado (`GET /devices/:deviceId/parental-policy`) | Significado |
+| --- | --- |
+| `pending` | A revisão atual ainda não foi confirmada pelo Agent. Inclui comando aguardando, em execução ou com resultado incerto (`unknown`), que nunca marca como aplicado. |
+| `applied` | O Agent confirmou, com releitura, a revisão atual. |
+| `failed` | A revisão atual recebeu uma falha tipada (`error.code`); nova intenção volta a `pending`. |
+| `drifted` | A revisão atual foi aplicada, mas uma leitura posterior observou outro estado. |
+
+Um sucesso de revisão antiga avança `appliedRevision` até essa revisão, mas o estado continua `pending` enquanto a atual não for confirmada. `read` só atualiza o estado observado (`observedAppFilter`, `observedAt`); não altera a política desejada. A resposta traz `revision`, `appliedRevision`, `appFilter`, `observedAppFilter`, `appliedAt`, `observedAt` e `error`; sem política ou vínculo ativo do responsável, 404. A revogação do vínculo cancela/marca incertos os comandos como no ping, e um novo vínculo não herda a política. A migration `20261116120000_parental_commands` cria `ParentalPolicy` e `AgentCommand.policyRevision`.
+
+Pendências antes de habilitar: o Agent Python executar `set`/`read` com malcontent e releitura, o mobile criar os comandos e exibir o estado, e validar no Lux o efeito do bloqueio de instalação, que o registro técnico ainda não confirmou.
 
 ## Contrato de relatórios do Agent
 

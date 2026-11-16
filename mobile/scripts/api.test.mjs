@@ -16,6 +16,7 @@ import './synchronization.test.mjs';
 import './image-cache.test.mjs';
 import './security-question.test.mjs';
 import './patch-router.test.mjs';
+import './notifications.test.mjs';
 
 const originalFetch = globalThis.fetch;
 

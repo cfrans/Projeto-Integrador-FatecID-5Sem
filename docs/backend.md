@@ -149,7 +149,7 @@ O backend implementa autenticação de responsáveis e leitura de registros de d
 
 O mobile usa a API para autenticação (`POST /auth/login` e `GET /auth/me`) e lista registros com `GET /devices`, enviando o Bearer token e validando a resposta antes de exibir. Os itens aparecem como `unverified` com `lastSeen: null`, sem afirmar que o computador está online ou offline. O serviço de lista não usa fallback para fixtures locais quando a API falha.
 
-`pairingDemo.simulatePairing()` permanece como utilitário de mock e não cria Device no banco. O fluxo de QR utiliza os endpoints de validação e consumo descritos abaixo, sem fallback para mock. A listagem não consulta presença ou aplica operações no Lux.
+O fluxo de QR utiliza os endpoints de validação e consumo descritos abaixo, sem fallback para mock. A listagem não consulta presença ou aplica operações no Lux.
 
 ## Contratos de pareamento
 
