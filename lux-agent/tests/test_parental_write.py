@@ -15,7 +15,7 @@ from unittest.mock import Mock, patch
 
 from lux_agent.cli import main
 from lux_agent.errors import DiagnosticError
-from lux_agent.parental import desktop_executable, is_admin_account, prove_app_filter, write_app_filter
+from lux_agent.parental import ParentalFailure, apply_app_filter, desktop_executable, is_admin_account, prove_app_filter, write_app_filter
 
 
 def account(name="crianca", uid=1001, gid=1001):
@@ -90,6 +90,19 @@ class DesktopExecutableTests(unittest.TestCase):
             "[Desktop Action new]\nExec=/usr/bin/other\n[Desktop Entry]\nExec=/usr/bin/main\n"
         )
         self.assertEqual(self.resolve("desktop:action.desktop"), "/usr/bin/main")
+
+    def test_generic_launchers_are_refused(self):
+        for name in ("env", "xdg-open"):
+            program = self.bin / name
+            program.write_text("")
+            program.chmod(0o755)
+        self.desktop("env.desktop", "Exec=env GDK_BACKEND=x11 game")
+        self.desktop("guide.desktop", "Exec=xdg-open /usr/share/doc/guide.pdf")
+        self.desktop("shell.desktop", 'Exec=/bin/sh -c "cd /opt/y && ./y"')
+        for source_id in ("desktop:env.desktop", "desktop:guide.desktop", "desktop:shell.desktop"):
+            with self.subTest(source_id=source_id), self.assertRaises(DiagnosticError) as error:
+                self.resolve(source_id)
+            self.assertIn("lançador genérico", str(error.exception))
 
     def test_invalid_or_unresolvable_ids_fail(self):
         self.desktop("noexec.desktop", "")
@@ -186,6 +199,93 @@ class ProveAppFilterTests(unittest.TestCase):
             prove_app_filter(account(), ["desktop:a.desktop"], hold=0)
         self.assertEqual(error.exception.code, 4)
         self.manager.set_app_filter.assert_not_called()
+
+
+class CodedGLibError(Exception):
+    def __init__(self, code=None):
+        super().__init__(code or "falha")
+        self.code = code
+
+    def matches(self, domain, code):
+        return self.code == code
+
+
+class ApplyAppFilterTests(unittest.TestCase):
+    PARAMETERS = {"blockedApplications": ["desktop:b.desktop", "desktop:a.desktop"], "blockInstallation": True}
+
+    def setUp(self):
+        self.manager = Mock(spec=["get_app_filter", "set_app_filter"])
+        self.malcontent = Mock()
+        self.malcontent.Manager.new.return_value = self.manager
+        self.malcontent.ManagerError = SimpleNamespace(PERMISSION_DENIED="denied", INVALID_USER="invalid-user")
+        self.bindings = patch(
+            "lux_agent.parental.load_malcontent",
+            return_value=(Mock(), SimpleNamespace(Error=CodedGLibError), self.malcontent),
+        )
+        for target, kwargs in (
+            ("lux_agent.parental.pwd.getpwnam", {"return_value": account()}),
+            ("lux_agent.parental.is_admin_account", {"return_value": False}),
+            ("lux_agent.parental.desktop_executable", {"side_effect": lambda source_id: "/usr/bin/" + source_id[8]}),
+        ):
+            patcher = patch(target, **kwargs)
+            patcher.start()
+            self.addCleanup(patcher.stop)
+
+    def apply(self, managed_user="crianca"):
+        with self.bindings as load:
+            try:
+                return apply_app_filter(managed_user, self.PARAMETERS)
+            finally:
+                self.loaded = load.called
+
+    def failure(self, managed_user="crianca"):
+        with self.assertRaises(ParentalFailure) as raised:
+            self.apply(managed_user)
+        return raised.exception.code
+
+    def test_writes_paths_and_returns_reread_in_source_ids(self):
+        self.manager.get_app_filter.return_value = native_filter(["/usr/bin/b", "/usr/bin/a"])
+        self.assertEqual(self.apply(), {"blockedApplications": ["desktop:a.desktop", "desktop:b.desktop"], "blockInstallation": True})
+        self.assertEqual(self.manager.set_app_filter.call_args.args[0], 1001)
+        builder = self.malcontent.AppFilterBuilder.new.return_value
+        builder.set_allow_user_installation.assert_called_once_with(False)
+        builder.set_allow_system_installation.assert_called_once_with(False)
+
+    def test_reapplying_same_filter_is_harmless(self):
+        self.manager.get_app_filter.return_value = native_filter(["/usr/bin/a", "/usr/bin/b"])
+        self.assertEqual(self.apply(), self.apply())
+        self.assertEqual(self.manager.set_app_filter.call_count, 2)
+
+    def test_divergent_or_allowlist_reread_is_verification_failure(self):
+        for observed in (native_filter(["/usr/bin/a"]), native_filter(["/usr/bin/a", "/usr/bin/b"], user=True),
+                         native_filter(["/usr/bin/a", "/usr/bin/b"], allowlist=True)):
+            self.manager.get_app_filter.return_value = observed
+            self.assertEqual(self.failure(), "VERIFICATION_FAILED")
+
+    def test_missing_unknown_or_admin_account_is_not_managed_without_writing(self):
+        self.assertEqual(self.failure(None), "ACCOUNT_NOT_MANAGED")
+        with patch("lux_agent.parental.pwd.getpwnam", side_effect=KeyError):
+            self.assertEqual(self.failure(), "ACCOUNT_NOT_MANAGED")
+        with patch("lux_agent.parental.is_admin_account", return_value=True):
+            self.assertEqual(self.failure(), "ACCOUNT_NOT_MANAGED")
+        self.assertFalse(self.loaded)
+        self.manager.set_app_filter.assert_not_called()
+
+    def test_uninstalled_application_is_policy_unavailable(self):
+        with patch("lux_agent.parental.desktop_executable", side_effect=DiagnosticError("ausente", 2)):
+            self.assertEqual(self.failure(), "POLICY_UNAVAILABLE")
+        self.manager.set_app_filter.assert_not_called()
+
+    def test_manager_errors_are_mapped(self):
+        for error, code in ((CodedGLibError("denied"), "PERMISSION_DENIED"),
+                            (CodedGLibError("invalid-user"), "ACCOUNT_NOT_MANAGED"),
+                            (CodedGLibError(), "LOCAL_UNAVAILABLE")):
+            self.manager.set_app_filter.side_effect = error
+            self.assertEqual(self.failure(), code)
+
+    def test_missing_bindings_is_local_unavailable(self):
+        self.bindings = patch("lux_agent.parental.load_malcontent", side_effect=DiagnosticError("sem GI", 1))
+        self.assertEqual(self.failure(), "LOCAL_UNAVAILABLE")
 
 
 class ProveAppFilterCliTests(unittest.TestCase):

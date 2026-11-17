@@ -17,6 +17,7 @@ from unittest.mock import patch
 from lux_agent.errors import DiagnosticError
 from lux_agent.journal import CommandJournal
 from lux_agent.commands import CommandProcessor
+from lux_agent.parental import ParentalFailure
 from lux_agent.cli import poll_main as main
 from lux_agent.polling import poll_associations
 
@@ -228,6 +229,82 @@ class CommandTests(unittest.TestCase):
         with self.assertRaises(DiagnosticError):
             self.processor.run_once()
 
+    def test_unsupported_or_invalid_commands_fail_typed_and_polling_continues(self):
+        cases = (
+            ({'type': 'shell.exec'}, 'UNSUPPORTED_OPERATION'),
+            ({'version': 2}, 'UNSUPPORTED_OPERATION'),
+            ({'parameters': {'user': 'root'}}, 'INVALID_PARAMETERS'),
+            ({'type': 'parental.app_filter.set', 'parameters': {'blockedApplications': ['/bin/sh'], 'blockInstallation': True}}, 'INVALID_PARAMETERS'),
+            ({'type': 'parental.app_filter.set', 'parameters': {'blockedApplications': ['desktop:a.desktop'] * 2, 'blockInstallation': True}}, 'INVALID_PARAMETERS'),
+            ({'type': 'parental.app_filter.set', 'parameters': {'blockedApplications': [], 'blockInstallation': 1}}, 'INVALID_PARAMETERS'),
+            ({'type': 'parental.app_filter.set', 'parameters': {'blockedApplications': [], 'blockInstallation': True, 'user': 'root'}}, 'INVALID_PARAMETERS'),
+        )
+        for change, code in cases:
+            self.command = command()
+            self.command.update(change)
+            with patch('lux_agent.commands.execute_ping') as ping, patch('lux_agent.commands.apply_app_filter') as apply:
+                with contextlib.redirect_stdout(io.StringIO()), contextlib.redirect_stderr(io.StringIO()):
+                    exit_code = poll_associations(self.origin + '/agent/associations', self.credential, command_processor=self.processor,
+                                                  interval=0.01, jitter=0, max_queries=2)
+                ping.assert_not_called()
+                apply.assert_not_called()
+            self.assertEqual(exit_code, 0)
+            self.assertEqual(self.result, {'claimId': self.command['claimId'], 'status': 'failed', 'result': None, 'error': {'code': code}})
+            self.assertEqual(self.journal.get(self.command['id'])[2], 'acknowledged')
+
+    def test_app_filter_set_applies_to_local_managed_user_and_returns_reread(self):
+        self.processor.managed_user = 'crianca'
+        parameters = {'blockedApplications': ['desktop:gimp.desktop'], 'blockInstallation': True}
+        self.command.update(type='parental.app_filter.set', parameters=parameters, requestId=str(uuid.uuid5(uuid.NAMESPACE_URL, 'revision')))
+        with patch('lux_agent.commands.apply_app_filter', return_value=parameters) as apply:
+            self.assertEqual(self.processor.run_once(), 1)
+        apply.assert_called_once_with('crianca', parameters)
+        self.assertEqual(self.result['status'], 'succeeded')
+        self.assertEqual(self.result['result'], parameters)
+        self.assertIsNone(self.result['error'])
+
+    def test_app_filter_set_failures_are_reported_with_code(self):
+        for code in ('PERMISSION_DENIED', 'ACCOUNT_NOT_MANAGED', 'LOCAL_UNAVAILABLE', 'VERIFICATION_FAILED', 'POLICY_UNAVAILABLE'):
+            self.command = command()
+            self.command.update(type='parental.app_filter.set', parameters={'blockedApplications': [], 'blockInstallation': False})
+            with patch('lux_agent.commands.apply_app_filter', side_effect=ParentalFailure(code)):
+                self.assertEqual(self.processor.run_once(), 1)
+            self.assertEqual(self.result['status'], 'failed')
+            self.assertIsNone(self.result['result'])
+            self.assertEqual(self.result['error'], {'code': code})
+
+    def test_reemitted_set_after_crash_reapplies_same_filter(self):
+        parameters = {'blockedApplications': ['desktop:gimp.desktop'], 'blockInstallation': False}
+        self.command.update(type='parental.app_filter.set', parameters=parameters)
+        first = self.command['id']
+        with patch('lux_agent.commands.apply_app_filter', side_effect=KeyboardInterrupt):
+            with self.assertRaises(KeyboardInterrupt):
+                self.processor.run_once()
+        self.assertEqual(self.journal.get(first)[2], 'started')
+        self.command['status'] = 'unknown'
+        self.restart()
+        with patch('lux_agent.commands.apply_app_filter', return_value=parameters) as apply:
+            self.assertEqual(self.processor.run_once(), 0)
+            apply.assert_not_called()
+            self.command = command()
+            self.command.update(type='parental.app_filter.set', parameters=parameters)
+            self.assertEqual(self.processor.run_once(), 1)
+            apply.assert_called_once_with(None, parameters)
+        self.assertEqual(self.journal.get(first)[2], 'started')
+        self.assertEqual(self.result['status'], 'succeeded')
+
+    def test_revoked_association_stops_sync_without_touching_policies(self):
+        self.command.update(type='parental.app_filter.set', status='cancelled',
+                            parameters={'blockedApplications': [], 'blockInstallation': False})
+        with patch('lux_agent.commands.apply_app_filter') as apply, patch('lux_agent.parental.load_malcontent') as bindings:
+            with contextlib.redirect_stdout(io.StringIO()), contextlib.redirect_stderr(io.StringIO()):
+                code = poll_associations(self.origin + '/agent/associations', self.credential, command_processor=self.processor,
+                                         interval=0.01, jitter=0, max_queries=2)
+            apply.assert_not_called()
+            bindings.assert_not_called()
+        self.assertEqual(code, 0)
+        self.assertEqual([item[0] for item in self.requests if item[1].startswith('/agent/commands')], ['GET', 'GET'])
+
     def test_authentication_and_conflicts_keep_journal_and_stop(self):
         for status in (401, 409):
             self.command = command()
@@ -263,6 +340,21 @@ class CommandTests(unittest.TestCase):
             self.assertEqual(main([*args, '--state-dir', str(self.root / 'state')]), 0)
         self.assertIsNotNone(self.result)
         self.assertNotIn(self.credential, stdout.getvalue() + stderr.getvalue())
+
+    def test_cli_passes_local_managed_user_to_parental_commands(self):
+        self.journal.close()
+        credential_file = self.root / 'credential'
+        credential_file.write_text(self.credential)
+        credential_file.chmod(0o600)
+        parameters = {'blockedApplications': [], 'blockInstallation': False}
+        self.command.update(type='parental.app_filter.set', parameters=parameters)
+        args = ['--backend-url', self.origin, '--credential-file', str(credential_file), '--allow-local-http', '--max-queries', '1',
+                '--state-dir', str(self.root / 'state'), '--managed-user', 'crianca']
+        with patch('lux_agent.commands.apply_app_filter', return_value=parameters) as apply, \
+                contextlib.redirect_stdout(io.StringIO()), contextlib.redirect_stderr(io.StringIO()):
+            self.assertEqual(main(args), 0)
+        apply.assert_called_once_with('crianca', parameters)
+        self.assertEqual(self.result['status'], 'succeeded')
 
 
 class JournalSecurityTests(unittest.TestCase):
