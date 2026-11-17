@@ -459,6 +459,8 @@ test('pairing authorizes one guardian, consumes atomically, and revokes access',
         'provision',
         '--name',
         'Pairing fixture provisioned',
+        '--managed-user',
+        'ana',
         '--output',
         credentialPath,
       ],
@@ -475,6 +477,7 @@ test('pairing authorizes one guardian, consumes atomically, and revokes access',
     });
     assert.ok(provisioned);
     devices.push(provisioned);
+    assert.equal(provisioned.managedUser, 'ana');
     const fileStats = await stat(credentialPath);
     assert.equal(fileStats.mode & 0o777, 0o600);
     const provisionedCredential = (

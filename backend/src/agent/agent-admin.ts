@@ -33,12 +33,17 @@ function requiredValue(options: Options, key: string) {
 
 async function provision(args: string[]) {
   const options = parseOptions(args);
-  const allowed = new Set(['--name', '--output', '--demo']);
+  const allowed = new Set(['--name', '--output', '--demo', '--managed-user']);
   if ([...options.keys()].some((key) => !allowed.has(key)))
     throw new Error('Argumentos inválidos.');
   const name = requiredValue(options, '--name').trim();
   if (name.length > 100)
     throw new Error('--name deve ter no máximo 100 caracteres.');
+  const managedUser = options.has('--managed-user')
+    ? requiredValue(options, '--managed-user').trim()
+    : null;
+  if (managedUser && managedUser.length > 100)
+    throw new Error('--managed-user deve ter no máximo 100 caracteres.');
   const output = requiredValue(options, '--output');
   if (!isAbsolute(output))
     throw new Error('--output precisa ser um caminho absoluto.');
@@ -58,7 +63,7 @@ async function provision(args: string[]) {
     await prisma.$connect();
     await prisma.$transaction(async (tx) => {
       await tx.device.create({
-        data: { id: deviceId, name, isDemo, guardianId: null },
+        data: { id: deviceId, name, managedUser, isDemo, guardianId: null },
       });
       await tx.agentIdentity.create({
         data: {
