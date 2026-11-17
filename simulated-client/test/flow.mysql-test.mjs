@@ -95,6 +95,7 @@ test('mobile services, real API/MySQL and local client complete the demonstratio
     await client.close();
     if (deviceId) {
       await prisma.deviceAssociation.deleteMany({ where: { deviceId } });
+      await prisma.pairingSession.deleteMany({ where: { deviceId } });
       await prisma.device.delete({ where: { id: deviceId } });
     }
     await prisma.guardian.delete({ where: { id: guardian.id } });

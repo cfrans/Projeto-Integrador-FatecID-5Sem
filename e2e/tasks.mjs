@@ -21,6 +21,7 @@ export async function createTasks() {
         const deviceId = fixture.deviceId;
         await prisma.agentCommand.deleteMany({ where: { deviceId } });
         await prisma.deviceAssociation.deleteMany({ where: { deviceId } });
+        await prisma.pairingSession.deleteMany({ where: { deviceId } });
         await prisma.device.deleteMany({ where: { id: deviceId } });
       }
       if (fixture.guardianId) await prisma.guardian.deleteMany({ where: { id: fixture.guardianId } });
