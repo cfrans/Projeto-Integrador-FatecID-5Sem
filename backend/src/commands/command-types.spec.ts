@@ -131,3 +131,23 @@ describe('policy state', () => {
     expect(policyState({ ...applied, observedAppFilter: null })).toBe('applied');
   });
 });
+
+describe('reported source identifiers', () => {
+  it('accepts desktop source ids and still rejects paths', () => {
+    expect(
+      normalizeParameters('parental.app_filter.set', {
+        blockedApplications: ['desktop:firefox-esr.desktop'],
+        blockInstallation: false,
+      }),
+    ).toEqual({
+      blockedApplications: ['desktop:firefox-esr.desktop'],
+      blockInstallation: false,
+    });
+    expect(() =>
+      normalizeParameters('parental.app_filter.set', {
+        blockedApplications: ['desktop:../x.desktop/'],
+        blockInstallation: false,
+      }),
+    ).toThrow();
+  });
+});

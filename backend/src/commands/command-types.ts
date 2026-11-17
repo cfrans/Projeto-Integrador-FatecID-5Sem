@@ -23,7 +23,7 @@ export const PARENTAL_ERROR_CODES = [
 export const ALL_ERROR_CODES = PARENTAL_ERROR_CODES;
 
 export const MAX_BLOCKED_APPLICATIONS = 200;
-const SOURCE_ID = /^[A-Za-z0-9][A-Za-z0-9._+-]{0,190}$/;
+const SOURCE_ID = /^[A-Za-z0-9][A-Za-z0-9._+:-]{0,190}$/;
 
 export type AppFilter = {
   blockedApplications: string[];
