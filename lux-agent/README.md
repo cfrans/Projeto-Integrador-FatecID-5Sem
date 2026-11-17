@@ -1,8 +1,8 @@
 # Lux Agent
 
-Pacote Python `lux_agent` com cinco subcomandos: `pair` pareia o computador com um responsável por QR no terminal; `read-policies` lê políticas nativas; `prove-app-filter` prova a escrita do filtro de aplicativos com releitura e restauração; `check-backend` valida uma vez a identidade provisionada; `poll` consulta vínculos, processa `agent.ping` e, com `--collect-report-file` e `--state-dir`, coleta aplicativos Linux e envia relatórios autenticados para `PUT /agent/reports`. No Lux, `poll` roda como serviço systemd instalado por `install.sh` ([Instalar como serviço](#instalar-como-serviço)). Não há comandos parentais vindos do backend nem GTK.
+Pacote Python `lux_agent` com cinco subcomandos: `pair` pareia o computador com um responsável por QR no terminal; `read-policies` lê políticas nativas; `prove-app-filter` prova a escrita do filtro de aplicativos com releitura e restauração; `check-backend` valida uma vez a identidade provisionada; `poll` consulta vínculos, processa `agent.ping` e `parental.app_filter.set` e, com `--collect-report-file` e `--state-dir`, coleta aplicativos Linux e envia relatórios autenticados para `PUT /agent/reports`. No Lux, `poll` roda como serviço systemd instalado por `install.sh` ([Instalar como serviço](#instalar-como-serviço)). Não há GTK.
 
-O [protocolo v1](../docs/agent-protocol.md) implementa reserva única e resultado idempotente de ping com diário privado. A [validação ponta a ponta](../docs/agent-ping-validation.md) usou NestJS/MySQL e Lux reais por HTTPS. Operações parentais continuam fora do executor.
+O [protocolo v1](../docs/agent-protocol.md) implementa reserva única e resultado idempotente de ping com diário privado. A [validação ponta a ponta](../docs/agent-ping-validation.md) usou NestJS/MySQL e Lux reais por HTTPS. O executor também aplica o filtro de aplicativos (`parental.app_filter.set`) na conta gerenciada local, com releitura ([execução no Agent](../docs/agent-protocol.md#execução-no-agent)).
 
 A PoC de leitura usa PyGObject/libmalcontent e AccountsService, sem alterar políticas ou solicitar elevação. A VM de referência é Lux 3/Canopus, GNOME 50.4 e malcontent 0.13.1-5. Leituras com e sem restrições foram validadas; consultar outra conta exigiu autenticação administrativa. A escrita do filtro de aplicativos pelo usuário de sistema `lux-agent`, sem root, foi provada com a regra polkit em `polkit/` ([evidência](../docs/lux-integration.md#escrita-do-filtro-de-aplicativos-via-polkit--2026-11-13)). O [client simulado](../docs/simulated-client.md) é um programa separado para demonstração; seu contrato não implementa comandos ou políticas Linux neste Agent.
 
@@ -61,10 +61,10 @@ lux-agent/
 | `errors` | `DiagnosticError` compartilhado, sem dependência da CLI ou do transporte. |
 | `backend` | HTTP/HTTPS/JSON, Bearer, CA, redirects, validação de associações e prazo total de requisições. |
 | `polling` | Cadência, backoff/jitter, Retry-After e consultas sequenciais. |
-| `commands` | Contrato e processamento exclusivo de ping, claim e reenvio de resultados. |
+| `commands` | Contrato, claim, despacho por tipo (`agent.ping`, `parental.app_filter.set`; demais → `UNSUPPORTED_OPERATION`) e reenvio de resultados. |
 | `journal` | SQLite privado, exclusão e persistência; formato e vínculo com origem/credencial preservados. |
 | `pairing` | Auxiliar privilegiado (credencial, autorregistro, sessão, espera do vínculo e reinício do serviço) e `pair`, que executa o auxiliar via `pkexec` e desenha o QR. Ver [Parear](#parear-com-um-responsável). |
-| `parental` | Leitura e escrita malcontent, conversão `desktop:<id>` → executável e recusa de conta administrativa; carrega GI somente ao acessar políticas. Independente de polling/comandos. |
+| `parental` | Leitura e escrita malcontent, conversão `desktop:<id>` → executável e recusa de conta administrativa; `apply_app_filter` executa o `set` e traduz falhas em códigos do protocolo. Carrega GI somente ao acessar políticas; não conhece o transporte. |
 
 O diagnóstico de backend não mantém ciclo; `poll` executa em primeiro plano e é supervisionado pelo systemd no Lux; `read-policies` é diagnóstico local independente. A futura GTK continua separada. Não há dependência de execução além do Python e dos bindings GI do sistema. `errors.py` evita que configuração/diário dependam do módulo HTTP; o prazo total foi centralizado porque polling e comandos duplicavam o mesmo tratamento.
 
@@ -147,7 +147,7 @@ sudo ~/lux-agent-poc/uninstall.sh [--reset-policies] [--yes]
 | `/usr/share/polkit-1/actions/org.piplup.luxagent.pair.policy` | root, `0644` | Ação polkit do pareamento (`auth_admin`) |
 
 - **Usuário:** `lux-agent`, de sistema, sem shell nem home. O serviço não roda como root.
-- **Conta gerenciada:** `--managed-user` ou pergunta interativa. É decisão local; o backend nunca a escolhe. Recusa conta inexistente, root, UID fora de 1000–59999 e membros do grupo `sudo`.
+- **Conta gerenciada:** `--managed-user` ou pergunta interativa. É decisão local; o backend nunca a escolhe. A unit a repassa ao `poll` por `--managed-user`. Recusa conta inexistente, root, UID fora de 1000–59999 e membros do grupo `sudo`.
 - **Credencial:** gerada por `lux-agent pair`; o `install.sh` não a recebe e reexecuções a mantêm. Sem credencial, a unit fica habilitada mas não inicia (`ConditionPathExists`) até o pareamento.
 - **Dependências:** `python3-qrcode` e `pkexec`, instalados com `apt-get` quando faltam (o papel do `Depends` de um futuro pacote).
 - **Reexecução:** idempotente. Atualiza código, unit e regra, reaproveita URL, opções e conta já gravadas e reinicia o serviço.
@@ -291,9 +291,9 @@ Adicione `--state-dir /caminho/privado/state` ao polling para habilitar o execut
 PYTHONPATH=lux-agent python3 -B -m lux_agent poll --backend-url https://localhost:3443 --credential-file /caminho/privado/credential --ca-file /caminho/privado/ca.pem --state-dir /caminho/privado/state --max-queries 3
 ```
 
-`lux_agent.commands` valida o contrato, reserva antes de executar e devolve apenas `{ "reachable": true }`. `lux_agent.journal` usa SQLite padrão com commits duráveis, arquivos privados `0600` e exclusão por `flock`. Guarda claim antes do POST, `started` antes da execução e resultado antes do PUT. Resultado salvo é reenviado sem reexecução; `started` sem resultado permanece incerto. Não há promessa de execução exatamente uma vez. Não apague o diário para contornar um conflito.
+`lux_agent.commands` valida o contrato, reserva antes de executar e devolve `{ "reachable": true }` ou, para `parental.app_filter.set` com `--managed-user CONTA`, o filtro relido. Operação desconhecida é reservada e respondida com `UNSUPPORTED_OPERATION`, sem encerrar o polling. `lux_agent.journal` usa SQLite padrão com commits duráveis, arquivos privados `0600` e exclusão por `flock`. Guarda claim antes do POST, `started` antes da execução e resultado antes do PUT. Resultado salvo é reenviado sem reexecução; `started` sem resultado permanece incerto. Não há promessa de execução exatamente uma vez. Não apague o diário para contornar um conflito.
 
-A CLI mantém backoff, TLS, timeout por requisição e sinais. Comandos usam limite de 16 KiB por resposta. Sem rede/503, preserva pendências para o ciclo seguinte; 401/TLS/409 encerram. 404/410 de claim/resultado abandonam a autorização local. O processamento não importa malcontent, não recebe shell e não altera presença no mobile.
+A CLI mantém backoff, TLS, timeout por requisição e sinais. Comandos usam limite de 16 KiB por resposta. Sem rede/503, preserva pendências para o ciclo seguinte; 401/TLS/409 encerram. 404/410 de claim/resultado abandonam a autorização local. Não recebe shell nem conta pelo comando, e não altera presença no mobile.
 
 Procedimento e resultados: [validação de ping](../docs/agent-ping-validation.md). Passaram 63 testes Python no WSL2 e Lux, incluindo respostas de claim/resultado perdidas, reinício, erros de diário e comandos desconhecidos. A aplicação de políticas e o pareamento/autorização administrativa local permanecem pendentes.
 

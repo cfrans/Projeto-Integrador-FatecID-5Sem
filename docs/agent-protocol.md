@@ -12,7 +12,7 @@ Decisões resolvidas antes da implementação:
 
 | Tema | Contrato implementado |
 | --- | --- |
-| `requestId` | UUID v4, normalizado em minúsculas, único por `(associationId, requestId)`. Repetição equivalente retorna o mesmo comando; UUID novo é intenção nova. Outro vínculo pode usar o mesmo UUID, sem recuperar o histórico anterior. |
+| `requestId` | UUID v4, normalizado em minúsculas, único por `(associationId, requestId)`. Repetição equivalente retorna o mesmo comando; UUID novo é intenção nova. Outro vínculo pode usar o mesmo UUID, sem recuperar o histórico anterior. O `set` gerado pelo backend usa um UUID derivado no formato v5; por isso o Agent aceita qualquer UUID canônico em `requestId` (`id`, `associationId` e `claimId` continuam v4). |
 | Vínculo | Exige `DeviceAssociation` original com `revokedAt: null`, `activeDeviceId` igual ao dispositivo e responsável compatível com `Device.guardianId`. O campo do dispositivo sozinho não autoriza. |
 | Revogação | Criação/claim/resultado e revogações serializam pela mesma linha de `Device`. A identidade é revalidada depois do lock; o guard não é a única verificação. Transações usam `READ COMMITTED` com lock exclusivo da linha do dispositivo, evitando gap locks entre computadores diferentes. |
 | `claimId` | UUID v4, único por `(deviceId, claimId)`, vinculado à identidade autenticada e a uma única reserva. Não é credencial nem lease renovável. |
@@ -61,13 +61,13 @@ Resultado:
 }
 ```
 
-Falha usa `status: "failed"`, `result: null` e `error: { "code": "EXECUTION_TIMEOUT" }`. Códigos aceitos: `UNSUPPORTED_OPERATION`, `INVALID_PARAMETERS`, `EXECUTION_TIMEOUT`, `LOCAL_UNAVAILABLE`. O Agent atual recusa contrato/operação desconhecida antes de reservar e gera somente ping ou falha de orçamento local; não envia traceback, stderr ou dados Linux. Sucesso exige `error: null`; falha exige exatamente um código permitido.
+Falha usa `status: "failed"`, `result: null` e `error: { "code": "EXECUTION_TIMEOUT" }`. Códigos aceitos: `UNSUPPORTED_OPERATION`, `INVALID_PARAMETERS`, `EXECUTION_TIMEOUT`, `LOCAL_UNAVAILABLE`. O Agent recusa sem reservar um envelope inválido (UUIDs, datas, prazo, `type` não texto, `version` não inteiro, `parameters` não objeto), o que encerra o polling. Um envelope válido com operação/versão desconhecida é reservado e respondido com `UNSUPPORTED_OPERATION`; parâmetros fora do contrato da operação, com `INVALID_PARAMETERS`. Nos dois casos o polling continua e nada é executado. Não envia traceback, stderr ou dados Linux. Sucesso exige `error: null`; falha exige exatamente um código permitido.
 
 Erros: 400 contrato inválido; 401 autenticação/identidade revogada; 404 recurso alheio/inexistente; 409 conflito; 410 vínculo original revogado, identidade indisponível na criação ou comando vencido/cancelado antes da reserva; 413 corpo excessivo; 503 indisponibilidade operacional. Erros não expõem exceções ou corpos do backend na CLI.
 
 ## Comandos parentais (contrato)
 
-Estado: contrato e backend implementados e cobertos por testes unitários e por um teste MySQL com um Agent simulado (`backend/test/parental-commands.mysql-test.mjs`). **Não há implementação no Lux Agent Python nem validação no GNOME**: o Agent atual só executa `agent.ping` e interromperia o polling ao receber outro tipo. Por isso, enquanto `ENABLE_PARENTAL_COMMANDS` não for `true` (padrão), o backend não gera `set` a partir das configurações e recusa `read` com `501`. Reutilizam o ciclo criação, polling, claim e resultado do ping, sem novos endpoints de Agent.
+Estado: contrato e backend implementados e cobertos por testes unitários e por um teste MySQL com um Agent simulado (`backend/test/parental-commands.mysql-test.mjs`). O Lux Agent executa `set` ([execução no Agent](#execução-no-agent)), coberto por testes Python com malcontent substituído; `read` não é implementado e recebe `UNSUPPORTED_OPERATION`. Enquanto `ENABLE_PARENTAL_COMMANDS` não for `true` (padrão), o backend não gera `set` a partir das configurações e recusa `read` com `501`. Reutilizam o ciclo criação, polling, claim e resultado do ping, sem novos endpoints de Agent.
 
 A escrita só cobre o filtro de aplicativos, a única operação com prova técnica de escrita no Lux ([registro](lux-integration.md#escrita-do-filtro-de-aplicativos-via-polkit--2026-11-13)). A conta gerenciada é definida localmente pelo Agent, nunca pelo backend ou pelo mobile; contas administrativas são recusadas localmente.
 
@@ -106,7 +106,19 @@ Um sucesso de revisão antiga avança `appliedRevision` até essa revisão, mas 
 
 Para computador real, `GET`/`PATCH /simulation/devices/:id` mantêm o formato do simulado, mas `appliedRevision`/`appliedAt` vêm de `ParentalPolicy` (`null` sem política) e há dois campos a mais: `error` (`{ code, at }` da revision atual, senão `null`) e `enforcement` (`enabled`/`disabled`, conforme `ENABLE_PARENTAL_COMMANDS`). Com `disabled`, nada será aplicado no computador. `drifted` só aparece em `/parental-policy`.
 
-Pendências antes de habilitar: o Agent Python executar `set`/`read` com malcontent e releitura, o mobile editar as configurações do computador real e exibir o estado, e validar no Lux o efeito do bloqueio de instalação, que o registro técnico ainda não confirmou.
+### Execução no Agent
+
+`parental.app_filter.set` é executado por `lux_agent.parental.apply_app_filter`, no mesmo ciclo de claim/diário do ping:
+
+1. A conta vem de `poll --managed-user` (a unit repassa `LUX_AGENT_MANAGED_USER` de `/etc/lux-agent/agent.env`), nunca do comando. Ausente, inexistente, root ou membro do grupo `sudo` → `ACCOUNT_NOT_MANAGED`, sem tocar no malcontent.
+2. Cada `sourceId` vira o caminho do executável (`.desktop` em `/usr/local/share` e `/usr/share`, `Exec` resolvido no `PATH` da sessão). App ausente, sem `Exec` resolvível ou aberto por lançador genérico (`env`, `sh`, `bash`, `xdg-open`, `flatpak`, `python3` etc., lista em `parental.GENERIC_LAUNCHERS`) → `POLICY_UNAVAILABLE`, sem gravar: o malcontent bloqueia pelo executável, e bloquear o lançador afetaria todos os apps que o usam. Pela mesma razão, apps que compartilham o executável são bloqueados juntos (no Lux de referência, os seis atalhos do LibreOffice usam `/usr/bin/libreoffice`).
+3. Grava com `Malcontent.Manager.set_app_filter` (lista de bloqueio + `AllowUser/SystemInstallation = !blockInstallation`) e relê. O filtro gravado substitui o anterior inteiro, inclusive o filtro OARS, que fica vazio.
+4. Se os caminhos e as flags relidos forem idênticos aos desejados, devolve `succeeded` com os `sourceId` pedidos (o conjunto de caminhos relido corresponde exatamente a eles). Releitura divergente ou em lista de permissão → `VERIFICATION_FAILED`.
+5. Erros do malcontent: `PERMISSION_DENIED` → `PERMISSION_DENIED`; `INVALID_USER` → `ACCOUNT_NOT_MANAGED`; bindings GI ausentes, D-Bus ou outro erro → `LOCAL_UNAVAILABLE`.
+
+Gravar o mesmo filtro de novo é inofensivo, então a reemissão (novo `requestId`) é simplesmente reaplicada. Queda entre `started` e o resultado salvo não reexecuta: o backend marca `unknown` e reemite. Com o vínculo revogado a fila fica vazia: o Agent mantém o filtro aplicado e não limpa nada; limpar exige `uninstall.sh --reset-policies` ou `malcontent-client` pelo administrador.
+
+Pendências antes de habilitar: validar a execução do Agent no Lux com o serviço instalado, o mobile editar as configurações do computador real e exibir o estado, e verificar no Lux o efeito do bloqueio de instalação (LUX-10), que o registro técnico ainda não confirmou.
 
 ## Contrato de relatórios do Agent
 
@@ -232,7 +244,7 @@ Somente uma reserva ainda dentro do prazo pode estar em execução por dispositi
 
 ## Agent e diário local
 
-`python3 -m lux_agent poll --state-dir /diretorio/privado` (executado de `lux-agent/`) ativa o processamento no ciclo existente. Sem a opção, permanece o polling somente de vínculos. A cada ciclo, consulta associações, recupera claims/resultados locais pendentes, consulta no máximo um comando e processa somente ping validado. Não importa nem chama malcontent.
+`python3 -m lux_agent poll --state-dir /diretorio/privado` (executado de `lux-agent/`) ativa o processamento no ciclo existente. Sem a opção, permanece o polling somente de vínculos. A cada ciclo, consulta associações, recupera claims/resultados locais pendentes, consulta no máximo um comando e processa `agent.ping` ou `parental.app_filter.set` (com `--managed-user`); malcontent só é carregado ao executar um `set`.
 
 O diário SQLite usa a biblioteca padrão, `synchronous=FULL`, journal de rollback e commit antes de cada efeito externo. Diretório `0700`, arquivos regulares privados `0600`, pertencentes ao executor, sem symlinks/hardlinks. `flock` impede duas instâncias no mesmo diretório. O diário é vinculado por hash à origem e à credencial, recusando reutilização com outro backend/identidade. Seu diretório deve ficar em armazenamento persistente privado com diretórios ancestrais confiáveis; os exemplos em `/tmp` são exclusivos para testes descartáveis.
 
