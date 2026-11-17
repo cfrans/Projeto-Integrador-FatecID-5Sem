@@ -25,7 +25,7 @@ describe('Simulated computer synchronization', () => {
       updateMany: vi.fn(),
       create: vi.fn(),
     },
-    parentalPolicy: { upsert: vi.fn() },
+    parentalPolicy: { upsert: vi.fn(), findUnique: vi.fn() },
     pairingSession: { deleteMany: vi.fn() },
     simulationState: { upsert: vi.fn(), update: vi.fn() },
     installedApplication: {
@@ -80,6 +80,7 @@ describe('Simulated computer synchronization', () => {
     tx.installedApplication.count.mockResolvedValue(1);
     tx.installedApplication.findMany.mockResolvedValue([]);
     tx.installationRequest.count.mockResolvedValue(1);
+    tx.parentalPolicy.findUnique.mockResolvedValue(null);
   });
 
   afterEach(() => vi.unstubAllEnvs());
@@ -180,7 +181,12 @@ describe('Simulated computer synchronization', () => {
       expect(tx.parentalPolicy.upsert).toHaveBeenCalledWith({
         where: { associationId },
         create: { associationId, appFilter, revision: 2 },
-        update: { appFilter, revision: 2, lastErrorCode: null },
+        update: {
+          appFilter,
+          revision: 2,
+          lastErrorCode: null,
+          lastErrorAt: null,
+        },
       });
       expect(tx.agentCommand.updateMany).toHaveBeenCalledWith({
         where: {
@@ -205,17 +211,68 @@ describe('Simulated computer synchronization', () => {
       ).toBeLessThan(tx.agentCommand.create.mock.invocationCallOrder[0]);
     });
 
-    it('does not queue commands while parental commands are disabled', async () => {
+    it('does not queue commands while parental commands are disabled and says nothing will be applied', async () => {
       vi.stubEnv('ENABLE_PARENTAL_COMMANDS', 'false');
-      await update();
+      await expect(update()).resolves.toMatchObject({
+        revision: 2,
+        appliedRevision: null,
+        enforcement: 'disabled',
+      });
       expect(tx.simulationState.update).toHaveBeenCalled();
       expect(tx.parentalPolicy.upsert).not.toHaveBeenCalled();
       expect(tx.agentCommand.create).not.toHaveBeenCalled();
     });
 
+    it('reports the applied revision and the current error of a real computer from its policy', async () => {
+      const appliedAt = new Date('2026-11-17T10:00:00.000Z');
+      const failedAt = new Date('2026-11-17T10:05:00.000Z');
+      tx.parentalPolicy.findUnique.mockResolvedValue({
+        revision: 2,
+        appliedRevision: 1,
+        appliedAt,
+        lastErrorCode: 'PERMISSION_DENIED',
+        lastErrorAt: failedAt,
+      });
+      tx.simulationState.upsert.mockResolvedValue({
+        ...state(),
+        revision: 2,
+        appliedRevision: 2,
+        appliedAt: failedAt,
+      });
+      await expect(service.read(deviceId, 'guardian')).resolves.toMatchObject({
+        revision: 2,
+        appliedRevision: 1,
+        appliedAt: appliedAt.toISOString(),
+        error: { code: 'PERMISSION_DENIED', at: failedAt.toISOString() },
+        enforcement: 'enabled',
+      });
+      expect(tx.parentalPolicy.findUnique).toHaveBeenCalledWith({
+        where: { associationId },
+      });
+    });
+
+    it('hides an error left by an older revision', async () => {
+      vi.stubEnv('ENABLE_PARENTAL_COMMANDS', 'false');
+      tx.parentalPolicy.findUnique.mockResolvedValue({
+        revision: 1,
+        appliedRevision: null,
+        appliedAt: null,
+        lastErrorCode: 'PERMISSION_DENIED',
+        lastErrorAt: new Date(),
+      });
+      tx.simulationState.upsert.mockResolvedValue({ ...state(), revision: 2 });
+      await expect(service.read(deviceId, 'guardian')).resolves.toMatchObject({
+        appliedRevision: null,
+        error: null,
+        enforcement: 'disabled',
+      });
+    });
+
     it('never queues commands for a simulated computer', async () => {
       tx.device.findFirst.mockResolvedValue({ id: deviceId, isDemo: true });
-      await update();
+      const snapshot = await update();
+      expect(snapshot).not.toHaveProperty('enforcement');
+      expect(snapshot).not.toHaveProperty('error');
       expect(tx.parentalPolicy.upsert).not.toHaveBeenCalled();
       expect(tx.agentCommand.create).not.toHaveBeenCalled();
     });

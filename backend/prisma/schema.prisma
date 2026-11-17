@@ -194,5 +194,6 @@ model ParentalPolicy {
   observedAppFilter Json?
   observedAt        DateTime?         @db.DateTime(3)
   lastErrorCode     String?           @db.VarChar(32)
+  lastErrorAt       DateTime?         @db.DateTime(3)
   association       DeviceAssociation @relation(fields: [associationId], references: [id], onDelete: Restrict, onUpdate: Restrict)
 }

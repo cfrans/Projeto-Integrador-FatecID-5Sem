@@ -10,6 +10,7 @@ import {
 } from '@nestjs/common';
 import { Prisma, type AgentCommand } from '../../generated/prisma/client.js';
 import { PrismaService } from '../prisma/prisma.service.js';
+import { reissueAppFilter } from './app-filter-command.js';
 import type { AuthenticatedAgent } from '../pairing/agent-auth/agent-auth.guard.js';
 import {
   canonicalResult,
@@ -204,6 +205,12 @@ export class CommandsService {
       await this.activeIdentity(tx, device, agent);
       const association = await this.association(tx, device);
       const now = new Date();
+      if (association && process.env.ENABLE_PARENTAL_COMMANDS === 'true')
+        await reissueAppFilter(tx, {
+          deviceId: device.id,
+          associationId: association.id,
+          now,
+        });
       const commands = association
         ? await tx.agentCommand.findMany({
             where: {
@@ -360,13 +367,24 @@ export class CommandsService {
           appliedAt: now,
           observedAppFilter: outcome.result as Prisma.InputJsonObject,
           observedAt: now,
-          ...(revision >= policy.revision ? { lastErrorCode: null } : {}),
+          ...(revision >= policy.revision
+            ? { lastErrorCode: null, lastErrorAt: null }
+            : {}),
         },
+      });
+      await tx.agentCommand.updateMany({
+        where: {
+          associationId: command.associationId,
+          type: command.type,
+          status: 'pending',
+          policyRevision: { lte: revision },
+        },
+        data: { status: 'cancelled' },
       });
     } else if (revision === policy.revision) {
       await tx.parentalPolicy.update({
         where: { associationId: policy.associationId },
-        data: { lastErrorCode: outcome.errorCode },
+        data: { lastErrorCode: outcome.errorCode, lastErrorAt: now },
       });
     }
   }
@@ -391,7 +409,12 @@ export class CommandsService {
         observedAppFilter: policy.observedAppFilter,
         appliedAt: policy.appliedAt?.toISOString() ?? null,
         observedAt: policy.observedAt?.toISOString() ?? null,
-        error: policy.lastErrorCode ? { code: policy.lastErrorCode } : null,
+        error: policy.lastErrorCode
+          ? {
+              code: policy.lastErrorCode,
+              at: policy.lastErrorAt?.toISOString() ?? null,
+            }
+          : null,
       };
     });
   }

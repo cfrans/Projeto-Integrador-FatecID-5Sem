@@ -258,7 +258,8 @@ test('real computer settings queue parental commands reconciled with what the ag
     assert.equal(denied.response.body.status, 'failed');
     current = await policy();
     assert.equal(current.state, 'failed');
-    assert.deepEqual(current.error, { code: 'PERMISSION_DENIED' });
+    assert.equal(current.error.code, 'PERMISSION_DENIED');
+    assert.ok(Date.parse(current.error.at) >= Date.parse(current.appliedAt));
 
     const retry = await changeAndQueue({ blockInstallation: false });
     assert.equal((await policy()).state, 'pending');
@@ -336,6 +337,106 @@ test('real computer settings queue parental commands reconciled with what the ag
       filter(['desktop:discord.desktop'], true),
     );
 
+    const poll = async () =>
+      (await http.get('/agent/commands').set(f.headers).expect(200)).body
+        .commands;
+    const setsOf = (revision) =>
+      prisma.agentCommand.findMany({
+        where: { deviceId: f.deviceId, type: SET, policyRevision: revision },
+      });
+    const past = () => new Date(Date.now() - 1000);
+    const expire = (id) =>
+      prisma.agentCommand.update({
+        where: { id },
+        data: { expiresAt: past() },
+      });
+    const settings = async () =>
+      (await http.get(settingsUrl).set(owner.headers).expect(200)).body;
+
+    const lost = await changeAndQueue({ applicationRules: block('steam') });
+    await expire(lost.id);
+    assert.equal((await command(lost.id)).status, 'expired');
+    assert.equal((await policy()).state, 'pending');
+    const [reissued] = await poll();
+    assert.notEqual(reissued.id, lost.id);
+    assert.equal(reissued.type, SET);
+    assert.notEqual(reissued.requestId, (await command(lost.id)).requestId);
+    assert.deepEqual(reissued.parameters, (await command(lost.id)).parameters);
+    assert.deepEqual(
+      (await poll()).map(({ id }) => id),
+      [reissued.id],
+    );
+    assert.equal((await setsOf(lost.revision)).length, 2);
+    assert.equal((await policy()).revision, lost.revision);
+
+    const crashedClaim = randomUUID();
+    await http
+      .post(`/agent/commands/${reissued.id}/claim`)
+      .set(f.headers)
+      .send({ claimId: crashedClaim })
+      .expect(200);
+    assert.deepEqual(await poll(), []);
+    await prisma.agentCommand.update({
+      where: { id: reissued.id },
+      data: { executionDeadlineAt: past() },
+    });
+    assert.equal((await command(reissued.id)).status, 'unknown');
+    const [afterUnknown] = await poll();
+    assert.ok(afterUnknown);
+    assert.notEqual(afterUnknown.id, reissued.id);
+    await http
+      .put(`/agent/commands/${reissued.id}/result`)
+      .set(f.headers)
+      .send({
+        claimId: crashedClaim,
+        status: 'succeeded',
+        result: reissued.parameters,
+        error: null,
+      })
+      .expect(200);
+    assert.equal((await policy()).state, 'applied');
+    assert.equal((await command(afterUnknown.id)).status, 'cancelled');
+    assert.deepEqual(await poll(), []);
+    let snapshot = await settings();
+    assert.equal(snapshot.appliedRevision, lost.revision);
+    assert.equal(snapshot.appliedRevision, snapshot.revision);
+    assert.equal(snapshot.error, null);
+    assert.equal(snapshot.enforcement, 'enabled');
+
+    const stuck = await changeAndQueue({ applicationRules: block('gimp') });
+    await expire(stuck.id);
+    await expire((await poll())[0].id);
+    await expire((await poll())[0].id);
+    assert.deepEqual(await poll(), []);
+    assert.deepEqual(await poll(), []);
+    assert.equal((await setsOf(stuck.revision)).length, 3);
+    current = await policy();
+    assert.equal(current.state, 'failed');
+    assert.equal(current.error.code, 'EXECUTION_TIMEOUT');
+    assert.ok(Date.parse(current.error.at));
+    snapshot = await settings();
+    assert.deepEqual(snapshot.error, current.error);
+    assert.equal(snapshot.appliedRevision, lost.revision);
+
+    const offline = await changeAndQueue({ applicationRules: block() });
+    assert.equal((await policy()).error, null);
+    process.env.ENABLE_PARENTAL_COMMANDS = 'false';
+    await expire(offline.id);
+    assert.deepEqual(await poll(), []);
+    assert.equal((await setsOf(offline.revision)).length, 1);
+    snapshot = await settings();
+    assert.equal(snapshot.enforcement, 'disabled');
+    assert.notEqual(snapshot.appliedRevision, snapshot.revision);
+    process.env.ENABLE_PARENTAL_COMMANDS = 'true';
+
+    const runningAtRevocation = await changeAndQueue({
+      applicationRules: block('discord'),
+    });
+    await http
+      .post(`/agent/commands/${runningAtRevocation.id}/claim`)
+      .set(f.headers)
+      .send({ claimId: randomUUID() })
+      .expect(200);
     const pendingAtRevocation = await changeAndQueue({
       applicationRules: block('gimp'),
     });
@@ -351,6 +452,16 @@ test('real computer settings queue parental commands reconciled with what the ag
       ).status,
       'cancelled',
     );
+    assert.equal(
+      (
+        await prisma.agentCommand.findUniqueOrThrow({
+          where: { id: runningAtRevocation.id },
+        })
+      ).status,
+      'unknown',
+    );
+    assert.deepEqual(await poll(), []);
+    assert.equal((await setsOf(pendingAtRevocation.revision)).length, 1);
     await http.get(policyUrl).set(owner.headers).expect(404);
     await http.get(settingsUrl).set(owner.headers).expect(404);
   } finally {

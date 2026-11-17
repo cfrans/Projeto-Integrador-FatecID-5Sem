@@ -24,6 +24,15 @@ import {
   type Settings,
 } from './simulation.contract.js';
 
+type SimulationState = {
+  associationId: string;
+  revision: number;
+  appliedRevision: number | null;
+  appliedAt: Date | null;
+  lastSeenAt: Date | null;
+  settings: Prisma.JsonValue;
+};
+
 @Injectable()
 export class SimulationService {
   constructor(private readonly prisma: PrismaService) {}
@@ -91,9 +100,10 @@ export class SimulationService {
 
   async read(deviceId: string, guardianId?: string) {
     if (!guardianId) this.enabled();
-    return this.transaction(async (tx) =>
-      this.snapshot((await this.access(tx, deviceId, guardianId)).state),
-    );
+    return this.transaction(async (tx) => {
+      const { state, isDemo } = await this.access(tx, deviceId, guardianId);
+      return this.view(tx, state, isDemo);
+    });
   }
 
   async update(deviceId: string, guardianId: string, body: unknown) {
@@ -166,7 +176,7 @@ export class SimulationService {
           ),
           now: new Date(),
         });
-      return this.snapshot(updated);
+      return this.view(tx, updated, isDemo);
     });
   }
 
@@ -276,14 +286,34 @@ export class SimulationService {
     return { state, isDemo: device.isDemo };
   }
 
-  private snapshot(state: {
-    associationId: string;
-    revision: number;
-    appliedRevision: number | null;
-    appliedAt: Date | null;
-    lastSeenAt: Date | null;
-    settings: Prisma.JsonValue;
-  }) {
+  private async view(
+    tx: Prisma.TransactionClient,
+    state: SimulationState,
+    isDemo: boolean,
+  ) {
+    if (isDemo) return this.snapshot(state);
+    const policy = await tx.parentalPolicy.findUnique({
+      where: { associationId: state.associationId },
+    });
+    return {
+      ...this.snapshot(state),
+      appliedRevision: policy?.appliedRevision ?? null,
+      appliedAt: policy?.appliedAt?.toISOString() ?? null,
+      error:
+        policy?.lastErrorCode && policy.revision === state.revision
+          ? {
+              code: policy.lastErrorCode,
+              at: policy.lastErrorAt?.toISOString() ?? null,
+            }
+          : null,
+      enforcement:
+        process.env.ENABLE_PARENTAL_COMMANDS === 'true'
+          ? ('enabled' as const)
+          : ('disabled' as const),
+    };
+  }
+
+  private snapshot(state: SimulationState) {
     const { lastSeenAt, ...snapshot } = state;
     return {
       ...snapshot,
