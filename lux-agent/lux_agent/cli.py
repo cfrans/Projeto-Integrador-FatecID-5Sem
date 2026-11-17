@@ -30,6 +30,7 @@ def create_parser() -> argparse.ArgumentParser:
     poll = commands.add_parser("poll", help="Consulta vínculos e processa ping com diário explícito", description="Consulta periodicamente os vínculos do próprio computador, sem alterá-los.")
     add_backend_arguments(poll, polling=True)
     poll.add_argument("--state-dir", help="Ativa agent.ping com diário em diretório privado 0700")
+    poll.add_argument("--managed-user", help="Conta infantil (não sudo) que recebe parental.app_filter.set")
     report = poll.add_mutually_exclusive_group()
     report.add_argument("--report-file", help="Arquivo JSON de relatório validado para envio autenticado")
     report.add_argument("--collect-report-file", help="Coleta aplicativos Linux e grava um relatório para envio")
@@ -87,7 +88,8 @@ def run_poll(args: argparse.Namespace) -> int:
 
             origin = endpoint.removesuffix('/agent/associations')
             journal = CommandJournal(args.state_dir, origin, credential)
-            processor = CommandProcessor(origin + '/agent/commands', credential, journal, args.timeout, args.ca_file)
+            processor = CommandProcessor(origin + '/agent/commands', credential, journal, args.timeout, args.ca_file,
+                                         managed_user=args.managed_user)
         report_processor = None
         if report_file is not None:
             from .reports import ReportProcessor

@@ -37,6 +37,10 @@ def query_policies(user: pwd.struct_passwd) -> dict[str, Any]:
 
 
 SESSION_PATH = "/usr/local/bin:/usr/bin:/bin:/usr/games"
+GENERIC_LAUNCHERS = frozenset({
+    "env", "sh", "bash", "dash", "zsh", "xdg-open", "gio", "flatpak", "snap",
+    "python", "python3", "perl", "pkexec", "sudo", "nohup", "setsid",
+})
 ADMIN_GROUPS = ("sudo",)
 
 
@@ -86,6 +90,8 @@ def desktop_executable(source_id: str, roots: list[Path] | None = None, search_p
     resolved = program if os.path.isabs(program) else shutil.which(program, path=search_path)
     if resolved is None:
         raise DiagnosticError(f"executável não encontrado para {source_id}: {program}", 2)
+    if os.path.basename(resolved) in GENERIC_LAUNCHERS:
+        raise DiagnosticError(f"{source_id} é aberto por um lançador genérico ({program}); bloqueá-lo afetaria outros apps.", 2)
     return os.path.normpath(resolved)
 
 
@@ -135,6 +141,50 @@ def load_malcontent() -> tuple[Any, Any, Any]:
             1,
         ) from None
     return Gio, GLib, Malcontent
+
+
+class ParentalFailure(Exception):
+    def __init__(self, code: str):
+        super().__init__(code)
+        self.code = code
+
+
+MANAGER_ERRORS = {"PERMISSION_DENIED": "PERMISSION_DENIED", "INVALID_USER": "ACCOUNT_NOT_MANAGED"}
+
+
+def apply_app_filter(managed_user: str | None, parameters: dict[str, Any]) -> dict[str, Any]:
+    try:
+        user = pwd.getpwnam(managed_user or "")
+    except KeyError:
+        raise ParentalFailure("ACCOUNT_NOT_MANAGED") from None
+    if not managed_user or is_admin_account(user):
+        raise ParentalFailure("ACCOUNT_NOT_MANAGED")
+    try:
+        paths = {desktop_executable(source_id) for source_id in parameters["blockedApplications"]}
+    except DiagnosticError:
+        raise ParentalFailure("POLICY_UNAVAILABLE") from None
+    allowed = not parameters["blockInstallation"]
+    desired = {"blockedApps": sorted(paths), "allowUserInstallation": allowed, "allowSystemInstallation": allowed}
+    try:
+        Gio, GLib, Malcontent = load_malcontent()
+    except DiagnosticError:
+        raise ParentalFailure("LOCAL_UNAVAILABLE") from None
+    try:
+        manager = Malcontent.Manager.new(Gio.bus_get_sync(Gio.BusType.SYSTEM, None))
+        outcome = write_app_filter(manager, Malcontent, user, desired)
+    except GLib.Error as error:
+        for name, code in MANAGER_ERRORS.items():
+            if error.matches(Malcontent.manager_error_quark(), getattr(Malcontent.ManagerError, name)):
+                raise ParentalFailure(code) from None
+        raise ParentalFailure("LOCAL_UNAVAILABLE") from None
+    except DiagnosticError:
+        raise ParentalFailure("VERIFICATION_FAILED") from None
+    if not outcome["matches"]:
+        raise ParentalFailure("VERIFICATION_FAILED")
+    return {
+        "blockedApplications": sorted(parameters["blockedApplications"]),
+        "blockInstallation": parameters["blockInstallation"],
+    }
 
 
 def prove_app_filter(user: pwd.struct_passwd, source_ids: list[str], hold: float = 0) -> dict[str, Any]:

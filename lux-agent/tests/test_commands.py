@@ -215,8 +215,8 @@ class CommandTests(unittest.TestCase):
             self.processor.run_once()
             execute.assert_not_called()
 
-    def test_malformed_and_unsupported_commands_never_claim(self):
-        for change in ({'type': 'shell.exec'}, {'version': True}, {'parameters': {'user': 'root'}}, {'id': '../other'}, {'executionTimeoutSeconds': 100}, {'createdAt': 'invalid'}):
+    def test_malformed_commands_never_claim(self):
+        for change in ({'type': 7}, {'version': True}, {'parameters': ['root']}, {'id': '../other'}, {'executionTimeoutSeconds': 100}, {'createdAt': 'invalid'}):
             self.command = command()
             self.command.update(change)
             self.requests.clear()

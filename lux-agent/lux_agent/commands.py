@@ -1,19 +1,21 @@
 import json
+import re
 import time
 import uuid
 from datetime import datetime, timezone
 
 from .backend import network_deadline, request_json
 from .errors import DiagnosticError
+from .parental import ParentalFailure, apply_app_filter
 
 
 def invalid_response():
     return DiagnosticError('Resposta incompatível com o protocolo de comandos.', 6, category='response')
 
 
-def uuid_value(value):
+def uuid_value(value, version=4):
     try:
-        return isinstance(value, str) and str(uuid.UUID(value, version=4)) == value
+        return isinstance(value, str) and str(uuid.UUID(value) if version is None else uuid.UUID(value, version=version)) == value
     except ValueError:
         return False
 
@@ -33,9 +35,9 @@ def timestamp(value):
 def validate_command(command):
     if not isinstance(command, dict):
         raise invalid_response()
-    if any(not uuid_value(command.get(key)) for key in ('id', 'associationId', 'requestId')):
+    if any(not uuid_value(command.get(key)) for key in ('id', 'associationId')) or not uuid_value(command.get('requestId'), None):
         raise invalid_response()
-    if command.get('type') != 'agent.ping' or type(command.get('version')) is not int or command['version'] != 1 or command.get('parameters') != {}:
+    if not isinstance(command.get('type'), str) or type(command.get('version')) is not int or not isinstance(command.get('parameters'), dict):
         raise invalid_response()
     if command.get('status') not in ('pending', 'running', 'succeeded', 'failed', 'expired', 'cancelled', 'unknown'):
         raise invalid_response()
@@ -54,9 +56,44 @@ def execute_ping():
     return {'reachable': True}
 
 
+SOURCE_ID = re.compile(r'[A-Za-z0-9][A-Za-z0-9._+:-]{0,190}')
+
+
+def app_filter_parameters(parameters):
+    blocked = parameters.get('blockedApplications')
+    if (
+        set(parameters) != {'blockedApplications', 'blockInstallation'}
+        or type(parameters['blockInstallation']) is not bool
+        or not isinstance(blocked, list)
+        or len(blocked) > 200
+        or any(not isinstance(item, str) or not SOURCE_ID.fullmatch(item) for item in blocked)
+        or len(set(blocked)) != len(blocked)
+    ):
+        return None
+    return parameters
+
+
+def execute(command, managed_user):
+    kind = (command['type'], command['version'])
+    if kind == ('agent.ping', 1):
+        if command['parameters'] != {}:
+            return None, 'INVALID_PARAMETERS'
+        return execute_ping(), None
+    if kind == ('parental.app_filter.set', 1):
+        parameters = app_filter_parameters(command['parameters'])
+        if parameters is None:
+            return None, 'INVALID_PARAMETERS'
+        try:
+            return apply_app_filter(managed_user, parameters), None
+        except ParentalFailure as failure:
+            return None, failure.code
+    return None, 'UNSUPPORTED_OPERATION'
+
+
 class CommandProcessor:
-    def __init__(self, endpoint, credential, journal, timeout=10, ca_file=None):
+    def __init__(self, endpoint, credential, journal, timeout=10, ca_file=None, managed_user=None):
         self.endpoint = endpoint
+        self.managed_user = managed_user
         self.credential = credential
         self.journal = journal
         self.timeout = timeout
@@ -94,7 +131,9 @@ class CommandProcessor:
                 if time.monotonic() >= deadline:
                     result = {'claimId': claim_id, 'status': 'failed', 'result': None, 'error': {'code': 'EXECUTION_TIMEOUT'}}
                 else:
-                    result = {'claimId': claim_id, 'status': 'succeeded', 'result': execute_ping(), 'error': None}
+                    value, code = execute(command, self.managed_user)
+                    result = {'claimId': claim_id, 'status': 'failed' if code else 'succeeded', 'result': value,
+                              'error': {'code': code} if code else None}
                 self.journal.record(command_id, 'result', result)
                 saved_result = json.dumps(result)
             result = json.loads(saved_result)
