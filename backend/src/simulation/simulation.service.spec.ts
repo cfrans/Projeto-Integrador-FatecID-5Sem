@@ -5,6 +5,7 @@ import {
   report,
   settingsPatch,
 } from './simulation.contract.js';
+import { revisionRequestId } from '../commands/app-filter-command.js';
 import { SimulationService } from './simulation.service.js';
 
 describe('Simulated computer synchronization', () => {
@@ -19,7 +20,12 @@ describe('Simulated computer synchronization', () => {
       delete: vi.fn(),
     },
     deviceAssociation: { findFirst: vi.fn(), deleteMany: vi.fn() },
-    agentCommand: { deleteMany: vi.fn() },
+    agentCommand: {
+      deleteMany: vi.fn(),
+      updateMany: vi.fn(),
+      create: vi.fn(),
+    },
+    parentalPolicy: { upsert: vi.fn() },
     pairingSession: { deleteMany: vi.fn() },
     simulationState: { upsert: vi.fn(), update: vi.fn() },
     installedApplication: {
@@ -66,7 +72,7 @@ describe('Simulated computer synchronization', () => {
   beforeEach(() => {
     vi.stubEnv('NODE_ENV', 'test');
     vi.clearAllMocks();
-    tx.device.findFirst.mockResolvedValue({ id: deviceId });
+    tx.device.findFirst.mockResolvedValue({ id: deviceId, isDemo: true });
     tx.deviceAssociation.findFirst.mockResolvedValue({ id: associationId });
     tx.simulationState.upsert.mockResolvedValue(state());
     tx.simulationState.update.mockResolvedValue(state());
@@ -99,18 +105,15 @@ describe('Simulated computer synchronization', () => {
   });
 
   it.each(['production', ''])(
-    'disables every operation in environment %s',
+    'disables every demo operation in environment %s',
     async (environment) => {
       vi.stubEnv('NODE_ENV', environment);
       await expect(service.register({ name: 'PC' })).rejects.toMatchObject({
         status: 404,
       });
-      await expect(service.read(deviceId, 'guardian')).rejects.toMatchObject({
+      await expect(service.read(deviceId)).rejects.toMatchObject({
         status: 404,
       });
-      await expect(
-        service.update(deviceId, 'guardian', {}),
-      ).rejects.toMatchObject({ status: 404 });
       await expect(service.acknowledge(deviceId, {})).rejects.toMatchObject({
         status: 404,
       });
@@ -121,8 +124,110 @@ describe('Simulated computer synchronization', () => {
         service.reset(deviceId, associationId),
       ).rejects.toMatchObject({ status: 404 });
       expect(prisma.$transaction).not.toHaveBeenCalled();
+      await expect(service.read(deviceId, 'guardian')).rejects.toMatchObject({
+        status: 404,
+      });
+      await expect(
+        service.update(deviceId, 'guardian', {
+          revision: 1,
+          settings: { blockInstallation: false },
+        }),
+      ).rejects.toMatchObject({ status: 404 });
+      expect(tx.simulationState.upsert).not.toHaveBeenCalled();
     },
   );
+
+  it('serves the desired state of a paired real computer outside development', async () => {
+    vi.stubEnv('NODE_ENV', 'production');
+    tx.device.findFirst.mockResolvedValue({ id: deviceId, isDemo: false });
+    await expect(service.read(deviceId, 'guardian')).resolves.toMatchObject({
+      revision: 1,
+    });
+    expect(tx.device.findFirst.mock.calls[0][0].where).toEqual({
+      id: deviceId,
+      agentIdentity: { revokedAt: null },
+    });
+  });
+
+  describe('real computer app filter command', () => {
+    const update = () =>
+      service.update(deviceId, 'guardian', {
+        revision: 1,
+        settings: { applicationRules: { [associationId]: false } },
+      });
+
+    beforeEach(() => {
+      vi.stubEnv('ENABLE_PARENTAL_COMMANDS', 'true');
+      tx.device.findFirst.mockResolvedValue({ id: deviceId, isDemo: false });
+      tx.simulationState.update.mockResolvedValue({ ...state(), revision: 2 });
+      tx.installedApplication.findMany.mockResolvedValue([
+        { id: associationId, sourceId: 'desktop:gimp.desktop' },
+        { id: deviceId, sourceId: 'desktop:chromium.desktop' },
+        { id: 'other', sourceId: 'desktop:firefox-esr.desktop' },
+      ]);
+    });
+
+    it('stores the derived policy and queues it with the new revision in the same transaction', async () => {
+      await update();
+      const appFilter = {
+        blockedApplications: [
+          'desktop:chromium.desktop',
+          'desktop:gimp.desktop',
+        ],
+        blockInstallation: true,
+      };
+      expect(prisma.$transaction).toHaveBeenCalledTimes(1);
+      expect(tx.parentalPolicy.upsert).toHaveBeenCalledWith({
+        where: { associationId },
+        create: { associationId, appFilter, revision: 2 },
+        update: { appFilter, revision: 2, lastErrorCode: null },
+      });
+      expect(tx.agentCommand.updateMany).toHaveBeenCalledWith({
+        where: {
+          deviceId,
+          associationId,
+          type: 'parental.app_filter.set',
+          status: 'pending',
+        },
+        data: { status: 'cancelled' },
+      });
+      expect(tx.agentCommand.create.mock.calls[0][0].data).toMatchObject({
+        deviceId,
+        associationId,
+        requestId: revisionRequestId(associationId, 2),
+        type: 'parental.app_filter.set',
+        version: 1,
+        parameters: appFilter,
+        policyRevision: 2,
+      });
+      expect(
+        tx.agentCommand.updateMany.mock.invocationCallOrder[0],
+      ).toBeLessThan(tx.agentCommand.create.mock.invocationCallOrder[0]);
+    });
+
+    it('does not queue commands while parental commands are disabled', async () => {
+      vi.stubEnv('ENABLE_PARENTAL_COMMANDS', 'false');
+      await update();
+      expect(tx.simulationState.update).toHaveBeenCalled();
+      expect(tx.parentalPolicy.upsert).not.toHaveBeenCalled();
+      expect(tx.agentCommand.create).not.toHaveBeenCalled();
+    });
+
+    it('never queues commands for a simulated computer', async () => {
+      tx.device.findFirst.mockResolvedValue({ id: deviceId, isDemo: true });
+      await update();
+      expect(tx.parentalPolicy.upsert).not.toHaveBeenCalled();
+      expect(tx.agentCommand.create).not.toHaveBeenCalled();
+    });
+
+    it('rejects the revision when a blocked app has an identifier the Agent cannot receive', async () => {
+      tx.installedApplication.findMany.mockResolvedValue([
+        { id: associationId, sourceId: 'desktop:bad/name.desktop' },
+      ]);
+      await expect(update()).rejects.toMatchObject({ status: 400 });
+      expect(tx.agentCommand.create).not.toHaveBeenCalled();
+    });
+  });
 
   it('deletes only the authenticated demo PC and its dependent records in one transaction', async () => {
     await expect(service.reset(deviceId, associationId)).resolves.toEqual({
@@ -178,10 +283,15 @@ describe('Simulated computer synchronization', () => {
     expect(tx.device.delete).not.toHaveBeenCalled();
   });
 
-  it('scopes each read to the active association and demo identity after locking the device', async () => {
+  it('scopes each read to the active association and identity after locking the device', async () => {
     await service.read(deviceId, 'guardian');
     expect(tx.$queryRaw).toHaveBeenCalled();
     expect(tx.device.findFirst.mock.calls[0][0].where).toEqual({
+      id: deviceId,
+      agentIdentity: { revokedAt: null },
+    });
+    await service.read(deviceId);
+    expect(tx.device.findFirst.mock.calls[1][0].where).toEqual({
       id: deviceId,
       isDemo: true,
       agentIdentity: { revokedAt: null },

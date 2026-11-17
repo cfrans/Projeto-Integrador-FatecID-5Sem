@@ -6,6 +6,11 @@ export const COMMAND_TYPES = [
   'parental.app_filter.read',
 ] as const;
 export type CommandType = (typeof COMMAND_TYPES)[number];
+export const GUARDIAN_COMMAND_TYPES = [
+  'agent.ping',
+  'parental.app_filter.read',
+] as const;
+export const COMMAND_TTL_MS = 300_000;
 
 export const BASE_ERROR_CODES = [
   'UNSUPPORTED_OPERATION',

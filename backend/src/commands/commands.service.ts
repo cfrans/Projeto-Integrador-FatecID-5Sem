@@ -13,6 +13,7 @@ import { PrismaService } from '../prisma/prisma.service.js';
 import type { AuthenticatedAgent } from '../pairing/agent-auth/agent-auth.guard.js';
 import {
   canonicalResult,
+  COMMAND_TTL_MS,
   isParental,
   normalizeParameters,
   normalizeResult,
@@ -25,7 +26,6 @@ import type {
   CreateCommandDto,
 } from './dto/command.dto.js';
 
-const TTL_MS = 300_000;
 const EXECUTION_MS = 30_000;
 type LockedDevice = { id: string; guardianId: string | null; isDemo: boolean };
 
@@ -168,31 +168,6 @@ export class CommandsService {
         return { created: false, command: this.view(existing, new Date()) };
       }
       const now = new Date();
-      let policyRevision: number | null = null;
-      if (input.type === 'parental.app_filter.set') {
-        const policy = await tx.parentalPolicy.upsert({
-          where: { associationId: association.id },
-          create: {
-            associationId: association.id,
-            appFilter: parameters as Prisma.InputJsonObject,
-          },
-          update: {
-            appFilter: parameters as Prisma.InputJsonObject,
-            revision: { increment: 1 },
-            lastErrorCode: null,
-          },
-        });
-        policyRevision = policy.revision;
-        await tx.agentCommand.updateMany({
-          where: {
-            deviceId,
-            associationId: association.id,
-            type: input.type,
-            status: 'pending',
-          },
-          data: { status: 'cancelled' },
-        });
-      }
       const command = await tx.agentCommand.create({
         data: {
           deviceId,
@@ -201,8 +176,7 @@ export class CommandsService {
           type: input.type,
           version: input.version,
           parameters: parameters as Prisma.InputJsonObject,
-          policyRevision,
-          expiresAt: new Date(now.getTime() + TTL_MS),
+          expiresAt: new Date(now.getTime() + COMMAND_TTL_MS),
           createdAt: now,
         },
       });

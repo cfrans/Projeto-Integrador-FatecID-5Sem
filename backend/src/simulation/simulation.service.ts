@@ -7,7 +7,9 @@ import {
 } from '@nestjs/common';
 import { createHash, randomBytes } from 'node:crypto';
 import type { Prisma } from '../../generated/prisma/client.js';
+import { enqueueAppFilter } from '../commands/app-filter-command.js';
 import { PrismaService } from '../prisma/prisma.service.js';
+import { deriveAppFilter } from './real-app-filter.js';
 import { simulationPresence } from './simulation-presence.js';
 import {
   defaults,
@@ -26,9 +28,12 @@ import {
 export class SimulationService {
   constructor(private readonly prisma: PrismaService) {}
 
+  private demoEnabled() {
+    return ['development', 'test'].includes(process.env.NODE_ENV ?? '');
+  }
+
   private enabled() {
-    if (!['development', 'test'].includes(process.env.NODE_ENV ?? ''))
-      throw new NotFoundException();
+    if (!this.demoEnabled()) throw new NotFoundException();
   }
 
   async register(body: unknown) {
@@ -85,19 +90,18 @@ export class SimulationService {
   }
 
   async read(deviceId: string, guardianId?: string) {
-    this.enabled();
+    if (!guardianId) this.enabled();
     return this.transaction(async (tx) =>
       this.snapshot((await this.access(tx, deviceId, guardianId)).state),
     );
   }
 
   async update(deviceId: string, guardianId: string, body: unknown) {
-    this.enabled();
     const input = object(body, ['revision', 'settings']);
     const expected = revision(input.revision);
     const patch = settingsPatch(input.settings);
     return this.transaction(async (tx) => {
-      const { state } = await this.access(tx, deviceId, guardianId);
+      const { state, isDemo } = await this.access(tx, deviceId, guardianId);
       if (state.revision !== expected)
         throw new ConflictException(
           'As configurações mudaram. Atualize e tente novamente.',
@@ -144,12 +148,25 @@ export class SimulationService {
         Object.keys(settings.installationDecisions).length > 100
       )
         invalid();
-      return this.snapshot(
-        await tx.simulationState.update({
-          where: { associationId: state.associationId },
-          data: { settings, revision: { increment: 1 } },
-        }),
-      );
+      const updated = await tx.simulationState.update({
+        where: { associationId: state.associationId },
+        data: { settings, revision: { increment: 1 } },
+      });
+      if (!isDemo && process.env.ENABLE_PARENTAL_COMMANDS === 'true')
+        await enqueueAppFilter(tx, {
+          deviceId,
+          associationId: state.associationId,
+          revision: updated.revision,
+          appFilter: deriveAppFilter(
+            settings,
+            await tx.installedApplication.findMany({
+              where: { deviceId },
+              select: { id: true, sourceId: true },
+            }),
+          ),
+          now: new Date(),
+        });
+      return this.snapshot(updated);
     });
   }
 
@@ -231,11 +248,15 @@ export class SimulationService {
     id(deviceId);
     await tx.$queryRaw`SELECT id FROM Device WHERE id = ${deviceId} FOR UPDATE`;
     const device = await tx.device.findFirst({
-      where: { id: deviceId, isDemo: true, agentIdentity: { revokedAt: null } },
-      select: { id: true },
+      where: {
+        id: deviceId,
+        ...(guardianId ? {} : { isDemo: true }),
+        agentIdentity: { revokedAt: null },
+      },
+      select: { id: true, isDemo: true },
     });
-    if (!device)
-      throw new NotFoundException('Computador simulado indisponível.');
+    if (!device || (device.isDemo && !this.demoEnabled()))
+      throw new NotFoundException('Computador indisponível.');
     const association = await tx.deviceAssociation.findFirst({
       where: {
         deviceId,
@@ -252,7 +273,7 @@ export class SimulationService {
       create: { associationId: association.id, settings: defaults() },
       update: {},
     });
-    return { state };
+    return { state, isDemo: device.isDemo };
   }
 
   private snapshot(state: {

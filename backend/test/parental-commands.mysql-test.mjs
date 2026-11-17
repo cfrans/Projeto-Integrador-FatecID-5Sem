@@ -21,7 +21,7 @@ const intent = (type, parameters = {}, requestId = randomUUID()) => ({
   parameters,
 });
 
-test('parental commands reconcile the desired policy with what the simulated agent observes', async () => {
+test('real computer settings queue parental commands reconciled with what the agent observes', async () => {
   assert.equal(process.env.NODE_ENV, 'test');
   assert.match(process.env.MYSQL_DATABASE ?? '', /_test$/);
   process.env.ENABLE_PARENTAL_COMMANDS = 'true';
@@ -60,10 +60,10 @@ test('parental commands reconcile the desired policy with what the simulated age
     };
   }
 
-  async function pairedDevice(owner) {
+  async function pairedDevice(owner, isDemo) {
     const credential = randomBytes(32).toString('base64url');
     const device = await prisma.device.create({
-      data: { name: 'Parental fixture', isDemo: true },
+      data: { name: 'Parental fixture', isDemo },
     });
     deviceIds.push(device.id);
     await prisma.agentIdentity.create({
@@ -82,14 +82,34 @@ test('parental commands reconcile the desired policy with what the simulated age
       .set(owner.headers)
       .send({ token: session.body.token })
       .expect(200);
-    return { deviceId: device.id, headers };
+    const apps = {};
+    for (const sourceId of [
+      'desktop:firefox-esr.desktop',
+      'desktop:gimp.desktop',
+      'desktop:steam.desktop',
+      'desktop:discord.desktop',
+    ]) {
+      const app = await prisma.installedApplication.create({
+        data: {
+          deviceId: device.id,
+          sourceId,
+          name: sourceId,
+          category: 'test',
+          allowed: true,
+        },
+      });
+      apps[sourceId.slice(8, -8)] = app.id;
+    }
+    return { deviceId: device.id, headers, apps };
   }
 
   const owner = await guardian();
   const stranger = await guardian();
-  const f = await pairedDevice(owner);
+  const f = await pairedDevice(owner, false);
+  const demo = await pairedDevice(owner, true);
   const commandsUrl = `/devices/${f.deviceId}/commands`;
   const policyUrl = `/devices/${f.deviceId}/parental-policy`;
+  const settingsUrl = `/simulation/devices/${f.deviceId}`;
 
   const create = (type, parameters, requestId) =>
     http.post(commandsUrl).set(owner.headers).send(intent(type, parameters, requestId));
@@ -97,6 +117,30 @@ test('parental commands reconcile the desired policy with what the simulated age
     (await http.get(policyUrl).set(owner.headers).expect(200)).body;
   const command = async (id) =>
     (await http.get(`${commandsUrl}/${id}`).set(owner.headers).expect(200)).body;
+  const pendingCommands = async (deviceId) =>
+    prisma.agentCommand.findMany({
+      where: { deviceId, type: SET, status: 'pending' },
+    });
+  async function change(settings, url = settingsUrl) {
+    const current = await http.get(url).set(owner.headers).expect(200);
+    const updated = await http
+      .patch(url)
+      .set(owner.headers)
+      .send({ revision: current.body.revision, settings })
+      .expect(200);
+    return updated.body.revision;
+  }
+  async function changeAndQueue(settings) {
+    const revision = await change(settings);
+    const [queued] = await pendingCommands(f.deviceId);
+    assert.ok(queued);
+    assert.equal(queued.policyRevision, revision);
+    return { revision, id: queued.id };
+  }
+  const block = (...names) =>
+    Object.fromEntries(
+      Object.entries(f.apps).map(([name, id]) => [id, !names.includes(name)]),
+    );
 
   // The simulated agent: polls, claims and reports like the Python agent will.
   const local = { current: filter([]) };
@@ -124,48 +168,60 @@ test('parental commands reconcile the desired policy with what the simulated age
 
   try {
     process.env.ENABLE_PARENTAL_COMMANDS = 'false';
-    await create(SET, filter(['org.mozilla.firefox'])).expect(501);
+    await change({ blockInstallation: false });
+    assert.deepEqual(await pendingCommands(f.deviceId), []);
+    await create(READ, {}).expect(501);
     process.env.ENABLE_PARENTAL_COMMANDS = 'true';
 
-    for (const parameters of [
-      {},
-      filter(['bad id']),
-      filter(['a', 'a']),
-      { ...filter(['a']), extra: 1 },
-    ])
-      await create(SET, parameters).expect(400);
+    await create(SET, filter(['desktop:gimp.desktop'])).expect(400);
     await create(READ, { x: 1 }).expect(400);
     await create('parental.unknown', {}).expect(400);
     await http.get(policyUrl).set(owner.headers).expect(404);
     await http.get(policyUrl).set(stranger.headers).expect(404);
+    await http.get(settingsUrl).set(stranger.headers).expect(404);
 
-    const requestId = randomUUID();
-    const first = await create(SET, filter(['zed', 'alpha'], true), requestId).expect(201);
-    assert.deepEqual(first.body.parameters, filter(['alpha', 'zed'], true));
-    assert.equal(first.body.type, SET);
-    const repeat = await create(SET, filter(['alpha', 'zed'], true), requestId).expect(200);
-    assert.equal(repeat.body.id, first.body.id);
-    await create(SET, filter(['alpha']), requestId).expect(409);
+    await change(
+      {
+        applicationRules: { [demo.apps.gimp]: false },
+        allowedBrowsers: { firefox: false },
+      },
+      `/simulation/devices/${demo.deviceId}`,
+    );
+    assert.deepEqual(await pendingCommands(demo.deviceId), []);
+
+    const first = await changeAndQueue({
+      applicationRules: block('gimp', 'steam'),
+      blockInstallation: true,
+    });
+    assert.deepEqual(
+      (await command(first.id)).parameters,
+      filter(['desktop:gimp.desktop', 'desktop:steam.desktop'], true),
+    );
     let current = await policy();
-    assert.equal(current.revision, 1);
+    assert.equal(current.revision, first.revision);
     assert.equal(current.state, 'pending');
     assert.equal(current.appliedRevision, null);
 
-    const second = await create(SET, filter(['firefox'], false)).expect(201);
-    assert.equal((await command(first.body.id)).status, 'cancelled');
+    const second = await changeAndQueue({
+      applicationRules: block(),
+      blockInstallation: false,
+      allowedBrowsers: { firefox: false },
+    });
+    assert.equal((await command(first.id)).status, 'cancelled');
     current = await policy();
-    assert.equal(current.revision, 2);
-    assert.deepEqual(current.appFilter, filter(['firefox']));
+    assert.equal(current.revision, second.revision);
+    assert.deepEqual(current.appFilter, filter(['desktop:firefox-esr.desktop']));
 
     const applied = await agentStep(obedient);
-    assert.equal(applied.pending.id, second.body.id);
+    assert.equal(applied.pending.id, second.id);
+    assert.equal(applied.pending.type, SET);
     assert.equal(applied.response.status, 200);
     assert.equal(applied.response.body.status, 'succeeded');
-    assert.equal((await command(second.body.id)).status, 'succeeded');
+    assert.equal((await command(second.id)).status, 'succeeded');
     current = await policy();
     assert.equal(current.state, 'applied');
-    assert.equal(current.appliedRevision, 2);
-    assert.deepEqual(current.observedAppFilter, filter(['firefox']));
+    assert.equal(current.appliedRevision, second.revision);
+    assert.deepEqual(current.observedAppFilter, filter(['desktop:firefox-esr.desktop']));
     assert.equal(current.error, null);
 
     const repeatedResult = await http
@@ -180,7 +236,7 @@ test('parental commands reconcile the desired policy with what the simulated age
       .send({
         claimId: applied.claimId,
         status: 'succeeded',
-        result: filter(['firefox'], true),
+        result: filter(['desktop:firefox-esr.desktop'], true),
         error: null,
       })
       .expect(400);
@@ -191,9 +247,9 @@ test('parental commands reconcile the desired policy with what the simulated age
     current = await policy();
     assert.equal(current.state, 'drifted');
     assert.deepEqual(current.observedAppFilter, filter([]));
-    assert.equal(current.appliedRevision, 2);
+    assert.equal(current.appliedRevision, second.revision);
 
-    await create(SET, filter(['firefox'])).expect(201);
+    await changeAndQueue({ blockInstallation: true });
     const denied = await agentStep(() => ({
       status: 'failed',
       result: null,
@@ -204,19 +260,19 @@ test('parental commands reconcile the desired policy with what the simulated age
     assert.equal(current.state, 'failed');
     assert.deepEqual(current.error, { code: 'PERMISSION_DENIED' });
 
-    const retry = await create(SET, filter(['firefox'])).expect(201);
+    const retry = await changeAndQueue({ blockInstallation: false });
     assert.equal((await policy()).state, 'pending');
     assert.equal((await policy()).error, null);
     const mismatch = await agentStep(() => ({
       status: 'succeeded',
-      result: filter(['other']),
+      result: filter(['desktop:other.desktop']),
       error: null,
     }));
     assert.equal(mismatch.response.status, 400);
-    assert.equal((await command(retry.body.id)).status, 'running');
+    assert.equal((await command(retry.id)).status, 'running');
     assert.notEqual((await policy()).state, 'applied');
     await http
-      .put(`/agent/commands/${retry.body.id}/result`)
+      .put(`/agent/commands/${retry.id}/result`)
       .set(f.headers)
       .send({
         claimId: mismatch.claimId,
@@ -227,7 +283,7 @@ test('parental commands reconcile the desired policy with what the simulated age
       .expect(200);
     assert.equal((await policy()).state, 'failed');
     await http
-      .put(`/agent/commands/${retry.body.id}/result`)
+      .put(`/agent/commands/${retry.id}/result`)
       .set(f.headers)
       .send({
         claimId: mismatch.claimId,
@@ -237,41 +293,52 @@ test('parental commands reconcile the desired policy with what the simulated age
       })
       .expect(409);
 
-    const older = await create(SET, filter(['steam'])).expect(201);
-    const olderRevision = (await policy()).revision;
+    const older = await changeAndQueue({
+      applicationRules: block('steam'),
+      allowedBrowsers: { firefox: true },
+    });
     const olderClaim = randomUUID();
     await http
-      .post(`/agent/commands/${older.body.id}/claim`)
+      .post(`/agent/commands/${older.id}/claim`)
       .set(f.headers)
       .send({ claimId: olderClaim })
       .expect(200);
-    const newer = await create(SET, filter(['discord'], true)).expect(201);
+    const newer = await changeAndQueue({
+      applicationRules: block('discord'),
+      blockInstallation: true,
+    });
+    assert.equal((await command(older.id)).status, 'running');
     await http
-      .post(`/agent/commands/${newer.body.id}/claim`)
+      .post(`/agent/commands/${newer.id}/claim`)
       .set(f.headers)
       .send({ claimId: randomUUID() })
       .expect(409);
     await http
-      .put(`/agent/commands/${older.body.id}/result`)
+      .put(`/agent/commands/${older.id}/result`)
       .set(f.headers)
       .send({
         claimId: olderClaim,
         status: 'succeeded',
-        result: filter(['steam']),
+        result: filter(['desktop:steam.desktop']),
         error: null,
       })
       .expect(200);
     current = await policy();
     assert.equal(current.state, 'pending');
-    assert.equal(current.appliedRevision, olderRevision);
-    local.current = filter(['steam']);
+    assert.equal(current.appliedRevision, older.revision);
+    local.current = filter(['desktop:steam.desktop']);
     await agentStep(obedient);
     current = await policy();
     assert.equal(current.state, 'applied');
-    assert.equal(current.appliedRevision, current.revision);
-    assert.deepEqual(current.observedAppFilter, filter(['discord'], true));
+    assert.equal(current.appliedRevision, newer.revision);
+    assert.deepEqual(
+      current.observedAppFilter,
+      filter(['desktop:discord.desktop'], true),
+    );
 
-    const pendingAtRevocation = await create(SET, filter(['gimp'])).expect(201);
+    const pendingAtRevocation = await changeAndQueue({
+      applicationRules: block('gimp'),
+    });
     await http
       .delete(`/devices/${f.deviceId}/association`)
       .set(owner.headers)
@@ -279,19 +346,22 @@ test('parental commands reconcile the desired policy with what the simulated age
     assert.equal(
       (
         await prisma.agentCommand.findUniqueOrThrow({
-          where: { id: pendingAtRevocation.body.id },
+          where: { id: pendingAtRevocation.id },
         })
       ).status,
       'cancelled',
     );
     await http.get(policyUrl).set(owner.headers).expect(404);
-    await create(SET, filter(['gimp'])).expect(404);
+    await http.get(settingsUrl).set(owner.headers).expect(404);
   } finally {
     await prisma.parentalPolicy.deleteMany({
       where: { association: { deviceId: { in: deviceIds } } },
     });
     await prisma.agentCommand.deleteMany({
       where: { deviceId: { in: deviceIds } },
+    });
+    await prisma.simulationState.deleteMany({
+      where: { association: { deviceId: { in: deviceIds } } },
     });
     await prisma.deviceAssociation.deleteMany({
       where: { deviceId: { in: deviceIds } },

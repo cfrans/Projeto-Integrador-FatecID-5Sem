@@ -1,15 +1,15 @@
 import { ApiProperty } from '@nestjs/swagger';
 import { Allow, Equals, IsIn, IsObject, IsUUID } from 'class-validator';
-import { ALL_ERROR_CODES, COMMAND_TYPES } from '../command-types.js';
+import { ALL_ERROR_CODES, GUARDIAN_COMMAND_TYPES } from '../command-types.js';
 
 export class CreateCommandDto {
   @ApiProperty({ format: 'uuid' })
   @IsUUID('4')
   requestId!: string;
 
-  @ApiProperty({ enum: COMMAND_TYPES })
-  @IsIn(COMMAND_TYPES)
-  type!: (typeof COMMAND_TYPES)[number];
+  @ApiProperty({ enum: GUARDIAN_COMMAND_TYPES })
+  @IsIn(GUARDIAN_COMMAND_TYPES)
+  type!: (typeof GUARDIAN_COMMAND_TYPES)[number];
 
   @ApiProperty({ enum: [1] })
   @Equals(1)
@@ -17,9 +17,9 @@ export class CreateCommandDto {
 
   @ApiProperty({
     type: 'object',
-    additionalProperties: true,
+    additionalProperties: false,
     description:
-      'Vazio para agent.ping e parental.app_filter.read; { blockedApplications, blockInstallation } para parental.app_filter.set.',
+      'Sempre vazio. parental.app_filter.set é criado pelo backend a partir das configurações do computador.',
   })
   @IsObject()
   parameters!: Record<string, unknown>;
