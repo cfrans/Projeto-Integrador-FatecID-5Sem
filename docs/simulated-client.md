@@ -56,7 +56,7 @@ Revogar o vínculo no app retira o acesso, e o client descarta as configuraçõe
 
 As respostas de estado incluem `connection: { status, lastSeen }`; leitura pelo responsável não renova a presença. Heartbeats de vínculos antigos são rejeitados. O servidor usa seu próprio horário.
 
-Todos os endpoints abaixo recusam execução fora de `development`/`test`. Acesso a configurações e relatórios exige dispositivo `isDemo: true`, identidade válida e vínculo ativo; a criação exige JWT de responsável. Os endpoints reais de pareamento e autenticação foram reutilizados.
+Os endpoints abaixo recusam execução fora de `development`/`test` e exigem dispositivo `isDemo: true`, identidade válida e vínculo ativo; a criação exige JWT de responsável. Exceção: `GET`/`PATCH /simulation/devices/:id` também atendem computador real pareado em qualquer ambiente, e nele cada revision gera um [comando parental](agent-protocol.md#comandos-parentais-contrato). Os endpoints reais de pareamento e autenticação foram reutilizados.
 
 | Endpoint | Autenticação e finalidade |
 | --- | --- |

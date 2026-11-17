@@ -187,6 +187,8 @@ npm run agent:revoke -- --device-id <uuid>
 
 O provisionamento cria o computador sem responsável e grava a credencial em arquivo novo e exclusivo, com permissão `0600`; nunca imprime o segredo no terminal. O administrador transfere esse arquivo por canal seguro e o instala manualmente em `/etc/lux-agent/credential` (dono `lux-agent`, `0600`); `install.sh` não recebe credencial. A invalidação administrativa da identidade também revoga sessões e o vínculo ativo. Reprovisionar uma instalação após perda/comprometimento da credencial exige novo procedimento administrativo, que cria novo registro/identidade; o histórico anterior é preservado, sem transferência automática de vínculos. Não há recuperação pública de segredo.
 
+`--managed-user <conta>` (opcional, até 100 caracteres) grava `Device.managedUser`, que é só exibição: a conta gerenciada de fato é configurada localmente no Agent.
+
 Para uma fixture de desenvolvimento, acrescente `--demo` ao provisionamento, com `NODE_ENV=development`. O computador recebe `isDemo: true`; essa identidade não autentica em produção. A ferramenta não implementa o Agent, autorização Linux ou exibição de QR. Não provisione fixtures como computadores reais.
 
 O [roteiro mobile](mobile.md) documenta o teste manual completo com Docker/WSL: provisionamento da fixture, solicitação autenticada de sessão, geração local do QR e validação no celular.

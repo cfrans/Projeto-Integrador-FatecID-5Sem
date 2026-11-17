@@ -29,16 +29,16 @@ Estado baseado na implementação existente. “Implementada” descreve o códi
 | 4. Prova de conceito Python/malcontent no Lux | Leitura validada com e sem restrições | VM Lux 3/Canopus, GNOME 50.4, malcontent 0.13.1-5. Própria conta consultada sem sudo; leitura restritiva de outra conta exigiu sudo autenticado pelo usuário. JSONs antes/depois idênticos e campos expostos pela CLI compatíveis; testes no WSL2 e Lux. Privilégios mínimos do futuro serviço pendentes; ver [registro](lux-integration.md#registro-de-provas-técnicas). |
 | 5. Lux Agent mínimo | Parcial | Diagnóstico/polling, HTTPS verificado e primeiro comando `agent.ping` com reserva, diário e resultado validados no Lux real. Serviço systemd instalado por `install.sh`, com relatórios, reinício e revogação validados no Lux ([instalação](../lux-agent/README.md#instalar-como-serviço)). 121 testes Python em WSL2/Lux, 18 testes MySQL; [contrato](agent-protocol.md) e [evidências](agent-ping-validation.md). Pareamento por QR no terminal (`lux-agent pair`) com autorização administrativa local. Comandos parentais pendentes. |
 | 6. Interface GTK4/libadwaita | Planejada | Aplicativo Python independente que exibe o QR em janela, reutilizando o auxiliar de pareamento via `pkexec`. |
-| 7. Controle parental nativo real | Planejada | Implementar somente operações demonstradas na prova técnica, incluindo consulta posterior do resultado; backend deverá registrar comandos/resultados. |
+| 7. Controle parental nativo real | Parcial | Backend: as configurações de um computador real geram `parental.app_filter.set` na fila e reconciliam o resultado ([contrato](agent-protocol.md#comandos-parentais-contrato)), desligado por `ENABLE_PARENTAL_COMMANDS`. Execução no Agent, mobile e validação no GNOME pendentes. |
 | 8. Validação ponta a ponta e expansão | Planejada | Validar mobile → API → Agent → GNOME, falhas, revogação e aplicação confirmada; expandir capacidades gradualmente. |
 
 A investigação GNOME pode avançar na VM disponível. O foco acadêmico principal permanece no mobile; mocks identificados e contratos explícitos permitem seu desenvolvimento sem bloquear pela integração Linux. Etapas do roadmap não equivalem a entregas executadas.
 
 ## Fluxo esperado de operações parentais
 
-Este fluxo para o Agent real é planejado; não existem fila ou processamento de comandos parentais nativos no código atual. O [client simulado](simulated-client.md) usa um contrato separado de estado desejado e confirmação demonstrativa.
+O [protocolo do Agent](agent-protocol.md) implementa `agent.ping`, validado ponta a ponta com Lux real por HTTPS ([evidências](agent-ping-validation.md)), e o lado do backend dos [comandos parentais](agent-protocol.md#comandos-parentais-contrato). O Agent ainda não executa malcontent remotamente nem escreve no GNOME.
 
-O [protocolo do Agent](agent-protocol.md) implementa somente `agent.ping`, com vínculo original ativo, reserva única, diário privado e resultados idempotentes. O [ping ponta a ponta](agent-ping-validation.md) foi validado com Lux real por HTTPS. O fluxo parental abaixo permanece planejado; não há execução remota de malcontent ou escrita GNOME.
+**Estado desejado convertido em comando.** O responsável não cria o comando parental. Ele edita as configurações do computador (`settings` + `revision`), o mesmo contrato do [client simulado](simulated-client.md). Para computador real, cada nova revision grava o filtro derivado e cria `parental.app_filter.set` com o filtro completo, cancelando os pendentes anteriores. Computador simulado nunca gera comando: continua confirmado pelo próprio client.
 
 1. O responsável solicita a alteração pelo mobile via HTTPS/REST.
 2. NestJS autentica, autoriza o recurso e registra o comando pendente em MySQL por Prisma.

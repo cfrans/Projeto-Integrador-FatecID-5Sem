@@ -67,22 +67,33 @@ Erros: 400 contrato inválido; 401 autenticação/identidade revogada; 404 recur
 
 ## Comandos parentais (contrato)
 
-Estado: contrato e backend implementados e cobertos por testes unitários e por um teste MySQL com um Agent simulado (`backend/test/parental-commands.mysql-test.mjs`). **Não há implementação no Lux Agent Python nem validação no GNOME**: o Agent atual só executa `agent.ping` e interromperia o polling ao receber outro tipo. Por isso o backend recusa a criação de comandos parentais com `501` enquanto `ENABLE_PARENTAL_COMMANDS` não for `true`; o padrão é desabilitado. Reutilizam o ciclo criação, polling, claim e resultado do ping, sem novos endpoints de Agent.
+Estado: contrato e backend implementados e cobertos por testes unitários e por um teste MySQL com um Agent simulado (`backend/test/parental-commands.mysql-test.mjs`). **Não há implementação no Lux Agent Python nem validação no GNOME**: o Agent atual só executa `agent.ping` e interromperia o polling ao receber outro tipo. Por isso, enquanto `ENABLE_PARENTAL_COMMANDS` não for `true` (padrão), o backend não gera `set` a partir das configurações e recusa `read` com `501`. Reutilizam o ciclo criação, polling, claim e resultado do ping, sem novos endpoints de Agent.
 
 A escrita só cobre o filtro de aplicativos, a única operação com prova técnica de escrita no Lux ([registro](lux-integration.md#escrita-do-filtro-de-aplicativos-via-polkit--2026-11-13)). A conta gerenciada é definida localmente pelo Agent, nunca pelo backend ou pelo mobile; contas administrativas são recusadas localmente.
 
 | `type` (versão 1) | `parameters` | Resultado de sucesso |
 | --- | --- | --- |
-| `parental.app_filter.set` | `{ "blockedApplications": ["org.mozilla.firefox"], "blockInstallation": false }` | O filtro **observado após reler o sistema**: `{ blockedApplications, blockInstallation }`. |
+| `parental.app_filter.set` | `{ "blockedApplications": ["desktop:firefox-esr.desktop"], "blockInstallation": false }` | O filtro **observado após reler o sistema**: `{ blockedApplications, blockInstallation }`. |
 | `parental.app_filter.read` | `{}` | O filtro observado, no mesmo formato. |
 
-`blockedApplications` aceita até 200 identificadores únicos de 1 a 191 caracteres (`[A-Za-z0-9][A-Za-z0-9._+-]*`, o mesmo `sourceId` dos relatórios), sem shell, caminhos ou URLs. O backend os ordena e normaliza; um `requestId` repetido com parâmetros equivalentes devolve o mesmo comando, com parâmetros diferentes retorna 409. Parâmetros fora do contrato retornam 400.
+`blockedApplications` aceita até 200 identificadores únicos de 1 a 191 caracteres (`[A-Za-z0-9][A-Za-z0-9._+:-]*`, o mesmo `sourceId` dos relatórios, como `desktop:gimp.desktop`), sem `/`, espaço, shell ou URLs. O Agent converte cada `sourceId` no caminho do executável e, ao reler, converte de volta. O backend ordena e normaliza a lista. `blockInstallation: true` corresponde a `AllowUserInstallation = AllowSystemInstallation = false` no malcontent.
+
+### Origem dos comandos
+
+`POST /devices/:id/commands` aceita só `agent.ping` e `parental.app_filter.read`; `set` retorna 400. O `set` é criado pelo backend quando o responsável altera as configurações de um **computador real** (`PATCH /simulation/devices/:id`, com `{ revision, settings }`), na mesma transação da nova revision:
+
+- `ParentalPolicy.revision` recebe a revision das configurações; o comando guarda o mesmo valor em `policyRevision` e usa um `requestId` derivado de (vínculo, revision).
+- `blockedApplications` = `sourceId` dos apps reportados com `applicationRules[id] === false` + navegadores com `blockBrowsers && !allowedBrowsers[chave]`, apenas os que constam do último relatório do computador (o Agent recusa `.desktop` inexistente). Tabela em `backend/src/simulation/real-app-filter.ts`: `firefox` → `firefox-esr`/`firefox`, `chromium` → `chromium`, `brave` → `brave-browser`, `gnome-web` → `org.gnome.Epiphany`.
+- `ageRating` e `installationDecisions` não entram no filtro. Toda revision gera um comando, mesmo que o filtro não mude.
+- Se um app bloqueado tiver `sourceId` fora do formato aceito, a alteração inteira retorna 400.
+- Computador simulado nunca gera comando. Com a flag desligada, a revision é salva sem comando, e o próximo `PATCH` após ligá-la envia o filtro completo.
+- Um `set` pendente vence em 5 minutos; se o Agent estiver desligado nesse tempo, a revision fica `pending` até a próxima alteração (reenvio fica para tickets seguintes).
 
 O backend só aceita `succeeded` em `set` se o filtro observado for idêntico ao pedido (400 caso contrário). Quando a releitura divergir, o Agent informa `failed` com `VERIFICATION_FAILED`. Códigos de falha dos comandos parentais: os quatro do ping mais `PERMISSION_DENIED`, `ACCOUNT_NOT_MANAGED`, `VERIFICATION_FAILED` e `POLICY_UNAVAILABLE`; o ping continua aceitando só os quatro originais. Uma repetição do PUT com resultado diferente do definitivo retorna 409.
 
 ### Reconciliação
 
-Cada vínculo tem no máximo uma política desejada (`ParentalPolicy`), versionada por `revision`. Criar um `set` grava a política desejada, incrementa `revision`, guarda essa revisão no comando (`policyRevision`) e cancela `set` ainda `pending` do mesmo vínculo; vence a intenção mais recente. Um `set` já reservado (`running`) não é interrompido.
+Cada vínculo tem no máximo uma política desejada (`ParentalPolicy`), versionada por `revision`. Gerar um `set` grava a política desejada com a revision das configurações, guarda essa revisão no comando (`policyRevision`) e cancela `set` ainda `pending` do mesmo vínculo; vence a intenção mais recente. Um `set` já reservado (`running`) não é interrompido.
 
 | Estado (`GET /devices/:deviceId/parental-policy`) | Significado |
 | --- | --- |
@@ -93,7 +104,7 @@ Cada vínculo tem no máximo uma política desejada (`ParentalPolicy`), versiona
 
 Um sucesso de revisão antiga avança `appliedRevision` até essa revisão, mas o estado continua `pending` enquanto a atual não for confirmada. `read` só atualiza o estado observado (`observedAppFilter`, `observedAt`); não altera a política desejada. A resposta traz `revision`, `appliedRevision`, `appFilter`, `observedAppFilter`, `appliedAt`, `observedAt` e `error`; sem política ou vínculo ativo do responsável, 404. A revogação do vínculo cancela/marca incertos os comandos como no ping, e um novo vínculo não herda a política. A migration `20261116120000_parental_commands` cria `ParentalPolicy` e `AgentCommand.policyRevision`.
 
-Pendências antes de habilitar: o Agent Python executar `set`/`read` com malcontent e releitura, o mobile criar os comandos e exibir o estado, e validar no Lux o efeito do bloqueio de instalação, que o registro técnico ainda não confirmou.
+Pendências antes de habilitar: o Agent Python executar `set`/`read` com malcontent e releitura, o mobile editar as configurações do computador real e exibir o estado, e validar no Lux o efeito do bloqueio de instalação, que o registro técnico ainda não confirmou.
 
 ## Contrato de relatórios do Agent
 
