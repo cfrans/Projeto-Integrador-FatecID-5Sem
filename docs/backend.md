@@ -143,7 +143,7 @@ O schema e migrations aditivas de responsável e dispositivos estão versionados
 
 ## Responsabilidades do backend
 
-O backend implementa autenticação de responsáveis e leitura de registros de dispositivos limitada ao responsável autenticado. O módulo Pairing implementa sessões e vínculos revogáveis; a ferramenta administrativa provisiona e invalida identidades individuais. Existe uma [PoC Linux de leitura e diagnóstico autenticado do Agent](../lux-agent/README.md), reutilizando `GET /agent/associations`; o Agent também consulta vínculos e, com diário habilitado, processa `agent.ping` pelo [protocolo v1](agent-protocol.md). Comandos parentais e serviço systemd não estão implementados. A aplicação das restrições pertence ao GNOME; sucesso de transporte não deve ser confundido com aplicação confirmada no computador.
+O backend implementa autenticação de responsáveis e leitura de registros de dispositivos limitada ao responsável autenticado. O módulo Pairing implementa sessões e vínculos revogáveis; a ferramenta administrativa provisiona e invalida identidades individuais. Existe uma [PoC Linux de leitura e diagnóstico autenticado do Agent](../lux-agent/README.md), reutilizando `GET /agent/associations`; o Agent também consulta vínculos e, com diário habilitado, processa `agent.ping` pelo [protocolo v1](agent-protocol.md). O backend gera e reconcilia [comandos parentais](agent-protocol.md#comandos-parentais-contrato), que o Agent ainda não executa. A aplicação das restrições pertence ao GNOME; sucesso de transporte não deve ser confundido com aplicação confirmada no computador.
 
 ## Integração do mobile
 
@@ -206,9 +206,9 @@ O Agent real publica aplicativos por `PUT /agent/reports` ([protocolo](agent-pro
 
 ## Próximas responsabilidades e decisões pendentes
 
-O [protocolo v1 do Agent](agent-protocol.md) implementa o primeiro diagnóstico remoto `agent.ping`, com modelo/migration, endpoints de criação/polling/reserva/resultado e diário no Python. Foi validado com MySQL isolado e Lux real por HTTPS; comandos parentais continuam excluídos.
+O [protocolo v1 do Agent](agent-protocol.md) implementa o primeiro diagnóstico remoto `agent.ping`, com modelo/migration, endpoints de criação/polling/reserva/resultado e diário no Python. Foi validado com MySQL isolado e Lux real por HTTPS. Os comandos parentais reutilizam o mesmo ciclo, atrás de `ENABLE_PARENTAL_COMMANDS`.
 
-O Agent Python já roda como serviço systemd no Lux e pareia com autorização local e QR no terminal; a próxima etapa local é a janela GTK4/libadwaita. Coordenação de comandos parentais continua planejada: a infraestrutura existe apenas para ping e precisa de novos contratos tipados, autorização e reconciliação antes de operações Linux. O backend deverá distinguir pendência, falha/indisponibilidade e aplicação confirmada; aceite HTTP não comprova alteração no GNOME. Estados, repetição segura e sincronização serão definidos antes da implementação. Autenticação e listagem já estão integradas ao mobile; comportamento offline ainda não foi acordado. O backend não aplica restrições Linux nem envia comandos arbitrários para execução.
+O Agent Python já roda como serviço systemd no Lux e pareia com autorização local e QR no terminal; a próxima etapa local é a janela GTK4/libadwaita. No backend, as configurações de computador real geram `parental.app_filter.set`, reemitido quando vence ou fica incerto, e a reconciliação distingue pendência, falha e aplicação confirmada ([contrato](agent-protocol.md#comandos-parentais-contrato)); falta a execução no Agent. Aceite HTTP não comprova alteração no GNOME. Autenticação e listagem já estão integradas ao mobile; comportamento offline ainda não foi acordado. O backend não aplica restrições Linux nem envia comandos arbitrários para execução.
 
 Referências: [Nest CLI](https://docs.nestjs.com/cli/overview), [comandos da CLI](https://docs.nestjs.com/cli/usages), [Swagger](https://docs.nestjs.com/openapi/introduction) e [Prisma 7/MySQL](https://www.prisma.io/docs/v7/prisma-orm/quickstart/mysql).
 

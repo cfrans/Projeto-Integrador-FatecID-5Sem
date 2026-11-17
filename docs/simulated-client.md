@@ -62,7 +62,7 @@ Os endpoints abaixo recusam execução fora de `development`/`test` e exigem dis
 | --- | --- |
 | `POST /simulation/devices` | JWT; `{ name, managedUser? }` → `{ device, credential }`; cria somente PC demonstrativo, sem parear |
 | `DELETE /agent/simulation` | Credencial do próprio PC demonstrativo; exclui seus registros em transação e retorna `{ deletedDeviceId }`, mesmo sem vínculo ativo; indisponível em produção |
-| `GET /simulation/devices/:id` | JWT do responsável vinculado; consulta configurações e confirmação |
+| `GET /simulation/devices/:id` | JWT do responsável vinculado; consulta configurações e confirmação (computador real: confirmação do Agent, `error` e `enforcement`, ver [contrato](agent-protocol.md#reconciliação)) |
 | `PATCH /simulation/devices/:id` | Mesmo JWT; `{ revision, settings }`, com alteração parcial e controle de concorrência |
 | `GET /agent/simulation` | Credencial do próprio client; consulta configurações do vínculo ativo |
 | `POST /agent/simulation/heartbeat` | Mesma credencial; `{ associationId }`; registra contato no vínculo ativo sem confirmar configurações |
