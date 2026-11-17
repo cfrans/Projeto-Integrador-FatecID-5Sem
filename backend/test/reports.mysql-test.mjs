@@ -130,6 +130,9 @@ test('authenticated agent reports are transactional and idempotent', async () =>
       .send({ ...first, applications: [{ ...first.applications[0], name: 'Other' }] })
       .expect(409);
 
+    const firstApplication = await prisma.installedApplication.findFirstOrThrow({
+      where: { deviceId: device.id },
+    });
     const requestId = first.installationRequests[0].sourceId;
     await prisma.installationRequest.update({
       where: { deviceId_sourceId: { deviceId: device.id, sourceId: requestId } },
@@ -150,6 +153,10 @@ test('authenticated agent reports are transactional and idempotent', async () =>
       ).status,
       'APPROVED',
     );
+    const reportedAgain = await prisma.installedApplication.findFirstOrThrow({
+      where: { deviceId: device.id },
+    });
+    assert.equal(reportedAgain.id, firstApplication.id);
 
     const otherFlow = await prisma.installationRequest.create({
       data: {

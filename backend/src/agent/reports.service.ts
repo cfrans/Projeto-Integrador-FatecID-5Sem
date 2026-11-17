@@ -85,8 +85,21 @@ export class ReportsService {
             requestedAt: new Date(request.requestedAt),
           }));
 
+          const knownIds = new Map(
+            (
+              await tx.installedApplication.findMany({
+                where: { deviceId: device.id },
+                select: { id: true, sourceId: true },
+              })
+            ).map((application) => [application.sourceId, application.id]),
+          );
           await tx.installedApplication.deleteMany({ where: { deviceId: device.id } });
-          await tx.installedApplication.createMany({ data: applications });
+          await tx.installedApplication.createMany({
+            data: applications.map((application) => ({
+              ...application,
+              id: knownIds.get(application.sourceId),
+            })),
+          });
 
           for (const request of requests) {
             await tx.installationRequest.upsert({
