@@ -64,8 +64,17 @@ def validate_report(report):
             if not source_id(entry.get('sourceId')):
                 raise invalid_report()
             if key == 'applications':
-                if set(entry) != {'sourceId', 'name', 'category', 'allowed'}:
+                base = {'sourceId', 'name', 'category', 'allowed'}
+                if set(entry) not in (base, base | {'blockable', 'executable'}):
                     raise invalid_report()
+                if 'blockable' in entry:
+                    executable = entry['executable']
+                    if type(entry['blockable']) is not bool or entry['blockable'] != (executable is not None):
+                        raise invalid_report()
+                    if executable is not None and (
+                        not isinstance(executable, str) or not executable.startswith('/') or len(executable) > 191
+                    ):
+                        raise invalid_report()
                 if not isinstance(entry.get('name'), str) or not 0 < len(entry['name']) <= 200:
                     raise invalid_report()
                 if not isinstance(entry.get('category'), str) or not 0 < len(entry['category']) <= 100:

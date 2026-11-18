@@ -14,7 +14,7 @@ from unittest.mock import Mock, patch
 from lux_agent.errors import DiagnosticError
 from lux_agent.journal import CommandJournal
 from lux_agent.polling import poll_associations
-from lux_agent.reports import ReportProcessor, load_report
+from lux_agent.reports import ReportProcessor, load_report, validate_report
 
 
 def report():
@@ -134,6 +134,27 @@ class ReportTests(unittest.TestCase):
         with self.assertRaises(DiagnosticError):
             load_report(self.file)
         self.assertEqual(self.requests, [])
+
+    def test_blockability_fields_must_be_consistent(self):
+        base = report()['applications'][0]
+        for fields, valid in (
+            ({}, True),
+            ({'blockable': True, 'executable': '/usr/bin/firefox'}, True),
+            ({'blockable': False, 'executable': None}, True),
+            ({'blockable': True, 'executable': None}, False),
+            ({'blockable': False, 'executable': '/usr/bin/xdg-open'}, False),
+            ({'blockable': True, 'executable': 'firefox'}, False),
+            ({'blockable': True, 'executable': '/' + 'x' * 191}, False),
+            ({'blockable': True}, False),
+        ):
+            payload = report()
+            payload['applications'] = [{**base, **fields}]
+            with self.subTest(fields=fields):
+                if valid:
+                    validate_report(payload)
+                else:
+                    with self.assertRaises(DiagnosticError):
+                        validate_report(payload)
 
 
 if __name__ == '__main__':

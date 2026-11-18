@@ -7,6 +7,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 from .errors import DiagnosticError
+from .parental import SESSION_PATH, exec_executable
 from .reports import MAX_ENTRIES, MAX_REPORT_BYTES, serialized_size, validate_report
 
 
@@ -16,7 +17,17 @@ def data_directories():
     return [user_data, *system_data]
 
 
-def desktop_entry(path):
+def blockability(source_id, exec_line, search_path=SESSION_PATH):
+    try:
+        executable = exec_executable(source_id, exec_line, search_path)
+    except DiagnosticError:
+        return {'blockable': False, 'executable': None}
+    if len(executable) > 191:
+        return {'blockable': False, 'executable': None}
+    return {'blockable': True, 'executable': executable}
+
+
+def desktop_entry(path, search_path=SESSION_PATH):
     try:
         lines = path.read_text(encoding='utf-8').splitlines()
     except (OSError, UnicodeError):
@@ -47,10 +58,11 @@ def desktop_entry(path):
         'name': name,
         'category': category[:100],
         'allowed': True,
+        **blockability(source_id, values.get('Exec'), search_path),
     }
 
 
-def collect_applications(paths=None):
+def collect_applications(paths=None, search_path=SESSION_PATH):
     roots = data_directories() if paths is None else [Path(path) for path in paths]
     applications = {}
     for root in roots:
@@ -58,7 +70,7 @@ def collect_applications(paths=None):
         if not directory.is_dir():
             continue
         for path in sorted(directory.glob('*.desktop')):
-            entry = desktop_entry(path)
+            entry = desktop_entry(path, search_path)
             if entry is not None:
                 applications.setdefault(entry['sourceId'], entry)
     return sorted(applications.values(), key=lambda item: item['sourceId'])

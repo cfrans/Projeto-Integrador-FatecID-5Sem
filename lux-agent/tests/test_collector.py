@@ -5,7 +5,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from lux_agent.collector import collect_applications, collect_report
+from lux_agent.collector import collect_applications, collect_report, fit_applications
 from lux_agent.reports import MAX_REPORT_BYTES, serialized_size, validate_report
 
 
@@ -29,7 +29,44 @@ class CollectorTests(unittest.TestCase):
                 'name': 'Browser',
                 'category': 'network',
                 'allowed': True,
+                'blockable': False,
+                'executable': None,
             }])
+
+    def test_reports_shared_executables_and_unblockable_launchers(self):
+        with tempfile.TemporaryDirectory() as directory:
+            applications = Path(directory) / 'applications'
+            applications.mkdir()
+            programs = Path(directory) / 'bin'
+            programs.mkdir()
+            for name in ('libreoffice', 'xdg-open'):
+                (programs / name).write_text('')
+                (programs / name).chmod(0o755)
+            entries = {
+                'writer': 'Exec=libreoffice --writer %U',
+                'calc': 'Exec=libreoffice --calc %U',
+                'guides': 'Exec=xdg-open /usr/share/doc/guide.pdf',
+                'missing': 'Exec=not-installed',
+                'broken': 'Exec="unterminated',
+                'long': 'Exec=/' + 'x' * 191,
+            }
+            for name, line in entries.items():
+                (applications / f'{name}.desktop').write_text(
+                    f'[Desktop Entry]\nType=Application\nName={name}\n{line}\n'
+                )
+            result = {
+                entry['name']: (entry['blockable'], entry['executable'])
+                for entry in collect_applications([directory], str(programs))
+            }
+            office = str(programs / 'libreoffice')
+            self.assertEqual(result, {
+                'writer': (True, office),
+                'calc': (True, office),
+                'guides': (False, None),
+                'missing': (False, None),
+                'broken': (False, None),
+                'long': (False, None),
+            })
 
     def test_writes_valid_private_report(self):
         with tempfile.TemporaryDirectory() as directory:
@@ -53,14 +90,21 @@ class CollectorTests(unittest.TestCase):
             report = collect_report(Path(directory) / 'state' / 'report.json', [directory])
         return report, stderr.getvalue()
 
-    def test_more_than_200_applications_sends_first_200_by_source_id(self):
+    def test_more_than_200_applications_sends_first_200(self):
+        report = {'applications': []}
+        applications = [{'sourceId': f'a{index:03}'} for index in range(205)]
+        with contextlib.redirect_stderr(io.StringIO()) as stderr:
+            sent = fit_applications(report, applications)
+        self.assertEqual(sent, applications[:200])
+        self.assertIn('205', stderr.getvalue())
+
+    def test_collected_inventory_is_cut_by_size_in_source_id_order(self):
         with tempfile.TemporaryDirectory() as directory:
             self.write_entries(directory, 205, 'A')
             report, warning = self.collect_quietly(directory)
             source_ids = [entry['sourceId'] for entry in report['applications']]
-            self.assertEqual(len(source_ids), 200)
-            self.assertEqual(source_ids, sorted(source_ids))
-            self.assertEqual(source_ids[-1], 'desktop:a199.desktop')
+            self.assertLessEqual(serialized_size(report), MAX_REPORT_BYTES)
+            self.assertEqual(source_ids, [f'desktop:a{index:03}.desktop' for index in range(len(source_ids))])
             self.assertIn('205', warning)
 
     def test_oversized_inventory_sends_largest_prefix_within_16_kib(self):

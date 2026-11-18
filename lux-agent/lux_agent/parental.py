@@ -83,6 +83,10 @@ def desktop_executable(source_id: str, roots: list[Path] | None = None, search_p
         elif in_entry and line.startswith("Exec="):
             exec_line = line.removeprefix("Exec=")
             break
+    return exec_executable(source_id, exec_line, search_path)
+
+
+def exec_executable(source_id: str, exec_line: str | None, search_path: str = SESSION_PATH) -> str:
     try:
         program = shlex.split(exec_line or "")[0]
     except (ValueError, IndexError):
