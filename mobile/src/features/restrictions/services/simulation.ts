@@ -16,7 +16,11 @@ export type SimulationSnapshot = {
   appliedAt: string | null;
   connection: { status: 'online' | 'offline' | 'unverified'; lastSeen: string | null };
   settings: SimulationSettings;
+  error?: { code: string; at: string | null } | null;
+  enforcement?: 'enabled' | 'disabled';
 };
+
+export type RealPolicyStatus = 'applied' | 'disabled' | 'failed' | 'idle' | 'pending';
 
 function record(value: unknown): value is Record<string, unknown> {
   return !!value && typeof value === 'object' && !Array.isArray(value);
@@ -39,7 +43,19 @@ export function parseSimulation(value: unknown): SimulationSnapshot {
     || !record(settings.allowedBrowsers) || !['firefox', 'chromium', 'brave', 'gnome-web'].every((key) => typeof (settings.allowedBrowsers as Record<string, unknown>)[key] === 'boolean')
     || !record(settings.applicationRules) || !Object.entries(settings.applicationRules).every(([key, rule]) => uuid.test(key) && typeof rule === 'boolean')
     || !record(settings.installationDecisions) || !Object.entries(settings.installationDecisions).every(([key, rule]) => uuid.test(key) && ['APPROVED', 'DENIED'].includes(rule as string))) throw new Error('Resposta de simulação inválida.');
+  const error = value.error;
+  if (!(error === undefined || error === null || (record(error) && typeof error.code === 'string' && error.code.length > 0
+    && (error.at === null || (typeof error.at === 'string' && Number.isFinite(Date.parse(error.at))))))
+    || !(value.enforcement === undefined || value.enforcement === 'enabled' || value.enforcement === 'disabled')) throw new Error('Resposta de simulação inválida.');
   return value as unknown as SimulationSnapshot;
+}
+
+export function realPolicyStatus(snapshot: SimulationSnapshot): RealPolicyStatus {
+  if (snapshot.appliedRevision === snapshot.revision) return 'applied';
+  if (snapshot.enforcement === 'disabled') return 'disabled';
+  if (snapshot.error) return 'failed';
+  if (snapshot.appliedRevision === null && snapshot.revision === 1) return 'idle';
+  return 'pending';
 }
 
 export async function readSimulation(deviceId: string) {
