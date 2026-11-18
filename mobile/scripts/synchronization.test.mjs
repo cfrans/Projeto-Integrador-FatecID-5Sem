@@ -15,6 +15,11 @@ test('synchronization distinguishes acknowledgement, pending, offline, unknown a
   assert.equal(synchronizationStatus({ ...entry, snapshot: null }), 'error');
   const real = { ...entry, computer: { ...computer, isDemo: false }, snapshot: { ...snapshot, connection: { status: 'unverified', lastSeen: null }, error: null, enforcement: 'enabled' } };
   assert.equal(synchronizationStatus(real), 'realPending');
+  const offline = { ...real.snapshot, connection: { status: 'offline', lastSeen: '2026-11-02T12:00:00Z' } };
+  assert.equal(synchronizationStatus({ ...real, snapshot: offline }), 'realOffline');
+  assert.equal(synchronizationStatus({ ...real, snapshot: { ...offline, connection: { status: 'online', lastSeen: '2026-11-02T12:00:00Z' } } }), 'realPending');
+  assert.equal(synchronizationStatus({ ...real, snapshot: { ...offline, appliedRevision: 2 } }), 'realApplied');
+  assert.equal(synchronizationStatus({ ...real, snapshot: { ...offline, error: { code: 'POLICY_UNAVAILABLE', at: null } } }), 'realFailed');
   assert.equal(synchronizationStatus({ ...real, snapshot: { ...real.snapshot, appliedRevision: 2 } }), 'realApplied');
   assert.equal(synchronizationStatus({ ...real, snapshot: { ...real.snapshot, error: { code: 'POLICY_UNAVAILABLE', at: null } } }), 'realFailed');
   assert.equal(synchronizationStatus({ ...real, snapshot: { ...real.snapshot, enforcement: 'disabled' } }), 'realDisabled');

@@ -27,7 +27,7 @@ function isDevice(value: unknown): value is HttpPairedComputer {
     && (typeof device.managedUser === 'string' || device.managedUser === null)
     && (device.status === 'unverified'
       ? device.lastSeen === null
-      : device.isDemo === true && device.paired === true
+      : device.paired === true
         && (device.status === 'online' || device.status === 'offline')
         && typeof device.lastSeen === 'string' && Number.isFinite(Date.parse(device.lastSeen)))
     && typeof device.isDemo === 'boolean'
