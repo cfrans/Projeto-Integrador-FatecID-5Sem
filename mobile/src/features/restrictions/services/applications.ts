@@ -5,7 +5,11 @@ export type InstalledApplication = {
   name: string;
   category: string;
   allowed: boolean;
+  blockable: boolean;
+  executable: string | null;
 };
+
+export type ConfiguredApplication = InstalledApplication & { group: InstalledApplication[] };
 
 export class ApplicationsResponseError extends Error {
   constructor() {
@@ -24,7 +28,12 @@ function parseApplication(value: unknown): InstalledApplication {
     typeof application.name !== 'string' ||
     !application.name.trim() ||
     typeof application.category !== 'string' ||
-    typeof application.allowed !== 'boolean'
+    typeof application.allowed !== 'boolean' ||
+    !(
+      (application.blockable === undefined && application.executable === undefined) ||
+      (application.blockable === true && (application.executable === null || (typeof application.executable === 'string' && application.executable.startsWith('/')))) ||
+      (application.blockable === false && application.executable === null)
+    )
   ) {
     throw new ApplicationsResponseError();
   }
@@ -34,7 +43,17 @@ function parseApplication(value: unknown): InstalledApplication {
     name: application.name,
     category: application.category,
     allowed: application.allowed,
+    blockable: application.blockable !== false,
+    executable: typeof application.executable === 'string' ? application.executable : null,
   };
+}
+
+export function configureApplications(applications: InstalledApplication[], rules: Record<string, boolean>): ConfiguredApplication[] {
+  const allowed = (application: InstalledApplication) => rules[application.id] ?? application.allowed;
+  return applications.map((application) => {
+    const group = application.executable === null ? [] : applications.filter((other) => other.id !== application.id && other.executable === application.executable);
+    return { ...application, group, allowed: !application.blockable || (allowed(application) && group.every(allowed)) };
+  });
 }
 
 export function parseApplicationsResponse(value: unknown) {
