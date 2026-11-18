@@ -286,3 +286,51 @@ test('registration is rate limited per address without affecting other routes', 
     await http.post('/pairing/validate').expect(401);
   });
 });
+
+test('authenticated Agent requests make the real computer online, then offline after the TTL', async () => {
+  await withApp(async ({ http, prisma, fixtures }) => {
+    const { token } = await createGuardian(http, prisma, fixtures);
+    const credential = newCredential();
+    fixtures.hashes.push(credential.credentialHash);
+    const created = await http
+      .post('/agent/registrations')
+      .send({ credentialHash: credential.credentialHash, name: 'presence-pc', managedUser: 'ana' })
+      .expect(201);
+    const completed = await http
+      .post('/pairing/complete')
+      .set(bearer(token))
+      .send({ token: created.body.token })
+      .expect(200);
+    const presence = async () => {
+      const devices = await http.get('/devices').set(bearer(token)).expect(200);
+      const snapshot = await http.get(`/simulation/devices/${completed.body.id}`).set(bearer(token)).expect(200);
+      const device = devices.body.find((entry) => entry.id === completed.body.id);
+      assert.deepEqual(snapshot.body.connection, { status: device.status, lastSeen: device.lastSeen });
+      return device;
+    };
+
+    assert.deepEqual(await presence(), { ...completed.body, status: 'unverified', lastSeen: null });
+
+    const before = Date.now();
+    await http.get('/agent/associations').set(bearer(credential.raw)).expect(200);
+    const online = await presence();
+    assert.equal(online.status, 'online');
+    assert.ok(Date.parse(online.lastSeen) >= before - 1);
+
+    await http.get('/agent/commands').set(bearer(credential.raw)).expect(200);
+    assert.equal((await presence()).lastSeen, online.lastSeen);
+
+    const stale = new Date(Date.now() - 61000);
+    await prisma.agentIdentity.update({
+      where: { credentialHash: credential.credentialHash },
+      data: { lastSeenAt: stale },
+    });
+    assert.deepEqual(
+      { status: (await presence()).status, lastSeen: (await presence()).lastSeen },
+      { status: 'offline', lastSeen: stale.toISOString() },
+    );
+
+    await http.get('/agent/commands').set(bearer(credential.raw)).expect(200);
+    assert.equal((await presence()).status, 'online');
+  });
+});

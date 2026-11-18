@@ -154,10 +154,23 @@ describe('Simulated computer synchronization', () => {
     tx.device.findFirst.mockResolvedValue({ id: deviceId, isDemo: false });
     await expect(service.read(deviceId, 'guardian')).resolves.toMatchObject({
       revision: 1,
+      connection: { status: 'unverified', lastSeen: null },
     });
     expect(tx.device.findFirst.mock.calls[0][0].where).toEqual({
       id: deviceId,
       agentIdentity: { revokedAt: null },
+    });
+  });
+
+  it('reports the real Agent presence instead of the simulated heartbeat', async () => {
+    const lastSeenAt = new Date(Date.now() - 30000);
+    tx.device.findFirst.mockResolvedValue({
+      id: deviceId,
+      isDemo: false,
+      agentIdentity: { lastSeenAt },
+    });
+    await expect(service.read(deviceId, 'guardian')).resolves.toMatchObject({
+      connection: { status: 'online', lastSeen: lastSeenAt.toISOString() },
     });
   });
 

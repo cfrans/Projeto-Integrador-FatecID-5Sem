@@ -8,6 +8,7 @@ import {
 import { createHash } from 'node:crypto';
 import type { Request } from 'express';
 import { PrismaService } from '../../prisma/prisma.service.js';
+import { AGENT_PRESENCE_WRITE_INTERVAL_MS } from '../../simulation/simulation-presence.js';
 
 export type AuthenticatedAgent = {
   id: string;
@@ -38,6 +39,7 @@ export class AgentAuthGuard implements CanActivate {
           id: true,
           deviceId: true,
           revokedAt: true,
+          lastSeenAt: true,
           device: { select: { isDemo: true } },
         },
       });
@@ -56,7 +58,24 @@ export class AgentAuthGuard implements CanActivate {
       throw new UnauthorizedException('Credenciais do computador inválidas.');
     }
 
+    if (!identity.device.isDemo)
+      await this.recordContact(identity.id, identity.lastSeenAt);
     request.agent = { id: identity.id, deviceId: identity.deviceId };
     return true;
+  }
+
+  private async recordContact(identityId: string, lastSeenAt: Date | null) {
+    const now = new Date();
+    if (
+      lastSeenAt &&
+      now.getTime() - lastSeenAt.getTime() < AGENT_PRESENCE_WRITE_INTERVAL_MS
+    )
+      return;
+    await this.prisma.agentIdentity
+      .updateMany({
+        where: { id: identityId, revokedAt: null },
+        data: { lastSeenAt: now },
+      })
+      .catch(() => undefined);
   }
 }

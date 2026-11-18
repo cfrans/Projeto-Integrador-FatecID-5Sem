@@ -10,7 +10,7 @@ import type { Prisma } from '../../generated/prisma/client.js';
 import { enqueueAppFilter } from '../commands/app-filter-command.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { applyApplicationRules, deriveAppFilter } from './real-app-filter.js';
-import { simulationPresence } from './simulation-presence.js';
+import { agentPresence, simulationPresence } from './simulation-presence.js';
 import {
   defaults,
   id,
@@ -101,8 +101,12 @@ export class SimulationService {
   async read(deviceId: string, guardianId?: string) {
     if (!guardianId) this.enabled();
     return this.transaction(async (tx) => {
-      const { state, isDemo } = await this.access(tx, deviceId, guardianId);
-      return this.view(tx, state, isDemo);
+      const { state, isDemo, agentLastSeenAt } = await this.access(
+        tx,
+        deviceId,
+        guardianId,
+      );
+      return this.view(tx, state, isDemo, agentLastSeenAt);
     });
   }
 
@@ -111,7 +115,11 @@ export class SimulationService {
     const expected = revision(input.revision);
     const patch = settingsPatch(input.settings);
     return this.transaction(async (tx) => {
-      const { state, isDemo } = await this.access(tx, deviceId, guardianId);
+      const { state, isDemo, agentLastSeenAt } = await this.access(
+        tx,
+        deviceId,
+        guardianId,
+      );
       if (state.revision !== expected)
         throw new ConflictException(
           'As configurações mudaram. Atualize e tente novamente.',
@@ -175,7 +183,7 @@ export class SimulationService {
           appFilter: deriveAppFilter(settings, installed),
           now: new Date(),
         });
-      return this.view(tx, updated, isDemo);
+      return this.view(tx, updated, isDemo, agentLastSeenAt);
     });
   }
 
@@ -262,7 +270,11 @@ export class SimulationService {
         ...(guardianId ? {} : { isDemo: true }),
         agentIdentity: { revokedAt: null },
       },
-      select: { id: true, isDemo: true },
+      select: {
+        id: true,
+        isDemo: true,
+        agentIdentity: { select: { lastSeenAt: true } },
+      },
     });
     if (!device || (device.isDemo && !this.demoEnabled()))
       throw new NotFoundException('Computador indisponível.');
@@ -282,13 +294,18 @@ export class SimulationService {
       create: { associationId: association.id, settings: defaults() },
       update: {},
     });
-    return { state, isDemo: device.isDemo };
+    return {
+      state,
+      isDemo: device.isDemo,
+      agentLastSeenAt: device.agentIdentity?.lastSeenAt ?? null,
+    };
   }
 
   private async view(
     tx: Prisma.TransactionClient,
     state: SimulationState,
     isDemo: boolean,
+    agentLastSeenAt: Date | null,
   ) {
     if (isDemo) return this.snapshot(state);
     const policy = await tx.parentalPolicy.findUnique({
@@ -296,6 +313,7 @@ export class SimulationService {
     });
     return {
       ...this.snapshot(state),
+      connection: agentPresence(agentLastSeenAt),
       appliedRevision: policy?.appliedRevision ?? null,
       appliedAt: policy?.appliedAt?.toISOString() ?? null,
       error:

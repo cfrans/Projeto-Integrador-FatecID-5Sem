@@ -46,6 +46,7 @@ model AgentIdentity {
   credentialHash  String         @unique @db.Char(64)
   createdAt       DateTime       @default(now()) @db.DateTime(3)
   revokedAt       DateTime?      @db.DateTime(3)
+  lastSeenAt      DateTime?      @db.DateTime(3)
   device          Device         @relation(fields: [deviceId], references: [id], onDelete: Cascade)
   claimedCommands AgentCommand[]
 }

@@ -5,7 +5,10 @@ import {
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { PairingService } from '../pairing/pairing.service.js';
-import { simulationPresence } from '../simulation/simulation-presence.js';
+import {
+  agentPresence,
+  simulationPresence,
+} from '../simulation/simulation-presence.js';
 
 type DeviceOverview = {
   id: string;
@@ -40,7 +43,7 @@ export class DevicesService {
     return devices.map(({ associationId, lastSeenAt, isDemo, ...device }) => ({
       ...device,
       isDemo: Boolean(isDemo),
-      ...simulationPresence(isDemo ? lastSeenAt : null),
+      ...(isDemo ? simulationPresence(lastSeenAt) : agentPresence(lastSeenAt)),
       paired: associationId !== null,
       ...(associationId ? { associationId } : {}),
     }));

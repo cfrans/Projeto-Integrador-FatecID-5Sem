@@ -94,6 +94,20 @@ test('SQL objects preserve pairing invariants and participate in API transaction
       await pairing.revokeGuardianAssociation(guardian.id, device.id);
       assert.deepEqual(await read(), []);
     });
+
+    await suite.test('view takes real presence from the Agent identity, not from the simulated heartbeat', async () => {
+      const { device, association } = await fixture('Real SQL fixture');
+      await prisma.device.update({ where: { id: device.id }, data: { isDemo: false } });
+      const agentSeenAt = new Date(now.getTime() + 1000);
+      const identity = await prisma.agentIdentity.create({ data: { deviceId: device.id, credentialHash: randomUUID().replaceAll('-', '').padEnd(64, '0') } });
+      await prisma.simulationState.create({ data: { associationId: association.id, settings: {}, lastSeenAt: now } });
+      const read = async () => (await prisma.$queryRaw`SELECT lastSeenAt FROM vw_device_overview WHERE id = ${device.id}`)[0].lastSeenAt;
+      assert.equal(await read(), null);
+      await prisma.agentIdentity.update({ where: { id: identity.id }, data: { lastSeenAt: agentSeenAt } });
+      assert.equal((await read()).toISOString(), agentSeenAt.toISOString());
+      await prisma.agentIdentity.update({ where: { id: identity.id }, data: { revokedAt: now } });
+      assert.equal(await read(), null);
+    });
   } finally {
     for (const device of devices) {
       await prisma.agentCommand.deleteMany({ where: { deviceId: device.id } });

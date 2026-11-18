@@ -1,4 +1,6 @@
 import {
+  AGENT_PRESENCE_TTL_MS,
+  agentPresence,
   simulationPresence,
   SIMULATION_PRESENCE_TTL_MS,
 } from './simulation-presence.js';
@@ -21,6 +23,18 @@ describe('Simulated client presence', () => {
         contact,
         contact.getTime() + SIMULATION_PRESENCE_TTL_MS + 1,
       ),
+    ).toEqual({ status: 'offline', lastSeen: contact.toISOString() });
+  });
+
+  it('gives the real Agent a TTL proportional to its polling interval', () => {
+    const contact = new Date('2026-11-18T12:00:00.000Z');
+    expect(agentPresence(null)).toEqual({ status: 'unverified', lastSeen: null });
+    expect(agentPresence(contact, contact.getTime() + 30000).status).toBe('online');
+    expect(
+      agentPresence(contact, contact.getTime() + AGENT_PRESENCE_TTL_MS).status,
+    ).toBe('online');
+    expect(
+      agentPresence(contact, contact.getTime() + AGENT_PRESENCE_TTL_MS + 1),
     ).toEqual({ status: 'offline', lastSeen: contact.toISOString() });
   });
 });

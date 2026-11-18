@@ -39,6 +39,26 @@ describe('DevicesService', () => {
     expect(guardianId).toBe('guardian-id');
   });
 
+  it('uses the Agent TTL for real computers and the simulated TTL for demo ones', async () => {
+    const lastSeenAt = new Date(Date.now() - 30000);
+    prisma.$queryRaw.mockResolvedValue([
+      { id: 'real', name: 'A', managedUser: 'kid', isDemo: 0, associationId: 'link', lastSeenAt },
+      { id: 'demo', name: 'B', managedUser: null, isDemo: 1, associationId: 'demo-link', lastSeenAt },
+      { id: 'stale', name: 'C', managedUser: null, isDemo: 0, associationId: 'old', lastSeenAt: new Date(Date.now() - 61000) },
+      { id: 'never', name: 'D', managedUser: null, isDemo: 0, associationId: 'new', lastSeenAt: null },
+    ]);
+
+    const devices = await service.listForGuardian('guardian-id');
+
+    expect(devices.map(({ id, status }) => [id, status])).toEqual([
+      ['real', 'online'],
+      ['demo', 'offline'],
+      ['stale', 'offline'],
+      ['never', 'unverified'],
+    ]);
+    expect(devices[0].lastSeen).toBe(lastSeenAt.toISOString());
+  });
+
   it('maps database errors to service unavailable', async () => {
     prisma.$queryRaw.mockRejectedValue(new Error('database unavailable'));
 
