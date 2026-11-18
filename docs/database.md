@@ -63,7 +63,7 @@ A migration `20261109190000_academic_sql_objects` instala os quatro objetos. O S
 | Objeto | Uso efetivo |
 | --- | --- |
 | `fn_pairing_session_status` | `PairingService` calcula estado do token com precedência revogado → consumido → expirado → pendente; o instante é argumento explícito, tornando a função determinística |
-| `vw_device_overview` | `DevicesService` lista os PCs filtrando pelo responsável autenticado; reúne vínculo atual e presença demonstrativa, sem expor hashes ou credenciais |
+| `vw_device_overview` | `DevicesService` lista os PCs filtrando pelo responsável autenticado; reúne vínculo atual e último contato (heartbeat do simulado em `SimulationState`; Agent real em `AgentIdentity.lastSeenAt`, só com vínculo ativo), sem expor hashes ou credenciais |
 | `sp_revoke_device_association` | Revogação pelo responsável e pelo Agent, após autorização no service; invalida vínculo/sessões, cancela comandos pendentes e torna comandos em execução incertos |
 | `trg_pairing_session_keep_consumed` | Rejeita alterações de data/responsável de consumo após um token ter sido consumido, incluindo tentativas de reabri-lo |
 
@@ -116,3 +116,5 @@ Criação, reserva, resultado e revogação bloqueiam a mesma linha de `Device`.
 A migration `20261025120000_simulation_state` adiciona somente `SimulationState`, ligada a `DeviceAssociation`, com configurações JSON, revisão desejada e confirmação simulada. Novo vínculo começa sem o estado do anterior. Inventário e pedidos reutilizam as tabelas existentes. Aplique com `prisma:migrate:deploy` e regenere o client; ver [contrato da simulação](simulated-client.md#contrato-da-simulação).
 
 A migration aditiva `20261025160000_simulation_presence` inclui `SimulationState.lastSeenAt` opcional. Heartbeat/relatório autenticado do próprio client renova o horário no vínculo ativo; consultas do responsável não o alteram. Vínculos novos não herdam presença ou configurações anteriores.
+
+A migration `20261118180000_agent_presence` inclui `AgentIdentity.lastSeenAt` opcional, renovado pelo guard do Agent real (no máximo a cada 10 s), e recria `vw_device_overview` para usá-lo em dispositivos não demo. Identidade revogada ou nova credencial começam sem presença.

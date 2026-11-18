@@ -57,7 +57,7 @@ Há duas fronteiras de simulação:
 | Utilitário demonstrativo preservado, fora do fluxo atual | `pairingDemo` no mobile → mock em memória | Simulação local de pareamento, sem modificar a API ou conectar ao Lux |
 | Implementado, com API integrada | Mobile → Backend → `simulated-client/` | Cadastro demonstrativo, pareamento, configurações, inventário e decisões de instalação, sem aplicar políticas no sistema operacional |
 
-`devices.listPairedComputers(): Promise<PairedComputer[]>` usa `GET /devices`, sem fallback para mock. A resposta traz `id`, `name`, `managedUser` opcional, `status: "unverified"`, `lastSeen: null`, `isDemo`, `paired` e `associationId` quando pareado. O nome histórico do método não implica pareamento validado. Home e Computadores consomem o serviço HTTP da feature; autenticação e erros passam pelo cliente compartilhado. Os seeds podem criar fixtures persistidas com `isDemo: true`, mas não simulam um agente online.
+`devices.listPairedComputers(): Promise<PairedComputer[]>` usa `GET /devices`, sem fallback para mock. A resposta traz `id`, `name`, `managedUser` opcional, `status` (`unverified`/`online`/`offline`), `lastSeen`, `isDemo`, `paired` e `associationId` quando pareado. O nome histórico do método não implica pareamento validado. Home e Computadores consomem o serviço HTTP da feature; autenticação e erros passam pelo cliente compartilhado. Os seeds podem criar fixtures persistidas com `isDemo: true`, mas não simulam um agente online. Presença real vem do último contato autenticado do Agent ([backend](backend.md#presença-do-agent-real)) e não implica política aplicada.
 
 A tela de pareamento usa a API para validar e consumir o QR, sem mock nem fallback. Uma fixture de identidade/pareamento deve permanecer demonstrativa, inclusive na confirmação mobile, e não comprova conexão a um Lux.
 
@@ -71,7 +71,7 @@ O Agent exige autorização administrativa local (`pkexec` com `auth_admin`) ant
 
 A revogação remove o acesso do responsável na API e invalida sessões pendentes do computador. Para associar novamente, é necessária outra sessão criada após autorização local. O Agent só pode consultar ou revogar vínculos do próprio computador. A revogação no backend não demonstra remoção de restrições Linux; o efeito local ainda depende do Agent e da investigação GNOME.
 
-Fixtures e identidades de desenvolvimento devem permanecer identificadas como demonstração e não podem ser aceitas como agentes em produção. Mesmo uma associação real na API não comprova presença online nem integração Linux. HTTPS é obrigatório fora do desenvolvimento local; não se transmite credencial administrativa Linux.
+Fixtures e identidades de desenvolvimento devem permanecer identificadas como demonstração e não podem ser aceitas como agentes em produção. Uma associação real na API não comprova presença; presença (contato recente do Agent) não comprova política aplicada. HTTPS é obrigatório fora do desenvolvimento local; não se transmite credencial administrativa Linux.
 
 ## Limites técnicos do Lux
 

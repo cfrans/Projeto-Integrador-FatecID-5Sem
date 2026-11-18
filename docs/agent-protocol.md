@@ -23,7 +23,7 @@ Decisões resolvidas antes da implementação:
 
 A reserva não torna a execução e a revogação uma transação distribuída. Revogar antes do claim impede a reserva. Depois do claim, não é possível garantir interrupção de execução local já autorizada/iniciada: a transação marca reservas sem resultado como `unknown` e bloqueia novos claims/resultados daquele vínculo. Nenhum resultado passa para novo responsável, inclusive se o mesmo responsável parear novamente.
 
-O schema também inclui inventário, pedidos de instalação e `SimulationState` para o [client demonstrativo](simulated-client.md). Esse estado é separado do protocolo de `agent.ping`; a presença demonstrativa não é alimentada pelo polling do Agent real. PCs reais mantêm `status: "unverified"` e `lastSeen: null`.
+O schema também inclui inventário, pedidos de instalação e `SimulationState` para o [client demonstrativo](simulated-client.md). Esse estado é separado do protocolo de `agent.ping`; a presença demonstrativa não é alimentada pelo polling do Agent real. A presença do Agent real vem de qualquer requisição autenticada (associações, comandos, relatórios), sem endpoint de heartbeat ([backend](backend.md#presença-do-agent-real)).
 
 ## Endpoints
 
@@ -271,6 +271,6 @@ Cadência/backoff/jitter/`Retry-After` e sinais são os do polling existente. 42
 
 [Testes MySQL](../backend/test/commands.mysql-test.mjs): vínculo/identidade, fixture legada, isolamento, criação/claim/resultado idempotentes, concorrência, expiração após espera por lock, revogação administrativa/do responsável e resultado tardio. [Testes Python](../lux-agent/tests/test_commands.py): diário, exclusão, permissões, corrupção, troca de identidade/origem, respostas perdidas, reinício ambíguo e contratos não suportados. [Evidência real no Lux](agent-ping-validation.md#evidência--2026-10-26).
 
-Ficam pendentes: UI mobile de comandos, pareamento/autorização local, quotas/retenção, presença, hospedagem HTTPS definitiva, primeira leitura remota e reconciliação antes de escritas parentais. `status: "unverified"`/`lastSeen: null` dos dispositivos permanecem. Sucesso de ping não comprova política aplicada ou identidade física do equipamento.
+Ficam pendentes: UI mobile de comandos, pareamento/autorização local, quotas/retenção, hospedagem HTTPS definitiva, primeira leitura remota e reconciliação antes de escritas parentais. Sucesso de ping não comprova política aplicada ou identidade física do equipamento.
 
 Referências: [Prisma 7: transações](https://www.prisma.io/docs/orm/v7/prisma-client/queries/transactions), [Prisma 7: migrations](https://www.prisma.io/docs/orm/v7/prisma-migrate/workflows/development-and-production), [SQLite no Python](https://docs.python.org/3.12/library/sqlite3.html) e [flock](https://docs.python.org/3.12/library/fcntl.html#fcntl.flock).

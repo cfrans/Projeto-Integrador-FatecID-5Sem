@@ -133,7 +133,7 @@ O seed de responsável é explícito e exclusivo para `NODE_ENV=development`. `D
 
 ## Listagem de dispositivos implementada
 
-`GET /devices` exige Bearer JWT e consulta a view `vw_device_overview`, com filtro SQL parametrizado por `guardianId` do responsável validado pelo guard. A ordenação por nome e UUID é determinística e não há parâmetro de responsável no endpoint. A resposta é uma lista `{ id, name, managedUser, status, lastSeen, isDemo, paired, associationId? }`; erro operacional retorna HTTP 503. PCs reais e fixtures sem contato ficam `unverified`/`null`. PCs demonstrativos com vínculo e identidade ativos usam `online` por até 15 segundos após heartbeat autenticado, depois `offline`, com `lastSeen` ISO. O horário pertence a `SimulationState.lastSeenAt`; leitura pelo responsável não o renova. Presença e confirmação de configuração são independentes, conforme o [contrato da simulação](simulated-client.md#contrato-da-simulação).
+`GET /devices` exige Bearer JWT e consulta a view `vw_device_overview`, com filtro SQL parametrizado por `guardianId` do responsável validado pelo guard. A ordenação por nome e UUID é determinística e não há parâmetro de responsável no endpoint. A resposta é uma lista `{ id, name, managedUser, status, lastSeen, isDemo, paired, associationId? }`; erro operacional retorna HTTP 503. PCs sem contato ficam `unverified`/`null`. PCs reais seguem a [presença do Agent real](#presença-do-agent-real). PCs demonstrativos com vínculo e identidade ativos usam `online` por até 15 segundos após heartbeat autenticado, depois `offline`, com `lastSeen` ISO. O horário pertence a `SimulationState.lastSeenAt`; leitura pelo responsável não o renova. Presença e confirmação de configuração são independentes, conforme o [contrato da simulação](simulated-client.md#contrato-da-simulação).
 
 `Device.guardianId` registra o escopo de propriedade/acesso da API. Nas fixtures legadas, esse campo não comprova pareamento. O campo `paired` só é verdadeiro quando há uma associação ativa; identidade do Lux e conexão Linux não são comprovadas pela listagem. Todos os registros criados pelo seed de desenvolvimento são demonstrativos (`isDemo: true`) e usam nomes/contas fictícios. O seed é separado: após aplicar migrations e já existir um responsável, configure `DEV_GUARDIAN_EMAIL` com o email dele e `NODE_ENV=development` na `.env`, e execute `npm run prisma:seed:devices` antes do servidor em watch. Ele não cria responsáveis nem altera dados existentes e pode ser repetido.
 
@@ -147,9 +147,13 @@ O backend implementa autenticação de responsáveis e leitura de registros de d
 
 ## Integração do mobile
 
-O mobile usa a API para autenticação (`POST /auth/login` e `GET /auth/me`) e lista registros com `GET /devices`, enviando o Bearer token e validando a resposta antes de exibir. Os itens aparecem como `unverified` com `lastSeen: null`, sem afirmar que o computador está online ou offline. O serviço de lista não usa fallback para fixtures locais quando a API falha.
+O mobile usa a API para autenticação (`POST /auth/login` e `GET /auth/me`) e lista registros com `GET /devices`, enviando o Bearer token e validando a resposta antes de exibir. Os itens trazem a presença calculada pelo backend (`unverified`, `online` ou `offline`). O serviço de lista não usa fallback para fixtures locais quando a API falha.
 
-O fluxo de QR utiliza os endpoints de validação e consumo descritos abaixo, sem fallback para mock. A listagem não consulta presença ou aplica operações no Lux.
+O fluxo de QR utiliza os endpoints de validação e consumo descritos abaixo, sem fallback para mock. A listagem não aplica operações no Lux.
+
+### Presença do Agent real
+
+`AgentAuthGuard` registra `AgentIdentity.lastSeenAt` em toda requisição autenticada de dispositivo não demo (`GET /agent/associations`, comandos, relatórios), sem endpoint de heartbeat. Para não escrever no banco a cada chamada do ciclo, só grava se o valor estiver vazio ou com mais de 10 s; falha nessa escrita não bloqueia a requisição. O dispositivo fica `online` até 60 s após o último contato e depois `offline`: o polling padrão é 15 s com jitter de 20%, então o TTL tolera um ciclo perdido. Sem contato desde o pareamento: `unverified`. O mesmo cálculo aparece em `GET /devices` e em `connection` de `GET /simulation/devices/:id` do computador real. Presença é estado observado e não implica política aplicada; um Agent configurado com `--interval` acima de ~45 s aparecerá offline entre ciclos.
 
 ## Contratos de pareamento
 
