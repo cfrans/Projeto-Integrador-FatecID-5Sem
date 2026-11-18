@@ -195,7 +195,7 @@ O [roteiro mobile](mobile.md) documenta o teste manual completo com Docker/WSL: 
 
 ## Consultas de aplicativos e pedidos de instalação
 
-- `GET /devices/:deviceId/applications`: lista `{ id, name, category, allowed }`, ordenada por nome e UUID.
+- `GET /devices/:deviceId/applications`: lista `{ id, name, category, allowed, blockable, executable }`, ordenada por nome e UUID. `blockable=false` indica app que não pode ser bloqueado; apps com o mesmo `executable` (não nulo) são bloqueados juntos ([regras](agent-protocol.md#origem-dos-comandos)).
 - `GET /devices/:deviceId/installation-requests`: lista somente pedidos `PENDING`, com `{ id, applicationName, requesterName, requestedAt, ageRating }`, ordenados por data e UUID. `requestedAt` é uma data ISO 8601 UTC.
 
 Ambos exigem JWT do responsável, UUID válido e associação ativa com aquele computador. Dispositivo inexistente, pertencente a outro responsável ou sem vínculo ativo retorna o mesmo HTTP 404. UUID inválido retorna 400; falha operacional retorna 503, sem detalhes internos.
