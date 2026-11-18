@@ -5,5 +5,5 @@ import { ApplicationsRestrictionScreen } from '@/features/restrictions/Applicati
 export default function AppsScreen() {
   const computer = useRestrictionComputer();
   const ready = useSimulationReady();
-  return computer?.isDemo && ready ? <ApplicationsRestrictionScreen key={computer.id} computer={computer} /> : null;
+  return computer && ready ? <ApplicationsRestrictionScreen key={computer.id} computer={computer} /> : null;
 }

@@ -7,6 +7,7 @@ import type { PairedComputer } from '@/features/devices/services/devices';
 import { useLanguage } from '@/features/i18n/LanguageProvider';
 import {
   applicationsErrorMessage,
+  configureApplications,
   listInstalledApplications,
   type InstalledApplication,
 } from '@/features/restrictions/services/applications';
@@ -53,7 +54,7 @@ export function ApplicationsRestrictionScreen({ computer }: { computer: PairedCo
     const request = ++loadRequest.current;
     setLoadState('loading');
     setErrorMessage('');
-    if (!snapshot.appliedAt) return;
+    if (computer.isDemo && !snapshot.appliedAt) return;
     try {
       const [installedApplications, requestHistory] = await Promise.all([
         listInstalledApplications(computer.id),
@@ -69,7 +70,7 @@ export function ApplicationsRestrictionScreen({ computer }: { computer: PairedCo
       setErrorMessage(applicationsErrorMessage(error));
       setLoadState('error');
     }
-  }, [computer.id, snapshot.appliedAt]);
+  }, [computer.id, computer.isDemo, snapshot.appliedAt]);
 
   useFocusEffect(useCallback(() => {
     void loadApplications();
@@ -79,11 +80,12 @@ export function ApplicationsRestrictionScreen({ computer }: { computer: PairedCo
     };
   }, [loadApplications]));
 
-  const configuredApplications = applications.map((application) => ({ ...application, approvedRequest: findApprovedRequest(history, application.name), allowed: snapshot.settings.applicationRules[application.id] ?? application.allowed }));
+  const configuredApplications = configureApplications(applications, snapshot.settings.applicationRules).map((application) => ({ ...application, approvedRequest: findApprovedRequest(history, application.name) }));
   const visibleApplications = configuredApplications.filter((application) =>
     `${application.name} ${application.category}`.toLocaleLowerCase().includes(query.trim().toLocaleLowerCase()),
   );
   const allowedCount = configuredApplications.filter((application) => application.allowed).length;
+  const restrictableCount = configuredApplications.filter((application) => application.blockable && application.allowed).length;
   const selectedApplication = applications.find((application) => application.id === selectedAppId);
   const selectedBrand = selectedApplication ? findApplicationBrand(selectedApplication.name) : null;
   const detailsOpen = Boolean(selectedApplication && selectedBrand);
@@ -91,19 +93,19 @@ export function ApplicationsRestrictionScreen({ computer }: { computer: PairedCo
 
   function toggleApplication(id: string) {
     const application = configuredApplications.find((item) => item.id === id);
-    if (application) void save({ applicationRules: { [id]: !application.allowed } });
+    if (application?.blockable) void save({ applicationRules: { [id]: !application.allowed } });
   }
 
   function restrictAll() {
-    if (!allowedCount || busy || confirmationOpen) return;
+    if (!restrictableCount || busy || confirmationOpen) return;
     Keyboard.dismiss();
     setConfirmationOpen(true);
   }
 
   function confirmRestrictAll() {
-    if (!confirmationOpen || busy || !allowedCount) return;
+    if (!confirmationOpen || busy || !restrictableCount) return;
     setConfirmationOpen(false);
-    void save({ applicationRules: Object.fromEntries(applications.map((application) => [application.id, false])) });
+    void save({ applicationRules: Object.fromEntries(applications.filter((application) => application.blockable).map((application) => [application.id, false])) });
   }
 
   return (
@@ -150,7 +152,7 @@ export function ApplicationsRestrictionScreen({ computer }: { computer: PairedCo
 
               <View style={styles.summaryRow}>
                 <Text style={styles.summaryText}>{t('restriction.allowedApps', { allowed: allowedCount, total: applications.length })}</Text>
-                <Pressable accessibilityRole="button" accessibilityState={{ disabled: busy || allowedCount === 0 }} disabled={busy || allowedCount === 0} onPress={restrictAll} style={[styles.restrictButton, (busy || allowedCount === 0) && styles.disabled]}>
+                <Pressable accessibilityRole="button" accessibilityState={{ disabled: busy || restrictableCount === 0 }} disabled={busy || restrictableCount === 0} onPress={restrictAll} style={[styles.restrictButton, (busy || restrictableCount === 0) && styles.disabled]}>
                   <Text style={styles.restrictText}>{t('restriction.restrictAll')}</Text>
                 </Pressable>
               </View>
@@ -162,10 +164,10 @@ export function ApplicationsRestrictionScreen({ computer }: { computer: PairedCo
                     return (
                       <View key={application.id} style={styles.applicationItem}>
                         <Pressable
-                          accessibilityLabel={`${application.name}, ${t(application.allowed ? 'restriction.allowed' : 'restriction.restricted')}`}
-                          accessibilityRole="switch"
-                          accessibilityState={{ checked: application.allowed, disabled: busy }}
-                          disabled={busy}
+                          accessibilityLabel={`${application.name}, ${t(!application.blockable ? 'restriction.unblockable' : application.allowed ? 'restriction.allowed' : 'restriction.restricted')}`}
+                          accessibilityRole={application.blockable ? 'switch' : 'text'}
+                          accessibilityState={application.blockable ? { checked: application.allowed, disabled: busy } : undefined}
+                          disabled={busy || !application.blockable}
                           onPress={() => toggleApplication(application.id)}
                           style={({ pressed }) => [styles.applicationRow, pressed && styles.pressed]}
                         >
@@ -173,9 +175,11 @@ export function ApplicationsRestrictionScreen({ computer }: { computer: PairedCo
                           <View style={styles.applicationCopy}>
                             <Text style={styles.applicationName}>{application.name}</Text>
                             <Text style={styles.applicationCategory}>{application.category}</Text>
+                            {!application.blockable ? <Text style={styles.applicationCategory}>{t('restriction.unblockableDetail')}</Text> : null}
+                            {application.group.length > 0 ? <Text style={styles.applicationCategory}>{t('restriction.blocksTogether', { names: application.group.map((member) => member.name).join(', ') })}</Text> : null}
                             {application.approvedRequest ? <ReleaseDeadline computer={computer} requestId={application.approvedRequest.id} /> : null}
                           </View>
-                          <SwitchControl value={application.allowed} />
+                          {application.blockable ? <SwitchControl value={application.allowed} /> : <Text style={styles.applicationCategory}>{t('restriction.unblockable')}</Text>}
                         </Pressable>
                         {brand ? (
                           <Pressable accessibilityRole="button" accessibilityLabel={t('access.aboutApplication', { name: application.name })}
@@ -225,7 +229,7 @@ export function ApplicationsRestrictionScreen({ computer }: { computer: PairedCo
               <Text style={styles.dialogDescription}>{t('restriction.restrictAllDescription', { count: applications.length, name: computer.name })}</Text>
               <View style={styles.dialogActions}>
                 <Button label={t('common.cancel')} onPress={() => setConfirmationOpen(false)} />
-                <Button label={t('restriction.restrictAll')} disabled={busy || !allowedCount} onPress={confirmRestrictAll} style={styles.dialogConfirm} />
+                <Button label={t('restriction.restrictAll')} disabled={busy || !restrictableCount} onPress={confirmRestrictAll} style={styles.dialogConfirm} />
               </View>
             </ScrollView>
           </View>
