@@ -99,13 +99,15 @@ model SimulationState {
 }
 
 model InstalledApplication {
-  id       String  @id @default(uuid()) @db.Char(36)
-  deviceId String  @db.Char(36)
-  sourceId String  @db.VarChar(191)
-  name     String  @db.VarChar(200)
-  category String  @db.VarChar(100)
-  allowed  Boolean
-  device   Device  @relation(fields: [deviceId], references: [id], onDelete: Cascade)
+  id         String  @id @default(uuid()) @db.Char(36)
+  deviceId   String  @db.Char(36)
+  sourceId   String  @db.VarChar(191)
+  name       String  @db.VarChar(200)
+  category   String  @db.VarChar(100)
+  allowed    Boolean
+  blockable  Boolean @default(true)
+  executable String? @db.VarChar(191)
+  device     Device  @relation(fields: [deviceId], references: [id], onDelete: Cascade)
 
   @@unique([deviceId, sourceId])
   @@index([deviceId, name])

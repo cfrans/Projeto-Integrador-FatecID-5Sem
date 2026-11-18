@@ -5,7 +5,10 @@ import {
   IsBoolean,
   IsDateString,
   Equals,
+  IsOptional,
   IsString,
+  Matches,
+  ValidateIf,
   IsUUID,
   ValidateNested,
 } from 'class-validator';
@@ -31,6 +34,23 @@ export class AgentApplicationReportDto {
   @ApiProperty()
   @IsBoolean()
   allowed!: boolean;
+
+  @ApiProperty({ required: false })
+  @IsOptional()
+  @IsBoolean()
+  blockable?: boolean;
+
+  @ApiProperty({
+    required: false,
+    nullable: true,
+    type: String,
+    maxLength: 191,
+  })
+  @ValidateIf((_, value) => value !== null && value !== undefined)
+  @IsString()
+  @Matches(/^\//)
+  @CodePointLength(1, 191)
+  executable?: string | null;
 }
 
 export class AgentInstallationRequestReportDto {

@@ -26,6 +26,16 @@ function hasDuplicateSourceId(entries: { sourceId: string }[]): boolean {
   return new Set(entries.map((entry) => entry.sourceId)).size !== entries.length;
 }
 
+function hasInconsistentBlockability(
+  applications: AgentReportDto['applications'],
+): boolean {
+  return applications.some(({ blockable, executable }) =>
+    blockable === undefined
+      ? executable !== undefined
+      : executable === undefined || blockable !== (executable !== null),
+  );
+}
+
 function reportHash(report: AgentReportDto): string {
   return createHash('sha256').update(canonical(report)).digest('hex');
 }
@@ -40,6 +50,10 @@ export class ReportsService {
       hasDuplicateSourceId(report.installationRequests)
     )
       throw new UnprocessableEntityException('sourceId duplicado no relatório.');
+    if (hasInconsistentBlockability(report.applications))
+      throw new UnprocessableEntityException(
+        'blockable e executable inconsistentes no relatório.',
+      );
     const contentHash = reportHash(report);
     try {
       return await this.prisma.$transaction(

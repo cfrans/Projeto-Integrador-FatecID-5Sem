@@ -60,7 +60,14 @@ export class DevicesService {
         select: {
           applicationsReportedAt: true,
           applications: {
-            select: { id: true, name: true, category: true, allowed: true },
+            select: {
+              id: true,
+              name: true,
+              category: true,
+              allowed: true,
+              blockable: true,
+              executable: true,
+            },
             orderBy: [{ name: 'asc' }, { id: 'asc' }],
           },
         },

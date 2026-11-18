@@ -157,6 +157,57 @@ test('authenticated agent reports are transactional and idempotent', async () =>
       where: { deviceId: device.id },
     });
     assert.equal(reportedAgain.id, firstApplication.id);
+    assert.equal(reportedAgain.blockable, true);
+    assert.equal(reportedAgain.executable, null);
+
+    const grouped = report();
+    grouped.applications = [
+      {
+        sourceId: 'desktop:writer.desktop',
+        name: 'Writer',
+        category: 'office',
+        allowed: true,
+        blockable: true,
+        executable: '/usr/bin/libreoffice',
+      },
+      {
+        sourceId: 'desktop:guides.desktop',
+        name: 'Guides',
+        category: 'help',
+        allowed: true,
+        blockable: false,
+        executable: null,
+      },
+    ];
+    await http.put('/agent/reports').set(agentHeaders).send(grouped).expect(201);
+    assert.deepEqual(
+      await prisma.installedApplication.findMany({
+        where: { deviceId: device.id },
+        select: { sourceId: true, blockable: true, executable: true },
+        orderBy: { sourceId: 'asc' },
+      }),
+      [
+        { sourceId: 'desktop:guides.desktop', blockable: false, executable: null },
+        {
+          sourceId: 'desktop:writer.desktop',
+          blockable: true,
+          executable: '/usr/bin/libreoffice',
+        },
+      ],
+    );
+    for (const fields of [
+      { blockable: false, executable: '/usr/bin/xdg-open' },
+      { blockable: true, executable: null },
+      { blockable: true },
+      { executable: '/usr/bin/libreoffice' },
+    ]) {
+      const inconsistent = report();
+      Object.assign(inconsistent.applications[0], fields);
+      await http.put('/agent/reports').set(agentHeaders).send(inconsistent).expect(422);
+    }
+    const relative = report();
+    Object.assign(relative.applications[0], { blockable: true, executable: 'libreoffice' });
+    await http.put('/agent/reports').set(agentHeaders).send(relative).expect(400);
 
     const otherFlow = await prisma.installationRequest.create({
       data: {

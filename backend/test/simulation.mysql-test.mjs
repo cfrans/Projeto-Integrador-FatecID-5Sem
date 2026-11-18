@@ -78,6 +78,8 @@ test('demo registration, secure pairing, policy acknowledgement and revocation w
     assert.equal(confirmed.settings.ageRating, '16');
     const apps = await http.get(`/devices/${device.id}/applications`).set('Authorization', auth(tokens[0])).expect(200);
     assert.equal(apps.body[0].allowed, false);
+    assert.equal(apps.body[0].blockable, true);
+    assert.equal(apps.body[0].executable, null);
     await http.get(`/devices/${device.id}/installation-requests`).set('Authorization', auth(tokens[0])).expect(200).expect([]);
     await agentReport({ ...report, revision: 2 }).expect(200);
     assert.equal(await prisma.installedApplication.count({ where: { deviceId: device.id } }), 1);
