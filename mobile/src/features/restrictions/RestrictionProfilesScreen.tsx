@@ -70,7 +70,7 @@ export function RestrictionProfilesScreen() {
   }, [reload]));
 
   async function saveCurrent() {
-    if (!guardianId || !simulation || !computer?.isDemo || computer.associationId !== simulation.snapshot.associationId || !ready || working.current) return;
+    if (!guardianId || !simulation || !computer || computer.associationId !== simulation.snapshot.associationId || !ready || working.current) return;
     const trimmed = name.trim();
     if (!trimmed || trimmed.length > 40) { setError('profiles.nameRequired'); return; }
     if (profiles.length >= MAX_PROFILES) { setError('profiles.limit'); return; }
@@ -109,7 +109,8 @@ export function RestrictionProfilesScreen() {
         const next = await deleteProfile(profileStorage, guardianId, confirmation.profile.id);
         if (request === generation.current) { setProfiles(next); setNotice('profiles.deleted'); }
       } else if (simulation) {
-        const saved = await simulation.save(profileSettings(confirmation.profile.settings));
+        const { ageRating, ...withoutAge } = profileSettings(confirmation.profile.settings);
+        const saved = await simulation.save(computer?.isDemo ? { ...withoutAge, ageRating } : withoutAge);
         if (request === generation.current) {
           if (saved) setNotice('profiles.sent');
           else setError('profiles.applyError');
@@ -132,8 +133,9 @@ export function RestrictionProfilesScreen() {
       {ready && error === 'profiles.saveError' ? <Button label={t('common.retry')} disabled={busy} onPress={() => void reload()} /> : null}
       {notice ? <Text accessibilityLiveRegion="polite" style={styles.success}>{t(notice)}</Text> : null}
       {!ready ? error ? <Button label={t('common.retry')} onPress={() => void reload()} /> : <ActivityIndicator color={colors.accent} /> : <>
-        {computer?.isDemo && simulation && computer.associationId === simulation.snapshot.associationId ? <View style={styles.card}>
+        {computer && simulation && computer.associationId === simulation.snapshot.associationId ? <View style={styles.card}>
           <Text style={styles.heading}>{t('profiles.saveCurrent', { name: computer.name })}</Text>
+          {!computer.isDemo ? <Text style={styles.body}>{t('profiles.realAgeNote')}</Text> : null}
           <ProfileSummary settings={simulation.snapshot.settings} />
           <Text style={styles.label}>{t('profiles.name')}</Text>
           <TextInput accessibilityLabel={t('profiles.name')} placeholder={t('profiles.namePlaceholder')} placeholderTextColor={colors.textMuted} value={name} onChangeText={setName} maxLength={40} editable={!busy} style={styles.input} />
@@ -146,7 +148,7 @@ export function RestrictionProfilesScreen() {
           <Text style={styles.heading}>{profile.name}</Text>
           <ProfileSummary settings={profile.settings} />
           <View style={styles.actions}>
-            <Button label={t('profiles.apply')} disabled={busy || !computer?.isDemo || !simulation || computer.associationId !== simulation.snapshot.associationId || simulation.busy} onPress={() => {
+            <Button label={t('profiles.apply')} disabled={busy || !computer || !simulation || computer.associationId !== simulation.snapshot.associationId || simulation.busy} onPress={() => {
               if (computer && simulation && computer.associationId === simulation.snapshot.associationId) setConfirmation({ type: 'apply', profile, deviceId: computer.id, associationId: simulation.snapshot.associationId, revision: simulation.snapshot.revision, computerName: computer.name });
             }} />
             <Button label={t('profiles.delete')} disabled={busy} onPress={() => setConfirmation({ type: 'delete', profile })} />
