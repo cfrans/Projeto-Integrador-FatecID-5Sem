@@ -6,7 +6,7 @@ import { ApiError, apiErrorMessage } from '@/lib/api';
 import { useLanguage } from '@/features/i18n/LanguageProvider';
 import { useTheme } from '@/features/theme/ThemeProvider';
 import type { PairedComputer } from '@/features/devices/services/devices';
-import { readSimulation, updateSimulation, type SimulationSettings, type SimulationSnapshot } from './services/simulation';
+import { readSimulation, realPolicyStatus, updateSimulation, type RealPolicyStatus, type SimulationSettings, type SimulationSnapshot } from './services/simulation';
 
 type SimulationContextValue = {
   snapshot: SimulationSnapshot;
@@ -15,6 +15,24 @@ type SimulationContextValue = {
 };
 
 const SimulationContext = createContext<SimulationContextValue | null>(null);
+
+const realStatusKeys: Record<Exclude<RealPolicyStatus, 'failed'>, string> = {
+  applied: 'simulation.realApplied',
+  pending: 'simulation.realPending',
+  idle: 'simulation.realIdle',
+  disabled: 'simulation.realDisabled',
+};
+const failureCodes = ['POLICY_UNAVAILABLE', 'PERMISSION_DENIED', 'ACCOUNT_NOT_MANAGED', 'VERIFICATION_FAILED', 'EXECUTION_TIMEOUT', 'LOCAL_UNAVAILABLE'];
+
+function statusKey(snapshot: SimulationSnapshot | null, isDemo: boolean, busy: boolean) {
+  if (busy) return 'simulation.saving';
+  if (!snapshot) return 'simulation.loading';
+  if (isDemo) return snapshot.appliedRevision === snapshot.revision ? 'simulation.applied' : 'simulation.pending';
+  const status = realPolicyStatus(snapshot);
+  if (status !== 'failed') return realStatusKeys[status];
+  const code = snapshot.error?.code ?? '';
+  return `simulation.failure.${failureCodes.includes(code) ? code : 'default'}`;
+}
 
 export function SimulationProvider({ computer, children }: { computer: PairedComputer | null; children: ReactNode }) {
   const [stored, setStored] = useState<{ deviceId: string; snapshot: SimulationSnapshot } | null>(null);
@@ -31,7 +49,7 @@ export function SimulationProvider({ computer, children }: { computer: PairedCom
   const { colors } = useTheme();
 
   const load = useCallback(async () => {
-    if (saving.current || !deviceId || !isDemo) return;
+    if (saving.current || !deviceId) return;
     const request = ++generation.current;
     try {
       const next = await readSimulation(deviceId);
@@ -49,7 +67,7 @@ export function SimulationProvider({ computer, children }: { computer: PairedCom
         setError(apiErrorMessage(cause));
       }
     }
-  }, [deviceId, isDemo]);
+  }, [deviceId]);
 
   useFocusEffect(useCallback(() => {
     active.current = true;
@@ -61,9 +79,9 @@ export function SimulationProvider({ computer, children }: { computer: PairedCom
       await load();
       if (!cancelled) timer = setTimeout(() => void poll(), 2000);
     };
-    if (deviceId && isDemo) void poll();
+    if (deviceId) void poll();
     return () => { cancelled = true; active.current = false; generation.current += 1; clearTimeout(timer); };
-  }, [deviceId, isDemo, load]));
+  }, [deviceId, load]));
 
   async function save(settings: Partial<SimulationSettings>) {
     if (!deviceId || !snapshot || !current.current || saving.current) return false;
@@ -94,12 +112,13 @@ export function SimulationProvider({ computer, children }: { computer: PairedCom
           {snapshot.connection.lastSeen ? ` · ${t('simulation.lastContact', { time: new Intl.DateTimeFormat(language, { hour: '2-digit', minute: '2-digit', second: '2-digit' }).format(new Date(snapshot.connection.lastSeen)) })}` : ''}
         </Text> : null}
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 7 }}>
-          <View style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: error ? colors.danger : snapshot?.appliedRevision === snapshot?.revision && snapshot && !busy ? colors.success : colors.textMuted }} />
+          <View style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: error || (!isDemo && snapshot && realPolicyStatus(snapshot) === 'failed') ? colors.danger : snapshot?.appliedRevision === snapshot?.revision && snapshot && !busy ? colors.success : colors.textMuted }} />
           <Text testID="simulation-status" accessibilityLiveRegion="polite" style={{ color: colors.textSecondary, fontSize: 12, flexShrink: 1 }}>
-            {t(!isDemo ? 'simulation.realUnavailable' : busy ? 'simulation.saving' : !snapshot ? 'simulation.loading' : snapshot.appliedRevision === snapshot.revision ? 'simulation.applied' : 'simulation.pending')}
+            {t(statusKey(snapshot, isDemo, busy))}
             {snapshot?.appliedAt && snapshot.appliedRevision === snapshot.revision ? ` · ${new Intl.DateTimeFormat(language, { hour: '2-digit', minute: '2-digit', second: '2-digit' }).format(new Date(snapshot.appliedAt))}` : ''}
           </Text>
         </View>
+        {!isDemo && snapshot ? <Text style={{ color: colors.textMuted, fontSize: 12 }}>{t('simulation.realNote')}</Text> : null}
         {error ? <Text accessibilityRole="alert" style={{ color: colors.danger, fontSize: 12 }}>{localize(error)}</Text> : null}
         {error ? <Button label={t('common.retry')} disabled={busy} onPress={() => void load()} /> : null}
       </View> : null}

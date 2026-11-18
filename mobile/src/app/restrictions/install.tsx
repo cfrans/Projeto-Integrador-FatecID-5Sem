@@ -5,5 +5,5 @@ import { InstallationRestrictionScreen } from '@/features/restrictions/Installat
 export default function InstallScreen() {
   const computer = useRestrictionComputer();
   const ready = useSimulationReady();
-  return computer && ready ? <InstallationRestrictionScreen key={computer.id} computer={computer} /> : null;
+  return computer?.isDemo && ready ? <InstallationRestrictionScreen key={computer.id} computer={computer} /> : null;
 }
