@@ -9,7 +9,7 @@ import { createHash, randomBytes } from 'node:crypto';
 import type { Prisma } from '../../generated/prisma/client.js';
 import { enqueueAppFilter } from '../commands/app-filter-command.js';
 import { PrismaService } from '../prisma/prisma.service.js';
-import { deriveAppFilter } from './real-app-filter.js';
+import { applyApplicationRules, deriveAppFilter } from './real-app-filter.js';
 import { simulationPresence } from './simulation-presence.js';
 import {
   defaults,
@@ -124,12 +124,16 @@ export class SimulationService {
             current.installationDecisions[requestId] === 'APPROVED',
         )
         .map(([requestId]) => requestId);
-      if (patch.applicationRules) {
-        const count = await tx.installedApplication.count({
-          where: { deviceId, id: { in: Object.keys(patch.applicationRules) } },
-        });
-        if (count !== Object.keys(patch.applicationRules).length) invalid();
-      }
+      const installed = await tx.installedApplication.findMany({
+        where: { deviceId },
+        select: {
+          id: true,
+          sourceId: true,
+          name: true,
+          blockable: true,
+          executable: true,
+        },
+      });
       if (patch.installationDecisions) {
         const count = await tx.installationRequest.count({
           where: {
@@ -145,14 +149,15 @@ export class SimulationService {
           invalid();
       }
       const settings = mergeSettings(current, patch);
-      if (revokedRequests.length) {
-        const installed = await tx.installedApplication.findMany({
-          where: { deviceId, id: { in: revokedRequests } },
-          select: { id: true },
-        });
-        for (const application of installed)
+      if (patch.applicationRules)
+        settings.applicationRules = applyApplicationRules(
+          current.applicationRules,
+          patch.applicationRules,
+          installed,
+        );
+      for (const application of installed)
+        if (revokedRequests.includes(application.id))
           settings.applicationRules[application.id] = false;
-      }
       if (
         Object.keys(settings.applicationRules).length > 100 ||
         Object.keys(settings.installationDecisions).length > 100
@@ -167,13 +172,7 @@ export class SimulationService {
           deviceId,
           associationId: state.associationId,
           revision: updated.revision,
-          appFilter: deriveAppFilter(
-            settings,
-            await tx.installedApplication.findMany({
-              where: { deviceId },
-              select: { id: true, sourceId: true },
-            }),
-          ),
+          appFilter: deriveAppFilter(settings, installed),
           now: new Date(),
         });
       return this.view(tx, updated, isDemo);

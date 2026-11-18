@@ -54,6 +54,17 @@ describe('Simulated computer synchronization', () => {
     appliedAt: null,
     lastSeenAt: null,
   });
+  const reported = (
+    applicationId: string,
+    sourceId: string,
+    executable: string | null,
+  ) => ({
+    id: applicationId,
+    sourceId,
+    name: applicationId,
+    blockable: executable !== null,
+    executable,
+  });
   const payload = () => ({
     associationId,
     revision: 1,
@@ -162,10 +173,45 @@ describe('Simulated computer synchronization', () => {
       tx.device.findFirst.mockResolvedValue({ id: deviceId, isDemo: false });
       tx.simulationState.update.mockResolvedValue({ ...state(), revision: 2 });
       tx.installedApplication.findMany.mockResolvedValue([
-        { id: associationId, sourceId: 'desktop:gimp.desktop' },
-        { id: deviceId, sourceId: 'desktop:chromium.desktop' },
-        { id: 'other', sourceId: 'desktop:firefox-esr.desktop' },
+        reported(associationId, 'desktop:gimp.desktop', '/usr/bin/gimp'),
+        reported(deviceId, 'desktop:chromium.desktop', '/usr/bin/chromium'),
+        reported(
+          'other',
+          'desktop:firefox-esr.desktop',
+          '/usr/bin/firefox-esr',
+        ),
       ]);
+    });
+
+    it('blocks the whole executable group and queues every member', async () => {
+      tx.installedApplication.findMany.mockResolvedValue([
+        reported(
+          associationId,
+          'desktop:writer.desktop',
+          '/usr/bin/libreoffice',
+        ),
+        reported('calc', 'desktop:calc.desktop', '/usr/bin/libreoffice'),
+      ]);
+      await update();
+      expect(
+        tx.simulationState.update.mock.calls[0][0].data.settings,
+      ).toMatchObject({
+        applicationRules: { [associationId]: false, calc: false },
+      });
+      expect(
+        tx.agentCommand.create.mock.calls[0][0].data.parameters,
+      ).toMatchObject({
+        blockedApplications: ['desktop:calc.desktop', 'desktop:writer.desktop'],
+      });
+    });
+
+    it('rejects blocking an app that cannot be blocked without saving or queueing', async () => {
+      tx.installedApplication.findMany.mockResolvedValue([
+        reported(associationId, 'desktop:guides.desktop', null),
+      ]);
+      await expect(update()).rejects.toMatchObject({ status: 400 });
+      expect(tx.simulationState.update).not.toHaveBeenCalled();
+      expect(tx.agentCommand.create).not.toHaveBeenCalled();
     });
 
     it('stores the derived policy and queues it with the new revision in the same transaction', async () => {
@@ -279,7 +325,7 @@ describe('Simulated computer synchronization', () => {
 
     it('rejects the revision when a blocked app has an identifier the Agent cannot receive', async () => {
       tx.installedApplication.findMany.mockResolvedValue([
-        { id: associationId, sourceId: 'desktop:bad/name.desktop' },
+        reported(associationId, 'desktop:bad/name.desktop', '/usr/bin/bad'),
       ]);
       await expect(update()).rejects.toMatchObject({ status: 400 });
       expect(tx.agentCommand.create).not.toHaveBeenCalled();

@@ -429,6 +429,56 @@ test('real computer settings queue parental commands reconciled with what the ag
     assert.notEqual(snapshot.appliedRevision, snapshot.revision);
     process.env.ENABLE_PARENTAL_COMMANDS = 'true';
 
+    const extra = {};
+    for (const [name, executable] of [
+      ['writer', '/usr/bin/libreoffice'],
+      ['calc', '/usr/bin/libreoffice'],
+      ['guides', null],
+    ]) {
+      const app = await prisma.installedApplication.create({
+        data: {
+          deviceId: f.deviceId,
+          sourceId: `desktop:${name}.desktop`,
+          name,
+          category: 'test',
+          allowed: true,
+          blockable: executable !== null,
+          executable,
+        },
+      });
+      extra[name] = app.id;
+    }
+    const beforeRefusal = await settings();
+    const refused = await http
+      .patch(settingsUrl)
+      .set(owner.headers)
+      .send({
+        revision: beforeRefusal.revision,
+        settings: { applicationRules: { [extra.guides]: false, [f.apps.gimp]: false } },
+      })
+      .expect(400);
+    assert.match(refused.body.message, /guides não pode ser bloqueado.*Nenhuma alteração foi salva/);
+    await http
+      .patch(settingsUrl)
+      .set(owner.headers)
+      .send({
+        revision: beforeRefusal.revision,
+        settings: { applicationRules: { [extra.writer]: false, [extra.calc]: true } },
+      })
+      .expect(400);
+    assert.equal((await settings()).revision, beforeRefusal.revision);
+    const grouped = await changeAndQueue({
+      applicationRules: { ...block(), [extra.writer]: false },
+    });
+    assert.deepEqual(
+      (await command(grouped.id)).parameters.blockedApplications,
+      ['desktop:calc.desktop', 'desktop:writer.desktop'],
+    );
+    assert.equal((await settings()).settings.applicationRules[extra.calc], false);
+    await prisma.installedApplication.deleteMany({
+      where: { id: { in: Object.values(extra) } },
+    });
+
     const runningAtRevocation = await changeAndQueue({
       applicationRules: block('discord'),
     });
