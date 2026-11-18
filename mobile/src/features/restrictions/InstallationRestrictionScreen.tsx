@@ -35,6 +35,11 @@ export function InstallationRestrictionScreen({ computer }: { computer: PairedCo
 
   useFocusEffect(
     useCallback(() => {
+      if (!computer.isDemo) {
+        setRequests([]);
+        setLoadState('ready');
+        return;
+      }
       if (!snapshot.appliedAt) {
         setLoadState('loading');
         return;
@@ -58,7 +63,7 @@ export function InstallationRestrictionScreen({ computer }: { computer: PairedCo
       return () => {
         active = false;
       };
-    }, [computer.id, snapshot.appliedAt]),
+    }, [computer.id, computer.isDemo, snapshot.appliedAt]),
   );
 
 
@@ -151,8 +156,8 @@ export function InstallationRestrictionScreen({ computer }: { computer: PairedCo
                 </View>
               ) : (
                 <View style={styles.emptyState}>
-                  <Text style={styles.emptyTitle}>{t('restriction.noPendingRequests')}</Text>
-                  <Text style={styles.stateText}>{t('restriction.newRequests')}</Text>
+                  <Text style={styles.emptyTitle}>{t(computer.isDemo ? 'restriction.noPendingRequests' : 'restriction.realRequestsUnavailable')}</Text>
+                  {computer.isDemo ? <Text style={styles.stateText}>{t('restriction.newRequests')}</Text> : null}
                 </View>
               )}
             </>
