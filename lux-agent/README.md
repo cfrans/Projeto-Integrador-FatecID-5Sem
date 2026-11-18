@@ -1,6 +1,6 @@
 # Lux Agent
 
-Pacote Python `lux_agent` com cinco subcomandos: `pair` pareia o computador com um responsável por QR no terminal; `read-policies` lê políticas nativas; `prove-app-filter` prova a escrita do filtro de aplicativos com releitura e restauração; `check-backend` valida uma vez a identidade provisionada; `poll` consulta vínculos, processa `agent.ping` e `parental.app_filter.set` e, com `--collect-report-file` e `--state-dir`, coleta aplicativos Linux e envia relatórios autenticados para `PUT /agent/reports`. No Lux, `poll` roda como serviço systemd instalado por `install.sh` ([Instalar como serviço](#instalar-como-serviço)). Não há GTK.
+Pacote Python `lux_agent` com cinco subcomandos: `pair` pareia o computador com um responsável por QR no terminal; `read-policies` lê políticas nativas; `prove-app-filter` prova a escrita do filtro de aplicativos com releitura e restauração; `check-backend` valida uma vez a identidade provisionada; `poll` consulta vínculos, processa `agent.ping` e `parental.app_filter.set` e, com `--collect-report-file` e `--state-dir`, coleta aplicativos Linux e envia relatórios autenticados para `PUT /agent/reports`. No Lux, `poll` roda como serviço systemd instalado por `install.sh` ([Instalar como serviço](#instalar-como-serviço)). A janela GTK de pareamento **Piplup** fica no pacote separado `lux_agent_gui` ([Parear](#parear-com-um-responsável)).
 
 O [protocolo v1](../docs/agent-protocol.md) implementa reserva única e resultado idempotente de ping com diário privado. A [validação ponta a ponta](../docs/agent-ping-validation.md) usou NestJS/MySQL e Lux reais por HTTPS. O executor também aplica o filtro de aplicativos (`parental.app_filter.set`) na conta gerenciada local, com releitura ([execução no Agent](../docs/agent-protocol.md#execução-no-agent)).
 
@@ -24,7 +24,11 @@ lux-agent/
 ├── prove_app_filter.py       atalho para prove-app-filter
 ├── scripts/
 │   ├── lux-agent             comando instalado em /usr/local/bin
-│   └── lux-agent-pair-helper auxiliar de pareamento executado via pkexec
+│   ├── lux-agent-pair-helper auxiliar de pareamento executado via pkexec
+│   └── piplup                abre a janela de pareamento (atalho Piplup)
+├── desktop/
+│   ├── org.piplup.Pairing.desktop
+│   └── org.piplup.Pairing.svg
 ├── polkit/
 │   ├── 50-lux-agent.rules
 │   └── org.piplup.luxagent.pair.policy
@@ -41,6 +45,10 @@ lux-agent/
 │   ├── journal.py
 │   ├── pairing.py
 │   └── parental.py
+├── lux_agent_gui/            janela GTK4/libadwaita, sem importar lux_agent
+│   ├── __main__.py
+│   ├── session.py            eventos do auxiliar → estados, QR em pixels (sem GTK)
+│   └── window.py
 └── tests/
     ├── __init__.py
     ├── test_check_backend.py
@@ -51,6 +59,7 @@ lux-agent/
     ├── test_pairing.py
     ├── test_parental_write.py
     ├── test_reports.py
+    ├── test_gui_session.py
     └── test_cli.py
 ```
 
@@ -66,7 +75,7 @@ lux-agent/
 | `pairing` | Auxiliar privilegiado (credencial, autorregistro, sessão, espera do vínculo e reinício do serviço) e `pair`, que executa o auxiliar via `pkexec` e desenha o QR. Ver [Parear](#parear-com-um-responsável). |
 | `parental` | Leitura e escrita malcontent, conversão `desktop:<id>` → executável e recusa de conta administrativa; `apply_app_filter` executa o `set` e traduz falhas em códigos do protocolo. Carrega GI somente ao acessar políticas; não conhece o transporte. |
 
-O diagnóstico de backend não mantém ciclo; `poll` executa em primeiro plano e é supervisionado pelo systemd no Lux; `read-policies` é diagnóstico local independente. A futura GTK continua separada. Não há dependência de execução além do Python e dos bindings GI do sistema. `errors.py` evita que configuração/diário dependam do módulo HTTP; o prazo total foi centralizado porque polling e comandos duplicavam o mesmo tratamento.
+O diagnóstico de backend não mantém ciclo; `poll` executa em primeiro plano e é supervisionado pelo systemd no Lux; `read-policies` é diagnóstico local independente. A janela GTK (`lux_agent_gui`) é processo separado e só conversa com o auxiliar. Não há dependência de execução além do Python e dos bindings GI do sistema. `errors.py` evita que configuração/diário dependam do módulo HTTP; o prazo total foi centralizado porque polling e comandos duplicavam o mesmo tratamento.
 
 A partir da raiz do repositório:
 
@@ -137,6 +146,8 @@ sudo ~/lux-agent-poc/uninstall.sh [--reset-policies] [--yes]
 | `/opt/lux-agent/lux_agent/` | root, `0755`/`0644` | Pacote Python; o serviço não pode alterá-lo |
 | `/opt/lux-agent/lux-agent-pair-helper` | root, `0755` | Auxiliar de pareamento (via `pkexec`) |
 | `/usr/local/bin/lux-agent` | root, `0755` | Comando `lux-agent` (ex.: `lux-agent pair`) |
+| `/opt/lux-agent/lux_agent_gui/`, `/usr/local/bin/piplup` | root | Janela de pareamento e seu lançador |
+| `/usr/share/applications/org.piplup.Pairing.desktop`, `/usr/share/icons/hicolor/scalable/apps/org.piplup.Pairing.svg` | root, `0644` | Atalho e ícone Piplup no menu |
 | `/etc/lux-agent/` | `root:lux-agent`, `0750` | Configuração |
 | `/etc/lux-agent/agent.env` | root, `0600` | `LUX_AGENT_BACKEND_URL`, `LUX_AGENT_MANAGED_USER`, `LUX_AGENT_POLL_OPTIONS` (ver `agent.env.example`) |
 | `/etc/lux-agent/credential` | `lux-agent`, `0600` | Credencial gerada pelo pareamento |
@@ -149,7 +160,7 @@ sudo ~/lux-agent-poc/uninstall.sh [--reset-policies] [--yes]
 - **Usuário:** `lux-agent`, de sistema, sem shell nem home. O serviço não roda como root.
 - **Conta gerenciada:** `--managed-user` ou pergunta interativa. É decisão local; o backend nunca a escolhe. A unit a repassa ao `poll` por `--managed-user`. Recusa conta inexistente, root, UID fora de 1000–59999 e membros do grupo `sudo`.
 - **Credencial:** gerada por `lux-agent pair`; o `install.sh` não a recebe e reexecuções a mantêm. Sem credencial, a unit fica habilitada mas não inicia (`ConditionPathExists`) até o pareamento.
-- **Dependências:** `python3-qrcode` e `pkexec`, instalados com `apt-get` quando faltam (o papel do `Depends` de um futuro pacote).
+- **Dependências:** `python3-qrcode`, `pkexec`, `python3-gi`, `gir1.2-gtk-4.0` e `gir1.2-adw-1`, instalados com `apt-get` quando faltam (o papel do `Depends` de um futuro pacote).
 - **Reexecução:** idempotente. Atualiza código, unit e regra, reaproveita URL, opções e conta já gravadas e reinicia o serviço.
 - **Reinício:** `Restart=on-failure`, exceto códigos 2 (configuração), 3 (credencial revogada) e 6 (incompatibilidade), que param o serviço sem loop (`RestartPreventExitStatus`). Falhas de rede e TLS continuam reiniciando ou repetindo com backoff.
 - **Logs:** journald (`journalctl -u lux-agent`), sem credencial, Bearer ou corpo HTTP.
@@ -158,7 +169,7 @@ sudo ~/lux-agent-poc/uninstall.sh [--reset-policies] [--yes]
 
 ## Parear com um responsável
 
-Um administrador roda `lux-agent pair` no terminal do Lux, digita a senha de administrador e vê um QR com a hora de expiração (5 min). O responsável lê o QR em **Adicionar computador** no app e confirma; o comando informa o vínculo e o serviço reinicia sozinho. Usuário sem senha de administrador é negado.
+Um administrador abre **Piplup** no menu de aplicativos (ou roda `piplup` no terminal da sessão gráfica) e clica em **Parear**, ou roda `lux-agent pair` no terminal; digita a senha de administrador e vê um QR com a expiração (5 min). A janela mostra contagem regressiva e os estados descritos em [interface gráfica](../docs/lux-integration.md#interface-gráfica-local-de-pareamento); fechá-la cancela o pareamento. O responsável lê o QR em **Adicionar computador** no app e confirma; o comando informa o vínculo e o serviço reinicia sozinho. Usuário sem senha de administrador é negado.
 
 | Saída | Situação |
 | --- | --- |
@@ -170,6 +181,16 @@ Um administrador roda `lux-agent pair` no terminal do Lux, digita a senha de adm
 | 6 | Resposta incompatível |
 
 Na primeira vez, ou quando o backend recusa a credencial (`401`, revogada ou nunca confirmada), o auxiliar gera outra e faz o autorregistro; com credencial válida, só abre uma nova sessão. O fluxo, as garantias e os limites estão em [Pareamento pelo Agent](../docs/lux-integration.md#pareamento-pelo-agent). Revogado o vínculo, o serviço para com código 3 e um novo `lux-agent pair` gera outra identidade.
+
+### Validação da janela de pareamento no Lux — 2026-11-18
+
+GNOME 50 com GTK 4.22 e libadwaita 1.9, backend no WSL2 por HTTPS com CA explícita e túnel SSH. A confirmação do responsável foi simulada: o QR foi decodificado da captura da janela e enviado a `POST /pairing/validate` e `/pairing/complete` com o token de um responsável de teste. A leitura pela câmera fica para o LUX-10.
+
+- `install.sh` instalou o atalho, o ícone e o comando `piplup`; o Piplup apareceu na busca do GNOME. Os avisos do Mesa/EGL no terminal vêm da VM sem aceleração; o GTK usa o renderizador por software.
+- Com vínculo ativo: "Computador já pareado". Senha cancelada: "Autorização necessária". Com o vínculo revogado: QR com contagem regressiva, e depois da confirmação "Computador pareado". O serviço reiniciou pelo auxiliar (`NRestarts=0`, HTTP 200, relatório aceito).
+- Janela fechada com o QR na tela: o auxiliar saiu sem reiniciar o serviço, que seguiu consultando.
+- Revogar o vínculo não para o serviço: a credencial continua válida (HTTP 200 com o vínculo revogado no histórico).
+- 149 testes passaram no WSL2 e no Lux. O tema do Lux não tem `emblem-ok-symbolic`; a janela usa `object-select-symbolic`.
 
 ### Validação do pareamento no Lux — 2026-11-15
 
@@ -309,7 +330,7 @@ python3 -B -m lux_agent read-policies --help
 python3 -B -m lux_agent prove-app-filter --help
 ```
 
-A suíte tem 121 testes em `tests/`, incluindo CLI/imports, wrappers, lista restrita de deploy e sintaxe dos scripts de instalação. O comando antigo `python3 -m unittest discover -s lux-agent -v`, na raiz do repositório, continua descobrindo a suíte. O diretório ainda não tem ferramentas Python de lint/typecheck configuradas. Compilação verifica sintaxe; os testes de comunicação usam um servidor HTTP local temporário e verificam Bearer, respostas, redirecionamento, falhas e proteção da credencial. Os testes da PoC verificam usuário obrigatório/inexistente, dependência ausente, flags sem interação, valores nativos, políticas desativadas e falha sem saída parcial. Esses testes isolados não comprovam permissões nem aplicação de restrições no Lux.
+A suíte tem 149 testes em `tests/`, incluindo CLI/imports, wrappers, lista restrita de deploy e sintaxe dos scripts de instalação. O comando antigo `python3 -m unittest discover -s lux-agent -v`, na raiz do repositório, continua descobrindo a suíte. O diretório ainda não tem ferramentas Python de lint/typecheck configuradas. Compilação verifica sintaxe; os testes de comunicação usam um servidor HTTP local temporário e verificam Bearer, respostas, redirecionamento, falhas e proteção da credencial. Os testes da PoC verificam usuário obrigatório/inexistente, dependência ausente, flags sem interação, valores nativos, políticas desativadas e falha sem saída parcial. Esses testes isolados não comprovam permissões nem aplicação de restrições no Lux. A janela GTK não roda no WSL sem `gir1.2-gtk-4.0`/`gir1.2-adw-1`; seus testes cobrem só `session.py`.
 
 ## Validação da reorganização — 2026-10-26
 

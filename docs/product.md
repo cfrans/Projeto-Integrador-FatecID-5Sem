@@ -11,7 +11,7 @@ O aplicativo Expo usa autenticação real de responsáveis e consulta registros 
 ## Usuários
 
 - Responsável: usa o mobile para autenticar-se, consultar computadores autorizados, parear/revogar vínculos e, futuramente, consultar restrições, solicitar alterações e acompanhar resultados.
-- Administrador local do Lux: autoriza o pareamento (`lux-agent pair`, senha de administrador) e operações locais que exigirem permissão; futuramente, também pela interface GTK independente do serviço.
+- Administrador local do Lux: autoriza o pareamento (app Piplup ou `lux-agent pair`, senha de administrador) e operações locais que exigirem permissão.
 - Criança/conta gerenciada: utiliza o computador sujeito às políticas nativas; essa conta não equivale à conta do responsável na API.
 - Administrador do backend: invalida a identidade do computador quando necessário; o provisionamento manual fica para desenvolvimento, pois o Agent se registra no pareamento.
 
@@ -27,7 +27,7 @@ O primeiro MVP deverá reunir autenticação real, gerenciamento de dispositivos
 
 ## Etapa atual e fora de escopo
 
-A fundação, autenticação e listagem autorizada já foram entregues. A infraestrutura de pareamento já existe na API/mobile, com um responsável ativo por computador, tokens temporários de uso único e revogação. A identidade do computador nasce do autorregistro do Agent, confirmado pelo responsável no pareamento. A etapa 5 do Agent é parcial; o [protocolo v1 de comandos](agent-protocol.md) permite somente `agent.ping`, validado no Lux real. Não há execução parental remota ou aplicação de restrições. O pareamento usa QR no terminal; a pequena interface local Python/GTK4/libadwaita, separada do Agent systemd, é planejada. Criar um mecanismo próprio de bloqueio parental ou modificar o código-fonte do GNOME/Controle Parental está fora do escopo.
+A fundação, autenticação e listagem autorizada já foram entregues. A infraestrutura de pareamento já existe na API/mobile, com um responsável ativo por computador, tokens temporários de uso único e revogação. A identidade do computador nasce do autorregistro do Agent, confirmado pelo responsável no pareamento. A etapa 5 do Agent é parcial; o [protocolo v1 de comandos](agent-protocol.md) permite somente `agent.ping`, validado no Lux real. Não há execução parental remota ou aplicação de restrições. O pareamento usa QR no terminal ou na pequena janela Python/GTK4/libadwaita Piplup, separada do Agent systemd. Criar um mecanismo próprio de bloqueio parental ou modificar o código-fonte do GNOME/Controle Parental está fora do escopo.
 
 ## Referências e limites
 
