@@ -14,6 +14,10 @@ POLKIT_RULE=/etc/polkit-1/rules.d/50-lux-agent.rules
 PAIR_HELPER=$APP_DIR/lux-agent-pair-helper
 PAIR_ACTION=/usr/share/polkit-1/actions/org.piplup.luxagent.pair.policy
 COMMAND=/usr/local/bin/lux-agent
+GUI_COMMAND=/usr/local/bin/piplup
+DESKTOP_FILE=/usr/share/applications/org.piplup.Pairing.desktop
+ICON_DIR=/usr/share/icons/hicolor
+ICON=$ICON_DIR/scalable/apps/org.piplup.Pairing.svg
 
 usage() {
     cat <<'EOF'
@@ -82,7 +86,8 @@ done
 command -v python3 >/dev/null || die "python3 não encontrado."
 command -v systemctl >/dev/null || die "systemd não encontrado."
 for file in lux-agent.service polkit/50-lux-agent.rules polkit/org.piplup.luxagent.pair.policy \
-        scripts/lux-agent scripts/lux-agent-pair-helper lux_agent/__main__.py; do
+        scripts/lux-agent scripts/lux-agent-pair-helper scripts/piplup lux_agent/__main__.py \
+        lux_agent_gui/__main__.py desktop/org.piplup.Pairing.desktop desktop/org.piplup.Pairing.svg; do
     [[ -f $SOURCE_DIR/$file ]] || die "arquivo ausente na origem: $file."
 done
 
@@ -103,6 +108,9 @@ fi
 missing_packages=()
 python3 -c 'import qrcode' 2>/dev/null || missing_packages+=(python3-qrcode)
 command -v pkexec >/dev/null || missing_packages+=(pkexec)
+python3 -c 'import gi' 2>/dev/null || missing_packages+=(python3-gi)
+python3 -c 'import gi; gi.require_version("Gtk", "4.0")' 2>/dev/null || missing_packages+=(gir1.2-gtk-4.0)
+python3 -c 'import gi; gi.require_version("Adw", "1")' 2>/dev/null || missing_packages+=(gir1.2-adw-1)
 if (( ${#missing_packages[@]} > 0 )); then
     echo "Instalando dependências: ${missing_packages[*]}."
     DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends "${missing_packages[@]}" >/dev/null \
@@ -118,8 +126,15 @@ install -d -m 0755 -o root -g root "$APP_DIR"
 rm -rf -- "$APP_DIR/lux_agent"
 install -d -m 0755 -o root -g root "$APP_DIR/lux_agent"
 install -m 0644 -o root -g root "$SOURCE_DIR"/lux_agent/*.py "$APP_DIR/lux_agent/"
+rm -rf -- "$APP_DIR/lux_agent_gui"
+install -d -m 0755 -o root -g root "$APP_DIR/lux_agent_gui"
+install -m 0644 -o root -g root "$SOURCE_DIR"/lux_agent_gui/*.py "$APP_DIR/lux_agent_gui/"
 install -m 0755 -o root -g root "$SOURCE_DIR/scripts/lux-agent-pair-helper" "$PAIR_HELPER"
 install -m 0755 -o root -g root "$SOURCE_DIR/scripts/lux-agent" "$COMMAND"
+install -m 0755 -o root -g root "$SOURCE_DIR/scripts/piplup" "$GUI_COMMAND"
+install -D -m 0644 -o root -g root "$SOURCE_DIR/desktop/org.piplup.Pairing.desktop" "$DESKTOP_FILE"
+install -D -m 0644 -o root -g root "$SOURCE_DIR/desktop/org.piplup.Pairing.svg" "$ICON"
+gtk-update-icon-cache -q -t -f "$ICON_DIR" 2>/dev/null || true
 
 install -d -m 0750 -o root -g "$SERVICE_USER" "$CONFIG_DIR"
 env_tmp=$(mktemp "$CONFIG_DIR/.agent.env.XXXXXX")
@@ -149,5 +164,5 @@ if [[ -e $CREDENTIAL ]]; then
     echo "Serviço lux-agent instalado e (re)iniciado para a conta gerenciada '$managed_user'."
 else
     echo "Serviço lux-agent instalado; ele inicia após o pareamento."
-    echo "Para parear, um administrador executa: lux-agent pair"
+    echo "Para parear, um administrador abre Piplup no menu de aplicativos (ou roda piplup) ou executa: lux-agent pair"
 fi

@@ -10,6 +10,8 @@ from .errors import DiagnosticError
 from .parental import SESSION_PATH, exec_executable
 from .reports import MAX_ENTRIES, MAX_REPORT_BYTES, serialized_size, validate_report
 
+OWN_DESKTOP_ENTRIES = {'org.piplup.Pairing.desktop'}
+
 
 def data_directories():
     user_data = Path(os.environ.get('XDG_DATA_HOME', Path.home() / '.local/share'))
@@ -70,6 +72,8 @@ def collect_applications(paths=None, search_path=SESSION_PATH):
         if not directory.is_dir():
             continue
         for path in sorted(directory.glob('*.desktop')):
+            if path.name in OWN_DESKTOP_ENTRIES:
+                continue
             entry = desktop_entry(path, search_path)
             if entry is not None:
                 applications.setdefault(entry['sourceId'], entry)

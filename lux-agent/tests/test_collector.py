@@ -23,6 +23,9 @@ class CollectorTests(unittest.TestCase):
             (applications / 'link.desktop').write_text(
                 '[Desktop Entry]\nType=Link\nName=Link\n'
             )
+            (applications / 'org.piplup.Pairing.desktop').write_text(
+                '[Desktop Entry]\nType=Application\nName=Piplup\n'
+            )
             result = collect_applications([directory])
             self.assertEqual(result, [{
                 'sourceId': 'desktop:browser.desktop',

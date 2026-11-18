@@ -1,0 +1,10 @@
+[Desktop Entry]
+Type=Application
+Name=Piplup
+Comment=Parear este computador com o app Piplup do responsável
+Exec=/usr/local/bin/piplup
+Icon=org.piplup.Pairing
+Terminal=false
+Categories=GTK;Settings;System;
+Keywords=pareamento;QR;controle parental;
+StartupNotify=true

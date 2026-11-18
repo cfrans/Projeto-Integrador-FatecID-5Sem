@@ -12,6 +12,9 @@ polkit/50-lux-agent.rules
 polkit/org.piplup.luxagent.pair.policy
 scripts/lux-agent
 scripts/lux-agent-pair-helper
+scripts/piplup
+desktop/org.piplup.Pairing.desktop
+desktop/org.piplup.Pairing.svg
 lux_agent/__init__.py
 lux_agent/__main__.py
 lux_agent/backend.py
@@ -25,10 +28,15 @@ lux_agent/pairing.py
 lux_agent/parental.py
 lux_agent/polling.py
 lux_agent/reports.py
+lux_agent_gui/__init__.py
+lux_agent_gui/__main__.py
+lux_agent_gui/session.py
+lux_agent_gui/window.py
 tests/__init__.py
 tests/test_check_backend.py
 tests/test_cli.py
 tests/test_commands.py
+tests/test_gui_session.py
 tests/test_collector.py
 tests/test_https_transport.py
 tests/test_pairing.py
