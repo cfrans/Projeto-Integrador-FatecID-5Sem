@@ -90,17 +90,17 @@ export function SynchronizationScreen() {
         const snapshot = entry.snapshot;
         return <View key={entry.computer.id} style={styles.card}>
           <Text style={styles.heading}>{entry.computer.name}</Text>
-          <Text accessibilityLiveRegion="polite" style={status === 'applied' ? styles.success : status === 'error' ? styles.error : styles.label}>{t(`sync.status.${status}`)}</Text>
+          <Text accessibilityLiveRegion="polite" style={status === 'applied' || status === 'realApplied' ? styles.success : status === 'error' || status === 'realFailed' ? styles.error : styles.label}>{t(`sync.status.${status}`)}</Text>
           {entry.error ? <Text accessibilityRole="alert" style={styles.error}>{localize(entry.error)}</Text> : null}
           {snapshot ? <>
-            <Text style={styles.body}>{t('sync.lastSeen', { time: format(snapshot.connection.lastSeen) })}</Text>
+            {entry.computer.isDemo ? <Text style={styles.body}>{t('sync.lastSeen', { time: format(snapshot.connection.lastSeen) })}</Text> : null}
             <Text style={styles.body}>{t('sync.sentRevision', { revision: snapshot.revision })}</Text>
             <Text style={styles.body}>{t('sync.appliedRevision', { revision: snapshot.appliedRevision ?? t('sync.notConfirmed') })}</Text>
             <Text style={styles.body}>{t('sync.appliedAt', { time: format(snapshot.appliedAt) })}</Text>
             {snapshot.revision !== snapshot.appliedRevision ? <Text style={styles.body}>{t('sync.waiting')}</Text> : null}
             {status === 'offline' ? <Text style={styles.body}>{t('sync.offlineHelp')}</Text> : null}
           </> : null}
-          {entry.computer.isDemo ? <Button label={t('nav.restrictions')} onPress={() => router.push({ pathname: '/restrictions/browsers', params: { deviceId: entry.computer.id } })} /> : null}
+          <Button label={t('nav.restrictions')} onPress={() => router.push({ pathname: '/restrictions/browsers', params: { deviceId: entry.computer.id } })} />
         </View>;
       })}
     </ScrollView>

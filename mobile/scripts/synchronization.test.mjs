@@ -13,22 +13,28 @@ test('synchronization distinguishes acknowledgement, pending, offline, unknown a
   assert.equal(synchronizationStatus({ ...entry, snapshot: { ...snapshot, connection: { status: 'unverified' } } }), 'unknown');
   assert.equal(synchronizationStatus({ ...entry, error: 'network' }), 'error');
   assert.equal(synchronizationStatus({ ...entry, snapshot: null }), 'error');
-  assert.equal(synchronizationStatus({ ...entry, computer: { ...computer, isDemo: false } }), 'unavailable');
+  const real = { ...entry, computer: { ...computer, isDemo: false }, snapshot: { ...snapshot, connection: { status: 'unverified', lastSeen: null }, error: null, enforcement: 'enabled' } };
+  assert.equal(synchronizationStatus(real), 'realPending');
+  assert.equal(synchronizationStatus({ ...real, snapshot: { ...real.snapshot, appliedRevision: 2 } }), 'realApplied');
+  assert.equal(synchronizationStatus({ ...real, snapshot: { ...real.snapshot, error: { code: 'POLICY_UNAVAILABLE', at: null } } }), 'realFailed');
+  assert.equal(synchronizationStatus({ ...real, snapshot: { ...real.snapshot, enforcement: 'disabled' } }), 'realDisabled');
+  assert.equal(synchronizationStatus({ ...real, snapshot: { ...real.snapshot, revision: 1, appliedRevision: null } }), 'realIdle');
+  assert.equal(synchronizationStatus({ ...real, snapshot: null }), 'error');
 });
 
-test('synchronization skips real or revoked computers and isolates individual read failures', async () => {
+test('synchronization reads real computers, skips revoked ones and isolates individual read failures', async () => {
   const calls = [];
   const entries = await loadSynchronization([computer, { ...computer, id: 'failed' }, { ...computer, id: 'real', isDemo: false }, { ...computer, id: 'revoked', isPaired: false }], async (id) => {
     calls.push(id);
     if (id === 'failed') throw new Error('network');
     return snapshot;
   });
-  assert.deepEqual(calls, ['pc', 'failed']);
+  assert.deepEqual(calls, ['pc', 'failed', 'real']);
   assert.equal(entries.length, 3);
   assert.equal(synchronizationStatus(entries[0]), 'pending');
   assert.equal(synchronizationStatus(entries[1]), 'error');
   assert.equal(entries[1].snapshot, null);
-  assert.equal(synchronizationStatus(entries[2]), 'unavailable');
+  assert.equal(synchronizationStatus(entries[2]), 'realPending');
 });
 
 test('reports from a previous association cannot appear as confirmed for a new association', async () => {
