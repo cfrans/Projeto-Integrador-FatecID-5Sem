@@ -72,6 +72,12 @@ Até 20 perfis com nomes únicos de até 40 caracteres são guardados por respon
 
 O banner usa os componentes do app em Android, iOS e web. Não solicita permissão do sistema nem usa `expo-notifications`, canais, patches ou serviços de push. Erros de conexão continuam nas telas de consulta; o banner não acrescenta uma faixa global de erro. Notificação push para uma futura build própria é uma possibilidade planejada, sem implementação nesta etapa.
 
+## Aviso de alterações aplicadas
+
+A Home avisa, num cartão dispensável acima de Pedidos, quando a revisão aplicada de um computador pareado (real ou demo) avançou ("Alterações aplicadas no PC às HH:MM", com `appliedAt`) ou quando a revisão atual falhou (`realPolicyStatus` = falha; mesmo texto por código das restrições). Assim o responsável pode fechar o app depois de uma alteração e ver o resultado ao voltar. A checagem (`useChangeNotices`) roda a cada atualização da Home (5 s), com um `GET /simulation/devices/:id` por computador, para pegar também a volta do segundo plano.
+
+`compareChangeNotices` compara com o último estado registrado em `preferenceStorage`, chave `changeNotices.<guardianId>` (um registro por computador: vínculo, revisão aplicada e última revisão com falha avisada). Na primeira leitura de um computador, ou depois de novo vínculo, o app só registra; cada falha é avisada uma vez por revisão. O registro é atualizado ao detectar, então um aviso não dispensado não volta na próxima abertura. Só a Home atualiza o registro: quem acompanhou a aplicação na tela de restrições também recebe o aviso ao voltar. Não há push (exigiria o backend disparar o envio quando o Agent confirma).
+
 ## Pendências de implementação
 
 Configurações e aprovação/recusa de instalação são persistidas para PCs demonstrativos. O app distingue salvamento, espera pelo client e aplicação simulada confirmada; temporizadores locais não representam sucesso. No computador real, idade e pedidos de instalação continuam indisponíveis (extras LUX-11/LUX-12). O mobile se comunica apenas com NestJS, sem MySQL ou APIs GNOME locais.
@@ -84,7 +90,7 @@ Apps, navegadores e bloqueio de instalação usam o mesmo `PATCH` do simulado; o
 - **desativado:** `enforcement: 'disabled'` (`ENABLE_PARENTAL_COMMANDS` desligado): nada será aplicado;
 - **falha:** `error.code` da revisão atual, com texto por código (`POLICY_UNAVAILABLE` = app removido ou não bloqueável com segurança);
 - **nenhuma alteração enviada:** revisão 1 sem confirmação, pois o vínculo nasce com a revisão 1 e nenhum comando;
-- **pendente:** "será aplicado quando o computador estiver ligado e conectado". O backend não registra presença do computador real (`connection` é sempre `unverified`), então o texto é o mesmo online ou offline. A alteração fica na fila do backend: o app pode ser fechado. Depois de um período sem backend, o Agent pode levar até ~5 min para buscá-la (as tentativas se espaçam até `--max-backoff`, 300 s).
+- **pendente:** "será aplicado quando o computador estiver ligado e conectado". O backend não registra presença do computador real (`connection` é sempre `unverified`), então o texto é o mesmo online ou offline. A alteração fica na fila do backend: o app pode ser fechado, e a Home avisa o resultado na próxima abertura ([aviso](#aviso-de-alterações-aplicadas)). Depois de um período sem backend, o Agent pode levar até ~5 min para buscá-la (as tentativas se espaçam até `--max-backoff`, 300 s).
 
 A lista de apps usa `blockable`/`executable` do inventário (`configureApplications`): app não bloqueável aparece "indisponível", sem interruptor, e fica fora de "Restringir todos"; app com o mesmo `executable` mostra "bloqueia junto: …", e o grupo aparece bloqueado se **algum** membro tiver regra de bloqueio (regras anteriores ao LUX-16 podem cobrir só um atalho). O toque envia a regra de um app; o backend a grava no grupo e, se recusar, o `400` traz a mensagem exibida. O bloqueio vale para novas aberturas e não impede rodar o binário pelo terminal ([limites](lux-integration.md)); o Terminal pode ser bloqueado na própria lista.
 
