@@ -34,6 +34,10 @@ class AlreadyPaired(Exception):
     pass
 
 
+class ParentGone(Exception):
+    pass
+
+
 def read_env(path: str) -> dict[str, str]:
     values: dict[str, str] = {}
     try:
@@ -136,9 +140,12 @@ def start_session(origin: str, ca_file: str | None, credential_file: str, uid: i
 
 def wait_for_association(origin: str, credential: str, expires_at: str, ca_file: str | None,
                          *, sleep: Callable[[float], None] = time.sleep,
-                         now: Callable[[], float] = time.time) -> bool:
+                         now: Callable[[], float] = time.time,
+                         parent_alive: Callable[[], bool] = lambda: True) -> bool:
     deadline = datetime.fromisoformat(expires_at).timestamp()
     while now() < deadline:
+        if not parent_alive():
+            raise ParentGone
         try:
             associations = query_associations(origin + "/agent/associations", credential, REQUEST_TIMEOUT, ca_file)
             if has_active_association(associations):
@@ -159,6 +166,7 @@ def run_helper(output: TextIO = sys.stdout) -> int:
     try:
         if os.geteuid() != 0:
             raise DiagnosticError("O auxiliar de pareamento deve ser executado via pkexec.", 2)
+        parent = os.getppid()
         env = read_env(ENV_FILE)
         origin = backend_endpoint(env.get("LUX_AGENT_BACKEND_URL", ""), False).removesuffix("/agent/associations")
         managed_user = env.get("LUX_AGENT_MANAGED_USER", "")
@@ -178,13 +186,16 @@ def run_helper(output: TextIO = sys.stdout) -> int:
             emit(output, "already-paired")
             return 0
         emit(output, "session", uri=session["uri"], expiresAt=session["expiresAt"])
-        if not wait_for_association(origin, credential, session["expiresAt"], ca_file):
+        if not wait_for_association(origin, credential, session["expiresAt"], ca_file,
+                                    parent_alive=lambda: os.getppid() == parent):
             emit(output, "expired")
             return 1
         if subprocess.run(["systemctl", "restart", SERVICE_UNIT], stdout=subprocess.DEVNULL).returncode != 0:
             raise DiagnosticError("Vínculo confirmado, mas o serviço lux-agent não reiniciou.", 1)
         emit(output, "paired")
         return 0
+    except ParentGone:
+        return 1
     except DiagnosticError as error:
         emit(output, "error", message=str(error))
         return error.code

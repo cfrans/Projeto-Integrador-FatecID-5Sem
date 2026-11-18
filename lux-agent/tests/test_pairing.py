@@ -200,6 +200,13 @@ class WaitTests(PairingTestCase):
         expires = datetime.fromtimestamp(5, timezone.utc).isoformat()
         self.assertFalse(self.wait(expires, now=lambda: next(clock)))
 
+    def test_parent_gone_stops_waiting_without_querying(self):
+        self.backend.routes[("GET", "/agent/associations")] = [(401, {})]
+        alive = iter([True, False])
+        with self.assertRaises(pairing.ParentGone):
+            self.wait(session_body()["expiresAt"], parent_alive=lambda: next(alive))
+        self.assertEqual(len(self.backend.requests), 1)
+
     def test_incompatible_response_stops_waiting(self):
         self.backend.routes[("GET", "/agent/associations")] = [(200, {"unexpected": True})]
         with self.assertRaises(DiagnosticError):
@@ -242,6 +249,14 @@ class HelperTests(PairingTestCase):
         self.backend.routes[("GET", "/agent/associations")] = [(401, {})]
         code, events, run = self.run_helper(self.env())
         self.assertEqual((code, events[-1]["event"]), (1, "expired"))
+        run.assert_not_called()
+
+    def test_parent_gone_exits_silently_without_touching_service(self):
+        self.backend.routes[("POST", "/agent/registrations")] = [(201, session_body())]
+        self.backend.routes[("GET", "/agent/associations")] = [(401, {})]
+        with patch("lux_agent.pairing.os.getppid", side_effect=[100, 100, 1]):
+            code, events, run = self.run_helper(self.env())
+        self.assertEqual((code, [event["event"] for event in events]), (1, ["session"]))
         run.assert_not_called()
 
     def test_already_paired_and_configuration_errors(self):
