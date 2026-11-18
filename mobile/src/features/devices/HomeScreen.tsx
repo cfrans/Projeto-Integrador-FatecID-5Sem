@@ -16,6 +16,7 @@ import { Button } from '@/components/ui/Button';
 import { PenguinLogo } from '@/components/ui/PenguinLogo';
 import { loadPendingRequestsReport, type PendingRequest } from '@/features/access/pendingRequests';
 import { RequestCard, useRequestItems } from '@/features/access/RequestCards';
+import { ChangeNoticeCard, useChangeNotices } from '@/features/restrictions/ChangeNotices';
 import { useSession } from '@/features/auth/SessionProvider';
 import { useLanguage } from '@/features/i18n/LanguageProvider';
 import { DeviceCard } from '@/features/devices/DeviceCard';
@@ -102,6 +103,7 @@ export function HomeScreen() {
   const computers = state.status === 'loaded' ? state.computers : [];
   const hasPairedComputer = computers.some((computer) => computer.isPaired);
   const requestItems = useRequestItems(pending);
+  const changeNotices = useChangeNotices(computers, guardian?.id ?? null);
 
   return (
     <SafeAreaView style={styles.safeArea}>
@@ -141,6 +143,8 @@ export function HomeScreen() {
             <Text accessibilityLiveRegion="polite" style={styles.logoutError}>{localize(error)}</Text>
           ) : null}
         </View>
+
+        {changeNotices.notices.map((notice) => <ChangeNoticeCard key={`${notice.kind}-${notice.computerId}`} notice={notice} onDismiss={() => changeNotices.dismiss(notice)} />)}
 
         <View style={styles.requests}>
           <View style={styles.sectionHeader}>

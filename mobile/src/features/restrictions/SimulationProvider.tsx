@@ -6,7 +6,7 @@ import { ApiError, apiErrorMessage } from '@/lib/api';
 import { useLanguage } from '@/features/i18n/LanguageProvider';
 import { useTheme } from '@/features/theme/ThemeProvider';
 import type { PairedComputer } from '@/features/devices/services/devices';
-import { readSimulation, realPolicyStatus, updateSimulation, type RealPolicyStatus, type SimulationSettings, type SimulationSnapshot } from './services/simulation';
+import { failureMessageKey, readSimulation, realPolicyStatus, updateSimulation, type RealPolicyStatus, type SimulationSettings, type SimulationSnapshot } from './services/simulation';
 
 type SimulationContextValue = {
   snapshot: SimulationSnapshot;
@@ -22,7 +22,6 @@ const realStatusKeys: Record<Exclude<RealPolicyStatus, 'failed'>, string> = {
   idle: 'simulation.realIdle',
   disabled: 'simulation.realDisabled',
 };
-const failureCodes = ['POLICY_UNAVAILABLE', 'PERMISSION_DENIED', 'ACCOUNT_NOT_MANAGED', 'VERIFICATION_FAILED', 'EXECUTION_TIMEOUT', 'LOCAL_UNAVAILABLE'];
 
 function statusKey(snapshot: SimulationSnapshot | null, isDemo: boolean, busy: boolean) {
   if (busy) return 'simulation.saving';
@@ -30,8 +29,7 @@ function statusKey(snapshot: SimulationSnapshot | null, isDemo: boolean, busy: b
   if (isDemo) return snapshot.appliedRevision === snapshot.revision ? 'simulation.applied' : 'simulation.pending';
   const status = realPolicyStatus(snapshot);
   if (status !== 'failed') return realStatusKeys[status];
-  const code = snapshot.error?.code ?? '';
-  return `simulation.failure.${failureCodes.includes(code) ? code : 'default'}`;
+  return failureMessageKey(snapshot.error?.code ?? '');
 }
 
 export function SimulationProvider({ computer, children }: { computer: PairedComputer | null; children: ReactNode }) {

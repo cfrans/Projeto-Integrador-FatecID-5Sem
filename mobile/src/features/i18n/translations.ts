@@ -884,7 +884,9 @@ Object.assign(translations["pt-BR"], {
   "requestBanner.multiple": "{count} novos pedidos",
   "requestBanner.open": "Ver pedido",
   "requestBanner.openAll": "Ver pedidos",
-  "requestBanner.dismiss": "Dispensar"
+  "requestBanner.dismiss": "Dispensar",
+  "changeNotice.applied": "Alterações aplicadas no {name} às {time}",
+  "changeNotice.appliedNoTime": "Alterações aplicadas no {name}"
 });
 
 Object.assign(translations["en"], {
@@ -892,7 +894,9 @@ Object.assign(translations["en"], {
   "requestBanner.multiple": "{count} new requests",
   "requestBanner.open": "View request",
   "requestBanner.openAll": "View requests",
-  "requestBanner.dismiss": "Dismiss"
+  "requestBanner.dismiss": "Dismiss",
+  "changeNotice.applied": "Changes applied on {name} at {time}",
+  "changeNotice.appliedNoTime": "Changes applied on {name}"
 });
 
 Object.assign(translations["es"], {
@@ -900,7 +904,9 @@ Object.assign(translations["es"], {
   "requestBanner.multiple": "{count} nuevas solicitudes",
   "requestBanner.open": "Ver solicitud",
   "requestBanner.openAll": "Ver solicitudes",
-  "requestBanner.dismiss": "Descartar"
+  "requestBanner.dismiss": "Descartar",
+  "changeNotice.applied": "Cambios aplicados en {name} a las {time}",
+  "changeNotice.appliedNoTime": "Cambios aplicados en {name}"
 });
 
 Object.assign(translations['pt-BR'], {

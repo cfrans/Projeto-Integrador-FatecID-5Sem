@@ -58,6 +58,12 @@ export function realPolicyStatus(snapshot: SimulationSnapshot): RealPolicyStatus
   return 'pending';
 }
 
+const failureCodes = ['POLICY_UNAVAILABLE', 'PERMISSION_DENIED', 'ACCOUNT_NOT_MANAGED', 'VERIFICATION_FAILED', 'EXECUTION_TIMEOUT', 'LOCAL_UNAVAILABLE'];
+
+export function failureMessageKey(code: string) {
+  return `simulation.failure.${failureCodes.includes(code) ? code : 'default'}`;
+}
+
 export async function readSimulation(deviceId: string) {
   return parseSimulation(await api.request<unknown>(`/simulation/devices/${encodeURIComponent(deviceId)}`, { method: 'GET' }));
 }
