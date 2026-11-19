@@ -48,6 +48,4 @@ export const startupImages: ImageRequireSource[] = [
   ...Object.values(teamImages), ...Object.values(interfaceImages),
   require('expo-router/assets/react-navigation/elements/back-icon.png'),
   require('expo-router/assets/react-navigation/elements/back-icon-mask.png'),
-  require('../../assets/icon.png'), require('../../assets/splash-icon.png'), require('../../assets/favicon.png'),
-  require('../../assets/android-icon-foreground.png'), require('../../assets/android-icon-background.png'), require('../../assets/android-icon-monochrome.png'),
 ];
