@@ -153,6 +153,7 @@ export function SessionProvider({ children }: PropsWithChildren) {
 
     try {
       await sessionStorage.remove();
+      void auth.logout(session.accessToken).catch(() => undefined);
       if (operation !== operationId.current) return;
       setState({ status: 'signedOut', session: null, busy: false, error: null, canRetryRestore: false });
     } catch {

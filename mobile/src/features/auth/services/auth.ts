@@ -89,6 +89,10 @@ export const auth = {
     return guardian;
   },
 
+  async logout(token: string): Promise<void> {
+    await api.request<undefined>('/auth/logout', { method: 'POST', accessToken: token });
+  },
+
   async updateEmail(email: string): Promise<Guardian> {
     const guardian = await api.request<unknown>('/auth/me/email', {
       method: 'PATCH',

@@ -43,7 +43,7 @@ const themeIcons ={ system: interfaceImages.system, light: interfaceImages.light
 
 export function SettingsScreen() {
   const { language, setLanguage, t, localize } = useLanguage();
-  const { guardian, updateGuardian } = useSession();
+  const { guardian, signOut, updateGuardian } = useSession();
   const { colors, preference, setPreference } = useTheme();
   const styles = useThemedStyles(createStyles);
   const [open, setOpen] = useState<Section | null>(null);
@@ -188,7 +188,7 @@ export function SettingsScreen() {
     try {
       await auth.updatePassword(currentPassword, newPassword);
       reset('password');
-      finish('password', t('settings.passwordSaved'));
+      await signOut();
     } catch (error) {
       setPasswordErrors({ current: localize(apiErrorMessage(error)) });
     } finally {
