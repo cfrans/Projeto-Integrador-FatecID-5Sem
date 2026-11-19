@@ -79,7 +79,7 @@ Não foram adicionadas classes artificiais só para demonstrar um padrão. A [ar
 | US07 | Como equipe, queremos demonstrar recursos SQL — alta | Função/view/procedure/trigger instalados por migration, usados pela API ou invariantes e testados em MySQL 8.4 | Implementado nesta alteração; `sql-objects.mysql-test.mjs`; [Banco](database.md#objetos-sql-programáveis) |
 | US08 | Como responsável, quero administrar conta e preferências — média | Alterações seguem autenticação e persistência documentadas | Implementado; UC07, testes Auth/mobile; interação nativa pendente de aceite |
 | US09 | Como responsável, quero reutilizar perfis locais — média | Perfil isolado por responsável, destino confirmado e revisão respeitada | Implementado; UC08, testes mobile de perfis; validação visual pendente |
-| US10 | Como equipe, queremos executar testes reproduzíveis — alta | Ambiente exclusivo `_test`, fixtures próprias e relatório de testes, sem banco de uso diário | Implementado e validado em Docker; [resultados e limites](testing.md#validação-em-09112026) |
+| US10 | Como equipe, queremos executar testes reproduzíveis — alta | Ambiente exclusivo `_test`, fixtures próprias e relatório de testes, sem banco de uso diário | Implementado e validado em Docker; [resultados e limites](validation.md) |
 | US11 | Como equipe, queremos apresentar modelagem coerente — alta | Conferir diagramas, backlog, padrões, arquitetura e limites com o cenário da disciplina | Artefatos preparados; revisão e aceite da equipe/professor pendentes |
 | US12 | Como equipe, queremos uma demonstração confiável — alta | Ensaiar no aparelho/rede reais, incluindo falhas e recuperação, e preparar gravação de reserva | Pendente; [checklist no celular](mobile.md#validação-manual-no-celular) |
 
@@ -88,7 +88,7 @@ Não foram adicionadas classes artificiais só para demonstrar um padrão. A [ar
 O Git registra entregas incrementais, mas isso não comprova adoção histórica de Scrum, cerimônias, estimativas ou papéis. O fluxo abaixo é uma proposta para organizar o fechamento do MVP, sem fabricar evidências anteriores.
 
 - **A fazer:** aceite no aparelho, revisão da modelagem e ensaio da apresentação.
-- **Validado tecnicamente:** banco/integração e Cypress, com [execução completa aprovada](testing.md#validação-em-09112026); aceite de produto ainda depende do roteiro no aparelho da equipe.
+- **Validado tecnicamente:** banco/integração e Cypress, com [execução completa aprovada](validation.md); aceite de produto ainda depende do roteiro no aparelho da equipe.
 - **Concluído:** mover somente histórias que atendam aos critérios de aceite, com teste ou evidência anexados.
 
 Para cada história: registrar responsável real, critério de aceite, tarefa pequena, evidência e impedimentos; limitar trabalho simultâneo; revisar o incremento antes de puxar a próxima tarefa. A equipe deve registrar as reuniões que efetivamente realizar e ajustar o backlog após o feedback.

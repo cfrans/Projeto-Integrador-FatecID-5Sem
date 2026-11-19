@@ -109,7 +109,7 @@ O seed de dispositivos de desenvolvimento requer `DEV_GUARDIAN_EMAIL` de uma con
 
 `AgentCommand` foi acrescentado pela migration `20261026035355_agent_ping_commands`, gerada pelo Prisma e validada apenas em banco descartável nesta entrega. Mantém dispositivo/vínculo original, intenção, prazos, reserva vinculada à identidade e resultado. As unicidades são `(associationId, requestId)` e `(deviceId, claimId)`; relações históricas usam FKs restritivas. A CHECK de associação ativa anterior permanece.
 
-Criação, reserva, resultado e revogação bloqueiam a mesma linha de `Device`. Essas transações e as de pareamento usam `READ COMMITTED`: a ordenação por dispositivo vem do `FOR UPDATE`, evitando deadlocks de gap locks entre computadores distintos. Expiração e timeout são estados efetivos calculados na leitura, sem cron; revogação materializa cancelamento/incerteza. [Semântica dos estados](agent-protocol.md#persistência-e-estados). Revise o SQL antes de atualizar bancos persistentes; atualizar o backend exige schema e Prisma Client correspondentes. [Procedimento isolado e evidências](agent-ping-validation.md).
+Criação, reserva, resultado e revogação bloqueiam a mesma linha de `Device`. Essas transações e as de pareamento usam `READ COMMITTED`: a ordenação por dispositivo vem do `FOR UPDATE`, evitando deadlocks de gap locks entre computadores distintos. Expiração e timeout são estados efetivos calculados na leitura, sem cron; revogação materializa cancelamento/incerteza. [Semântica dos estados](agent-protocol.md#persistência-e-estados). Revise o SQL antes de atualizar bancos persistentes; atualizar o backend exige schema e Prisma Client correspondentes.
 
 ## Estado demonstrativo
 

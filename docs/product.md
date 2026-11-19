@@ -6,11 +6,11 @@ O Lenovo Lux Parental (PIPLUP, identificado como `piplup` no código) é um proj
 
 ## Estado atual
 
-O aplicativo Expo usa autenticação real de responsáveis e consulta registros de computadores pela API NestJS. A persistência utiliza Prisma e MySQL. A infraestrutura de pareamento seguro está implementada no backend e integrada ao mobile. A fundação do Lux Agent possui diagnóstico autenticado e PoC de leitura nativa validados no Lux, além de polling de vínculos e `agent.ping` validado por HTTPS com resultado persistido; o pareamento real é feito por `lux-agent pair` com autorização administrativa local, e operações parentais remotas ainda não existem. Fixtures permanecem identificadas como demonstração. O [client simulado](simulated-client.md) permite cadastrar/parear PCs demonstrativos e refletir configurações persistidas e decisões de instalação do app. A confirmação vale somente para a simulação.
+O aplicativo Expo usa autenticação real de responsáveis e consulta e configura computadores pela API NestJS, com persistência em MySQL via Prisma. Um computador Lux real é pareado por QR com autorização do administrador local; o Lux Agent, instalado como serviço, aplica o bloqueio de aplicativos, navegadores e instalação definido no app e confirma por releitura. O [client simulado](simulated-client.md) permite cadastrar e parear PCs demonstrativos; a confirmação dele vale somente para a simulação. Estado detalhado em [Arquitetura](architecture.md#etapas-de-implementação).
 
 ## Usuários
 
-- Responsável: usa o mobile para autenticar-se, consultar computadores autorizados, parear/revogar vínculos e, futuramente, consultar restrições, solicitar alterações e acompanhar resultados.
+- Responsável: usa o mobile para autenticar-se, consultar computadores autorizados, parear/revogar vínculos, alterar restrições e acompanhar se foram aplicadas.
 - Administrador local do Lux: autoriza o pareamento (app Piplup ou `lux-agent pair`, senha de administrador) e operações locais que exigirem permissão.
 - Criança/conta gerenciada: utiliza o computador sujeito às políticas nativas; essa conta não equivale à conta do responsável na API.
 - Administrador do backend: invalida a identidade do computador quando necessário; o provisionamento manual fica para desenvolvimento, pois o Agent se registra no pareamento.
@@ -25,9 +25,9 @@ O foco principal do projeto acadêmico é a experiência mobile e sua integraç�
 
 O primeiro MVP deverá reunir autenticação real, gerenciamento de dispositivos e pareamento seguro. A integração parental real será incremental após a prova técnica no Lux; os controles candidatos não são todos requisitos obrigatórios do MVP. Consulte as etapas em [Arquitetura](architecture.md).
 
-## Etapa atual e fora de escopo
+## Fora de escopo
 
-A fundação, autenticação e listagem autorizada já foram entregues. A infraestrutura de pareamento já existe na API/mobile, com um responsável ativo por computador, tokens temporários de uso único e revogação. A identidade do computador nasce do autorregistro do Agent, confirmado pelo responsável no pareamento. A etapa 5 do Agent é parcial; o [protocolo v1 de comandos](agent-protocol.md) permite somente `agent.ping`, validado no Lux real. Não há execução parental remota ou aplicação de restrições. O pareamento usa QR no terminal ou na pequena janela Python/GTK4/libadwaita Piplup, separada do Agent systemd. Criar um mecanismo próprio de bloqueio parental ou modificar o código-fonte do GNOME/Controle Parental está fora do escopo.
+Criar um mecanismo próprio de bloqueio parental ou modificar o código-fonte do GNOME/Controle Parental. Nesta entrega também ficam de fora: pedidos de instalação reais vindos do computador, pacote `.deb`, atualização automática do Agent e detecção de mudanças feitas localmente no Controle Parental do GNOME. Horário de dormir e classificação etária reais são opcionais; no computador real, perfis aplicam só apps, navegadores e instalação.
 
 ## Referências e limites
 
@@ -37,7 +37,5 @@ O serviço de mock pode sustentar o desenvolvimento acadêmico e a interface. Um
 
 ## Questões em aberto
 
-- Quais recursos de controle parental estão disponíveis na versão do GNOME instalada no Lenovo Lux?
-- Qual o comportamento do produto quando o computador estiver indisponível?
-- Quais contas gerenciadas e quais permissões o responsável pode administrar?
-- Quais funções além do MVP devem ser priorizadas após a prova técnica?
+- Comportamento do app quando o computador fica offline por muito tempo (hoje a alteração fica pendente até o Agent voltar).
+- Quais funções além do MVP priorizar depois da entrega.

@@ -9,23 +9,16 @@ Para instalar e abrir o aplicativo no celular, comece pelo [tutorial da raiz](..
 | [Mobile](mobile.md) | Organização, sessão REST, URL da API e Expo Go |
 | [Backend](backend.md) | Responsabilidades, implementação e contrato da API |
 | [Banco](database.md) | MySQL 8.4 com Docker ou local, Prisma e migrations |
-| [Engenharia de Software III](software-engineering-iii.md) | Casos de uso, classes, backlog, padrões e metodologia ágil |
+| [Engenharia de Software III](engenharia-de-software-iii.md) | Casos de uso, classes, backlog, padrões e metodologia ágil |
 | [Testes](testing.md) | Cobertura, limites e execução Cypress/API/MySQL em Docker |
-| [Lux](lux-integration.md) | Agent Python/systemd, interface GTK, hipóteses GNOME, segurança e provas técnicas |
+| [Lux](lux-integration.md) | Agent Python/systemd, interface GTK, malcontent/polkit e provas que sustentam as decisões |
 | [HTTPS do Agent](lux-https-development.md) | Proxy temporário, CA explícita, testes e evidências de transporte seguro |
-| [Protocolo do Agent](agent-protocol.md) | Contrato v1 implementado para ping, idempotência, reserva e recuperação |
-| [Validação de ping](agent-ping-validation.md) | Testes isolados e prova ponta a ponta por HTTPS com o Lux real |
+| [Protocolo do Agent](agent-protocol.md) | Contrato v1: ping, comandos parentais, relatórios, idempotência e recuperação |
+| [Segurança](security.md) | Controles implementados e limitações conhecidas |
+| [Validação](validation.md) | Última validação de cada parte do sistema e como repetir |
 | [Design](design.md) | PDF, padrões visuais e componentes |
 | [Client simulado](simulated-client.md) | Cadastro demonstrativo, QR e sincronização com o app sem depender do GNOME |
 
-Este diretório descreve o estado presente e decisões planejadas. Leia [Produto](product.md) e [Arquitetura](architecture.md) para distinguir claramente os mocks atuais dos recursos ainda não implementados.
+Este diretório descreve o estado presente. O [roadmap em Arquitetura](architecture.md#etapas-de-implementação) é a referência única para o estado de cada etapa; os demais documentos não repetem esse estado.
 
-## Estado e próximas etapas
-
-O [roadmap em Arquitetura](architecture.md#etapas-de-implementação) é a referência única para estado, evidência e pendências de cada etapa. Fundação e infraestrutura de pareamento existem; a etapa conjunta de autenticação/gerenciamento de dispositivos é parcial, com login implementado e gerenciamento limitado. Existe uma PoC Python de leitura nativa validada na VM Lux em contas com e sem restrições; consultar outra conta exigiu autenticação administrativa. O Agent possui diagnóstico autenticado e polling somente de leitura de vínculos validados no Lux; `agent.ping` possui infraestrutura de comandos e diário persistente validados por HTTPS; o Agent é instalado como serviço systemd por script e envia relatórios validados no Lux; o pareamento tem QR no terminal e na janela GTK Piplup.
-
-Para a entrega acadêmica, o [client simulado](simulated-client.md) permite cadastrar/parear PCs demonstrativos e refletir configurações do app pela API. A integração nativa possui diagnóstico `agent.ping` e pareamento real por QR no terminal ou na janela GTK, com autorização local. Os detalhes e limites dos fluxos com/sem Docker estão no [README](../README.md#limites-de-validação-dos-fluxos).
-
-Controles parentais além do fluxo de autenticação/dispositivos/pareamento dependem do que for demonstrado como disponível no GNOME instalado no Lux. A VM disponível usa Lux 3/Canopus, GNOME 50.4 e malcontent 0.13.1-5; leitura via libmalcontent/AccountsService está comprovada com e sem restrições. Provas manuais, limitações de aplicação e permissões pendentes estão em [Integração Lux](lux-integration.md).
-
-O ambiente MySQL local é usado pelo backend; o app mobile não acessa o banco. Consulte [Banco de dados](database.md) para inicialização, limites do volume e decisões de schema/migrations.
+Para a entrega acadêmica, o [client simulado](simulated-client.md) permite cadastrar/parear PCs demonstrativos e refletir configurações do app pela API, como plano B quando o Lux não estiver disponível. O app mobile não acessa o banco; o ambiente MySQL é usado só pelo backend ([Banco](database.md)).

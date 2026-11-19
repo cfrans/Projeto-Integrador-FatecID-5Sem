@@ -154,14 +154,6 @@ rmdir -- "$LUX_TLS_DIR"
 
 O proxy é removido por `--rm`. Nenhum serviço ou confiança global é instalado no Lux. Backend/MySQL permanecem no estado escolhido pela equipe; não execute `compose down` em ambiente compartilhado sem confirmação.
 
-## Evidências — 2026-10-25
-
-- WSL2 Python 3.12.3 e Lux Python 3.14.6: diagnóstico e três consultas HTTPS autenticadas retornaram 200/histórico vazio contra NestJS/MySQL reais. `/health` via HTTPS retornou `database: "ok"`; OpenSSL verificou a cadeia e `localhost` com resultado `OK`.
-- Nos dois ambientes, CA não confiável e SAN incompatível encerraram o polling na primeira tentativa com categoria `tls`/código 4. Credencial aleatória foi recusada com 401/código 3; conexão recusada gerou duas tentativas e saída 4.
-- Dois ciclos simultâneos, no WSL2 e no Lux: consulta 1 retornou 200; a identidade exclusiva foi invalidada administrativamente; consulta 2 retornou 401 e ambos encerraram com código 3, sem consulta 3.
-- Suíte final: 49 testes Python em cada ambiente, incluindo sete novos testes com TLS real. Compilação Python passou. Backend no container Node 24.21.0: lint, typecheck, seis testes unitários e cinco HTTP passaram; foi necessário copiar `backend/test` para `/app/test`, sem editar fontes do backend.
-- Identidade demonstrativa revogada. Proxy, credenciais e material TLS temporários removidos do host/container/Lux; fontes de teste permanecem em `~/lux-agent-poc/`. Backend/MySQL iniciados nesta validação foram mantidos ativos. Nenhuma instalação global de CA, alteração parental, serviço Lux, endpoint ou schema novo.
-
-Limites: a prova usa `localhost` por túnel SSH e terminação TLS temporária; não valida DNS/LAN pública, hospedagem definitiva ou TLS entre proxy e NestJS. HTTP 503, redirect, contrato inválido e certificado expirado foram exercitados no servidor HTTPS de testes, sem interromper os serviços reais. A suíte MySQL dedicada não foi executada. Autenticação comprovada é a do Agent; login mobile, comandos, pareamento local e systemd estão fora desta validação.
+Limites: o procedimento usa `localhost` por túnel SSH e terminação TLS temporária; não valida DNS/LAN pública, hospedagem definitiva ou TLS entre proxy e NestJS.
 
 Referências: [SSLContext e confiança explícita no Python 3.12](https://docs.python.org/3.12/library/ssl.html#ssl.create_default_context), [HTTPSHandler](https://docs.python.org/3.12/library/urllib.request.html#urllib.request.HTTPSHandler) e [OpenSSL req 3.0](https://docs.openssl.org/3.0/man1/openssl-req/).

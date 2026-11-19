@@ -6,7 +6,7 @@ Fundação REST em NestJS 12.1.2, TypeScript e Node.js 24 LTS (24.15 ou superior
 
 ```text
 backend/
-  src/main.ts                    inicialização e Swagger
+  src/main.ts                    inicialização e Swagger (fora de produção)
   src/app.module.ts              módulo raiz
   src/app.controller.ts          saúde da API e banco
   src/config/                    ambiente e conexão MySQL
@@ -33,7 +33,7 @@ Para novos scaffolds, use os comandos oficiais compatíveis com as versões adot
 
 `PrismaService` conecta e executa `SELECT 1` durante a inicialização. `GET /health` consulta o banco novamente, retorna `{ "status": "ok", "database": "ok" }` ou HTTP 503 se a consulta falhar. Uma falha de conexão inicial impede a aplicação de iniciar. Shutdown hooks encerram a conexão ao receber sinais de término.
 
-Swagger fica em `/docs`; OpenAPI em `/docs-json`. O ambiente local usa HTTP em localhost. A [validação HTTPS de desenvolvimento](lux-https-development.md) usa um proxy temporário e CA explícita no Agent, sem alterar NestJS/Compose. A configuração definitiva de HTTPS e exposição da API permanece uma decisão de hospedagem futura.
+Swagger fica em `/docs`; OpenAPI em `/docs-json`; ambos ficam desligados com `NODE_ENV=production`. O ambiente local usa HTTP em localhost. O [HTTPS de desenvolvimento](lux-https-development.md) usa um proxy temporário e CA explícita no Agent, sem alterar NestJS/Compose. A hospedagem HTTPS definitiva não foi decidida.
 
 ## Executar com Docker
 
@@ -125,9 +125,11 @@ Lint, typecheck, validação do schema e testes unitários/HTTP verificam aspect
 
 O bloco de autenticação e conta está implementado para responsáveis. `POST /auth/register` recebe `{ "name", "email", "password" }` (senha de 8 a 128 caracteres), normaliza nome/email, armazena hash Argon2id e retorna HTTP 201 com `{ "id", "name", "email" }` (HTTP 409 se o email já existir). `POST /auth/login` recebe `{ "email", "password" }`, normaliza o email com trim e minúsculas e compara a senha com Argon2id. Email inválido ou campos extras retornam HTTP 400; credenciais inválidas retornam HTTP 401 com mensagem genérica. A senha aceita de 1 a 128 caracteres no login; o seed exige no mínimo 12.
 
-Sucesso retorna `{ "accessToken", "expiresIn": 1800, "guardian": { "id", "name", "email" } }`. `GET /auth/me` usa Bearer JWT para restaurar o perfil público. `PATCH /auth/me/email` atualiza o email do responsável autenticado (HTTP 409 em conflito) e `PATCH /auth/me/password` exige `{ "currentPassword", "newPassword" }`, validando a senha atual com Argon2id antes de atualizar o hash (HTTP 204). `GET /auth/me/security-question` e `PUT /auth/me/security-question` consultam e salvam a pergunta de segurança com resposta normalizada e hash Argon2id em `Guardian`. `POST /auth/recovery/question`, `POST /auth/recovery/verify` e `POST /auth/recovery/reset` permitem consultar a pergunta por email, verificar a resposta e redefinir a senha. Tokens usam HS256, emissor `piplup-api`, audiência `piplup-mobile` e validade de 30 minutos. Cada request protegido valida assinatura, expiração e emissor/audiência, então consulta o responsável atual no MySQL; responsável removido perde acesso imediatamente. Falha operacional na consulta de autenticação retorna HTTP 503. Swagger documenta autenticação Bearer em `/docs`.
+Sucesso retorna `{ "accessToken", "expiresIn": 1800, "guardian": { "id", "name", "email" } }`. `GET /auth/me` usa Bearer JWT para restaurar o perfil público. `PATCH /auth/me/email` atualiza o email do responsável autenticado (HTTP 409 em conflito) e `PATCH /auth/me/password` exige `{ "currentPassword", "newPassword" }`, validando a senha atual com Argon2id antes de atualizar o hash (HTTP 204). `GET /auth/me/security-question` e `PUT /auth/me/security-question` consultam e salvam a pergunta de segurança com resposta normalizada e hash Argon2id em `Guardian`. `POST /auth/recovery/question`, `POST /auth/recovery/verify` e `POST /auth/recovery/reset` permitem consultar a pergunta por email, verificar a resposta e redefinir a senha. Para não revelar se o email existe, `question` sempre retorna 200: sem conta ou sem pergunta, devolve uma pergunta fictícia escolhida por HMAC do email com `JWT_SECRET` (estável para o mesmo email); `verify` e `reset` respondem o mesmo 400 genérico para email inexistente, conta sem pergunta e resposta errada. A resposta precisa de pelo menos 4 caracteres ao ser definida; respostas antigas mais curtas continuam válidas. Tokens usam HS256, emissor `piplup-api`, audiência `piplup-mobile` e validade de 30 minutos. Cada request protegido valida assinatura, expiração e emissor/audiência, então consulta o responsável atual no MySQL; responsável removido perde acesso imediatamente. Falha operacional na consulta de autenticação retorna HTTP 503. Swagger documenta autenticação Bearer em `/docs`.
 
-`JWT_SECRET` é obrigatório em todos os ambientes de execução e deve conter pelo menos 32 bytes UTF-8. Não há valor padrão ou fallback. O arquivo `.env.example` deixa o campo vazio de propósito; configure um segredo aleatório local antes de iniciar backend ou Compose. JWT não possui endpoint de logout ou revogação: remover o token do cliente encerra a sessão local, mas um token copiado continua utilizável até expirar, salvo remoção do responsável.
+`JWT_SECRET` é obrigatório em todos os ambientes de execução e deve conter pelo menos 32 bytes UTF-8. Não há valor padrão ou fallback. O arquivo `.env.example` deixa o campo vazio de propósito; configure um segredo aleatório local antes de iniciar backend ou Compose. JWT não possui endpoint de logout ou revogação: remover o token do cliente encerra a sessão local, mas um token copiado continua utilizável até expirar, salvo remoção do responsável ([limitações](security.md#limitações)).
+
+Limite de tentativas (`@nestjs/throttler`, registrado no `AppModule` e aplicado por rota com `ThrottlerGuard`): `login` e `register` aceitam 20 por minuto (a suíte Cypress faz cerca de 11 logins por minuto do mesmo IP), cada rota `recovery/*` 5 por minuto e `POST /agent/registrations` 5 por minuto, por IP e por rota; o excesso recebe `429`. A contagem fica em memória por instância e zera ao reiniciar; sem `trust proxy`, atrás de um proxy vale para o IP do proxy.
 
 O seed de responsável é explícito e exclusivo para `NODE_ENV=development`. `DEV_GUARDIAN_EMAIL`, `DEV_GUARDIAN_NAME` e `DEV_GUARDIAN_PASSWORD` são obrigatórios, e a senha deve ter de 12 a 128 caracteres. O seed normaliza email, armazena hash Argon2id e falha se já houver responsável com o mesmo email; não altera usuário existente. Após configurar essas variáveis e `NODE_ENV=development` na `.env` da raiz, aplique migrations e execute `npm run prisma:seed` antes do servidor em watch. O script gera o client e compila antes de chamar `prisma db seed`.
 
@@ -143,7 +145,7 @@ O schema e migrations aditivas de responsável e dispositivos estão versionados
 
 ## Responsabilidades do backend
 
-O backend implementa autenticação de responsáveis e leitura de registros de dispositivos limitada ao responsável autenticado. O módulo Pairing implementa sessões e vínculos revogáveis; a ferramenta administrativa provisiona e invalida identidades individuais. Existe uma [PoC Linux de leitura e diagnóstico autenticado do Agent](../lux-agent/README.md), reutilizando `GET /agent/associations`; o Agent também consulta vínculos e, com diário habilitado, processa `agent.ping` pelo [protocolo v1](agent-protocol.md). O backend gera e reconcilia [comandos parentais](agent-protocol.md#comandos-parentais-contrato), que o Agent ainda não executa. A aplicação das restrições pertence ao GNOME; sucesso de transporte não deve ser confundido com aplicação confirmada no computador.
+O backend implementa autenticação de responsáveis e leitura de registros de dispositivos limitada ao responsável autenticado. O módulo Pairing implementa autorregistro, sessões e vínculos revogáveis; a ferramenta administrativa provisiona e invalida identidades individuais. O [Lux Agent](../lux-agent/README.md) consulta vínculos, envia relatórios e processa comandos pelo [protocolo v1](agent-protocol.md). O backend gera e reconcilia [comandos parentais](agent-protocol.md#comandos-parentais-contrato), executados pelo Agent com releitura. A aplicação das restrições pertence ao GNOME; sucesso de transporte não deve ser confundido com aplicação confirmada no computador.
 
 ## Integração do mobile
 
@@ -174,7 +176,7 @@ Os contratos estão implementados; o Agent os usa em `lux-agent pair` ([Integra�
 
 `POST /agent/registrations` recebe `{ credentialHash, name, managedUser }` (64 hex minúsculos; 1–100 caracteres; sem campos extras) e `POST /agent/pairing-sessions` recebe corpo vazio; ambos retornam `{ token, expiresAt, qrPayload }`. `POST /pairing/validate` retorna `{ valid: true, expiresAt, device: { id, name, managedUser, isDemo } }`; `POST /pairing/complete` retorna a representação de dispositivo com `paired: true` e `associationId`. `GET /agent/associations` retorna histórico `{ id, createdAt, revokedAt, guardian: { id, name } }`, sem tokens, hashes ou email do responsável. As operações DELETE bem-sucedidas retornam `204`.
 
-No autorregistro, a sessão guarda o registro pendente (hash, nome, usuário e o UUID futuro do computador). Um novo registro com o mesmo hash revoga as sessões pendentes anteriores; hash já usado por uma `AgentIdentity`, ativa ou revogada, é recusado. A validação mostra nome e usuário registrados, e o `complete` cria `Device` (`isDemo: false`), `AgentIdentity` e vínculo numa transação. Até lá a credencial recebe `401`. O limite é de 5 registros por minuto por IP, só nessa rota, em memória por instância; sem `trust proxy`, atrás de um proxy o limite vale para o IP do proxy.
+No autorregistro, a sessão guarda o registro pendente (hash, nome, usuário e o UUID futuro do computador). Um novo registro com o mesmo hash revoga as sessões pendentes anteriores; hash já usado por uma `AgentIdentity`, ativa ou revogada, é recusado. A validação mostra nome e usuário registrados, e o `complete` cria `Device` (`isDemo: false`), `AgentIdentity` e vínculo numa transação. Até lá a credencial recebe `401`. O limite é de 5 registros por minuto por IP ([limite de tentativas](#autenticação-implementada)).
 
 A validação não reserva o dispositivo nem prolonga o prazo. O consumo revalida token e identidade dentro de uma transação serializada por dispositivo. Dispositivo já associado não pode ganhar outro responsável. Revogar um vínculo retira o acesso imediatamente na API e invalida sessões pendentes; novo pareamento exige nova sessão. A revogação não executa ações GNOME nem confirma alterações no Linux.
 
@@ -182,7 +184,7 @@ Corpos inválidos retornam `400`; autenticação ausente/inválida retorna `401`
 
 ### Provisionamento e invalidação administrativa
 
-O provisionamento continua como ferramenta de desenvolvimento e operação; computadores reais usam o autorregistro. A ferramenta administrativa deverá ser executada por quem administra o backend, com suas credenciais MySQL protegidas. Seu acesso não é disponibilizado ao mobile nem ao Agent por HTTP. Após migrations e build, o procedimento é:
+O provisionamento continua como ferramenta de desenvolvimento e operação; computadores reais usam o autorregistro. A ferramenta administrativa é executada por quem administra o backend, com suas credenciais MySQL protegidas. Seu acesso não é disponibilizado ao mobile nem ao Agent por HTTP. Após migrations e build, o procedimento é:
 
 ```bash
 npm run agent:provision -- --name "Lux sala" --output /caminho/seguro/agent-credential
@@ -206,13 +208,11 @@ Ambos exigem JWT do responsável, UUID válido e associação ativa com aquele c
 
 Os dados vêm de `InstalledApplication` e `InstallationRequest`. `Device.applicationsReportedAt` e `Device.installationRequestsReportedAt` indicam se cada relatório já foi recebido. Sem o marcador correspondente, a consulta retorna 503 com mensagem de dados ainda não recebidos; com relatório e nenhum registro, retorna `[]`. O retorno é a última informação persistida, sem garantia de presença ou atualização do computador.
 
-O Agent real publica aplicativos por `PUT /agent/reports` ([protocolo](agent-protocol.md#contrato-de-relatórios-do-agent)), sem pedidos de instalação e sem remover pedidos de outros fluxos. O [client simulado](simulated-client.md) publica relatórios demonstrativos autenticados por um módulo separado. Seeds atuais não inventam inventário nem pedidos. Para o Agent real ainda não há endpoints de alteração, aprovação ou recusa; a simulação persiste essas decisões e confirma sua própria aplicação; `allowed` representa o valor registrado, sem executar uma política Linux. Os estados `APPROVED` e `DENIED` apenas permitem excluir pedidos já decididos da consulta; o fluxo de decisão permanece futuro.
+O Agent real publica aplicativos por `PUT /agent/reports` ([protocolo](agent-protocol.md#contrato-de-relatórios-do-agent)), sem pedidos de instalação e sem remover pedidos de outros fluxos. O [client simulado](simulated-client.md) publica relatórios demonstrativos autenticados por um módulo separado. Seeds atuais não inventam inventário nem pedidos. Pedidos de instalação reais estão fora do escopo: só a simulação persiste decisões e confirma sua própria aplicação. Para o computador real, `allowed` reflete a política desejada, aplicada pelo comando parental. Os estados `APPROVED` e `DENIED` apenas permitem excluir pedidos já decididos da consulta.
 
-## Próximas responsabilidades e decisões pendentes
+## Pendências
 
-O [protocolo v1 do Agent](agent-protocol.md) implementa o primeiro diagnóstico remoto `agent.ping`, com modelo/migration, endpoints de criação/polling/reserva/resultado e diário no Python. Foi validado com MySQL isolado e Lux real por HTTPS. Os comandos parentais reutilizam o mesmo ciclo, atrás de `ENABLE_PARENTAL_COMMANDS`.
-
-O Agent Python já roda como serviço systemd no Lux e pareia com autorização local e QR no terminal ou na janela GTK4/libadwaita. No backend, as configurações de computador real geram `parental.app_filter.set`, reemitido quando vence ou fica incerto, e a reconciliação distingue pendência, falha e aplicação confirmada ([contrato](agent-protocol.md#comandos-parentais-contrato)); falta a execução no Agent. Aceite HTTP não comprova alteração no GNOME. Autenticação e listagem já estão integradas ao mobile; comportamento offline ainda não foi acordado. O backend não aplica restrições Linux nem envia comandos arbitrários para execução.
+A hospedagem HTTPS definitiva e o comportamento offline do mobile não foram decididos. Ordem de atualização: quando o contrato do relatório muda, o backend sobe antes do Agent novo, porque a validação recusa campos desconhecidos com `400` (foi o caso dos campos `blockable`/`executable`). O backend não aplica restrições Linux nem envia comandos arbitrários para execução.
 
 Referências: [Nest CLI](https://docs.nestjs.com/cli/overview), [comandos da CLI](https://docs.nestjs.com/cli/usages), [Swagger](https://docs.nestjs.com/openapi/introduction) e [Prisma 7/MySQL](https://www.prisma.io/docs/v7/prisma-orm/quickstart/mysql).
 
@@ -220,9 +220,9 @@ Referências: [Nest CLI](https://docs.nestjs.com/cli/overview), [comandos da CLI
 
 O override de MariaDB 3.5.4 fica restrito ao adapter Prisma para corrigir vulnerabilidades do driver, conforme o [changelog do mantenedor](https://github.com/mariadb-corporation/mariadb-connector-nodejs/releases/tag/3.5.4). A CLI Prisma entra na árvore de produção por peer dependency do client, apesar de estar declarada em devDependencies. Confira dependências com `npm audit`; atualizações precisam preservar a compatibilidade entre Prisma, Node e NestJS.
 
-## Comandos diagnósticos do Agent
+## Comandos do Agent
 
-O módulo `Commands` implementa criação/consulta por responsável e polling/claim/resultado por Agent. A única operação é `agent.ping` versão 1, parâmetros vazios e resultado mínimo. Exige vínculo original ativo e identidade válida, com transações serializadas por dispositivo e índices de idempotência. [Contrato completo](agent-protocol.md) e [validação com banco isolado/Lux real](agent-ping-validation.md). O bootstrap limita corpos JSON a 16 KiB. A UI mobile e operações parentais não fazem parte desta entrega.
+O módulo `Commands` implementa criação/consulta por responsável e polling/claim/resultado por Agent. O responsável só cria `agent.ping`; `parental.app_filter.set` nasce das configurações do computador real. Exige vínculo original ativo e identidade válida, com transações serializadas por dispositivo e índices de idempotência ([contrato completo](agent-protocol.md)). O bootstrap limita corpos JSON a 16 KiB.
 
 ## Simulação para demonstração
 

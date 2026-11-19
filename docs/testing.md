@@ -56,19 +56,4 @@ Um arquivo de teste existente não é evidência de aprovação. Ao registrar um
 
 Os comandos individuais de lint/typecheck/unitários continuam em [Backend](backend.md#verificações), [Mobile](mobile.md#configuração-e-verificações) e [Client](simulated-client.md#verificações). Não execute suites de integração em paralelo com processos que recompilam a mesma saída.
 
-## Validação em 09/11/2026
-
-Executada sobre o diff local da branch `Caio-Franson`, com base em `a85771b`, sem novo commit. A execução final ocorreu em containers Linux/ARM64, Node 24.22.0, MySQL 8.4 e Cypress 16.2.1/Electron 146. As dez migrations foram aplicadas em um banco vazio de testes.
-
-| Verificação | Resultado |
-| --- | --- |
-| Backend: lint, typecheck, build e validação Prisma | Passaram |
-| Backend: Vitest unitário / HTTP | 37 / 7 aprovados |
-| Backend: Node/MySQL, incluindo objetos SQL | 27 aprovados |
-| Integração serviços mobile + API + MySQL + client | 1 aprovado |
-| Mobile: lint, typecheck e testes de contratos | Passaram; 81 testes aprovados |
-| Client: lint e testes isolados | Passaram; 13 testes aprovados |
-| Cypress: login, restrições, pedido, rede e revogação | 5 aprovados, sem falhas |
-| Scripts E2E: verificação de sintaxe | Passou |
-
-O relatório Cypress aprovado é `e2e/results/mvp-577c2533ca176f6d9ddc7d9619da7c48.xml`, um artefato local ignorado pelo Git. As tentativas iniciais no host tiveram falhas durante os ajustes e não são a evidência final. Os downloads de Cypress/PlantUML feitos no host foram removidos; os containers temporários foram encerrados. Nenhuma migration foi aplicada ao banco de uso diário. O aceite em aparelho físico e o ensaio da apresentação continuam pendentes.
+A última execução completa registrada está em [Validação](validation.md); ao repetir, substitua aquela linha.

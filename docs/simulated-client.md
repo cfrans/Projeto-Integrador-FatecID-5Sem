@@ -80,4 +80,4 @@ Em `simulated-client/`, `npm test` verifica cadastro, QR, sigilo da identidade, 
 
 `npm run test:integration` em `simulated-client/` usa os serviços HTTP reais do mobile, API, banco de teste e programa local juntos. Requer dependências nos três diretórios, backend compilado e o mesmo ambiente MySQL exclusivo terminado em `_test`.
 
-Validação em 25/10/2026: seis migrations aplicadas do zero em MySQL 8.4 descartável; testes de presença pela API cobrem primeiro contato, expiração, isolamento entre responsáveis, revogação e novo vínculo. Passaram lint/typecheck, 28 testes unitários e seis HTTP do backend, 40 testes de API mobile, oito testes do client e a integração mobile/API/MySQL/client. A suíte MySQL completa (cinco testes) também passou em Linux, incluindo permissões POSIX; o bundle Android foi compilado pelo Expo com HTTP 200. As novas alterações visuais ainda exigem conferência no celular físico; gerar bundle não valida interação ou câmera.
+A última validação registrada está em [Validação](validation.md).

@@ -37,6 +37,7 @@
   - [4. Client simulado (segundo terminal)](#4-client-simulado-segundo-terminal)
   - [5. Abrir o app no celular (terceiro terminal)](#5-abrir-o-app-no-celular-terceiro-terminal)
   - [Demonstração sem Lux](#demonstração-sem-lux)
+  - [Computador Lux real](#computador-lux-real)
 - [Uso diário e atualizações](#uso-diário-e-atualizações)
 - [Limites de validação dos fluxos](#limites-de-validação-dos-fluxos)
 - [Problemas e referências](#problemas-e-referências)
@@ -47,7 +48,7 @@
 
 ## 📖 O que é o piplup?
 
-Projeto Integrador: aplicativo Expo para controle parental em computadores Lenovo Lux, com API NestJS, Prisma e MySQL. Login, perfil, listagem, pareamento e revogação de vínculos usam a API real. O mobile também possui telas de controle para navegadores, aplicativos, instalação e faixa etária, seleção de idioma em português, inglês e espanhol, e temas claro/escuro com acento vermelho. O [client simulado](docs/simulated-client.md) permite cadastrar PCs demonstrativos, parear por QR e refletir configurações persistidas do app. Existe uma [implementação Python do Agent](lux-agent/README.md) com consulta autenticada, `agent.ping`, coleta de aplicativos Linux e envio idempotente de relatórios por HTTPS. No Lux, o Agent é instalado como serviço `systemd` por `lux-agent/install.sh`, validado com reports reais, e pareado pela janela GTK Piplup ou pelo terminal; a integração parental ponta a ponta continua pendente. Consulte o [estado das etapas](docs/architecture.md#etapas-de-implementação).
+Projeto Integrador: aplicativo Expo para controle parental em computadores Lenovo Lux, com API NestJS, Prisma e MySQL. Login, perfil, listagem, pareamento e revogação de vínculos usam a API real. O mobile também possui telas de controle para navegadores, aplicativos, instalação e faixa etária, seleção de idioma em português, inglês e espanhol, e temas claro/escuro com acento vermelho. O [client simulado](docs/simulated-client.md) permite cadastrar PCs demonstrativos, parear por QR e refletir configurações persistidas do app. Existe uma [implementação Python do Agent](lux-agent/README.md) com consulta autenticada, `agent.ping`, coleta de aplicativos Linux e envio idempotente de relatórios por HTTPS. No Lux, o Agent é instalado como serviço `systemd` por `lux-agent/install.sh`, pareado pela janela GTK Piplup ou pelo terminal, e aplica o bloqueio de aplicativos e de instalação definido no app, confirmando por releitura. Consulte o [estado das etapas](docs/architecture.md#etapas-de-implementação).
 
 ---
 
@@ -57,32 +58,28 @@ Projeto Integrador: aplicativo Expo para controle parental em computadores Lenov
 
 - Aplicativo mobile em Expo 57, React Native e TypeScript, com navegação protegida por autenticação.
 - Login, consulta de perfil, expiração de sessão e armazenamento seguro do token em Android/iOS.
-- Backend NestJS com Prisma, MySQL, Docker Compose, migrations, health check e Swagger.
-- Autenticação de responsáveis com JWT e Argon2id.
+- Backend NestJS com Prisma, MySQL, Docker Compose, migrations, health check e Swagger (fora de produção).
+- Autenticação de responsáveis com JWT e Argon2id, limite de tentativas nas rotas públicas e recuperação de senha que não revela se o e-mail existe.
 - Listagem autorizada de computadores e revogação de vínculos.
 - Pareamento por QR Code com token temporário, validação, confirmação, consumo único e revogação.
 - Home, lista de computadores, leitura de QR Code e estados de carregamento, erro e lista vazia.
 - Telas de Navegadores, Aplicativos, Instalação e Faixa etária com seleção compartilhada de computador e identidade visual do protótipo.
-- Consultas autenticadas de inventário de aplicativos e pedidos de instalação persistidos; coleta de pedidos pelo Agent ainda pendente.
+- Consultas autenticadas de inventário de aplicativos e pedidos de instalação persistidos (pedidos reais do Agent estão fora do escopo).
 - Ingestão autenticada de relatórios do Agent, com atualização transacional de inventário, pedidos e marcadores de coleta.
 - Agent Python com polling autenticado, diário persistente, reenvio idempotente e coleta real de aplicativos Linux por arquivos `.desktop`.
 - Estados condicionais para aplicativos instalados e pedidos de instalação: sem computador pareado, não há dados fictícios exibidos.
 - Seleção de idioma em **Sobre o projeto → Idioma**, com português, inglês e espanhol. O idioma inicial é detectado pelo sistema do dispositivo e a escolha manual é persistida.
 - Temas **Sistema**, **Claro** e **Escuro** em **Sobre o projeto → Tema**. Sistema acompanha a aparência do dispositivo; a escolha manual é persistida. O visor da câmera no pareamento permanece escuro.
-- Primeiro comando `agent.ping` com autorização por vínculo, reserva única e diário do Agent, validado no Lux real por HTTPS; sem comandos parentais ou UI mobile de comandos.
+- Comandos `agent.ping` e `parental.app_filter.set` com autorização por vínculo, reserva única e diário do Agent. As configurações de apps, navegadores e instalação de um computador real viram comando, e o app mostra pendente, aplicado ou falha.
+- Agent instalado como serviço `systemd`, pareado com autorização de administrador local (`pkexec`) pela janela Piplup ou pelo terminal, com presença real no app.
 - Testes de typecheck, lint, testes de API e verificações de integração existentes no backend/mobile.
 
 ### Próximos passos
 
-1. Instalar e validar a unidade `systemd` no Lux real, com identidade provisionada, URL HTTPS definitiva e recuperação de conexão.
-2. Integrar confirmação de operações reais; o client simulado confirma suas próprias revisões, mas não comprova aplicação no GNOME.
-3. Definir privilégios mínimos do Agent e validar operações de escrita; a leitura de políticas na VM Lux já foi validada com e sem restrições, exigindo autenticação administrativa para outra conta.
-4. Implementar a coleta real de pedidos de instalação e suas decisões, registrando sucesso, falha e indisponibilidade no backend.
-5. Implementar a janela GTK4/libadwaita de pareamento do Agent (o QR no terminal já existe).
-6. Conectar o Agent às decisões de instalação e restrições, registrando confirmação posterior no backend.
-7. Expandir a cobertura de testes para troca de idioma e tema, múltiplos computadores, ausência de conexão, pedidos de instalação e fluxo ponta a ponta.
+1. Validar o fluxo completo do zero no Lux real e preparar o roteiro da demonstração.
+2. Opcionais: horário de dormir e classificação etária reais no computador.
 
-As telas de restrições já existem como superfície de produto, e a coleta de aplicativos já foi validada ponta a ponta localmente. A aplicação real de políticas no computador ainda depende dos endpoints parentais, do Agent instalado no Lux e da validação GNOME descritos acima. O [roadmap da arquitetura](docs/architecture.md#etapas-de-implementação) mantém o estado técnico detalhado e as limitações conhecidas.
+O [roadmap da arquitetura](docs/architecture.md#etapas-de-implementação) mantém o estado técnico; limites e riscos conhecidos estão em [Segurança](docs/security.md).
 
 ---
 
@@ -159,7 +156,7 @@ Somente se a conta ainda não existir, execute `npm run prisma:seed`, usando `DE
 npm run start:dev
 ```
 
-Deixe esse terminal aberto. Em outro terminal, teste `Invoke-RestMethod http://127.0.0.1:3000/health`: deve retornar `status: ok` e `database: ok`. Swagger: `http://127.0.0.1:3000/docs`.
+Deixe esse terminal aberto. Em outro terminal, teste `Invoke-RestMethod http://127.0.0.1:3000/health`: deve retornar `status: ok` e `database: ok`. Swagger: `http://127.0.0.1:3000/docs` (desligado com `NODE_ENV=production`).
 
 **Erro P1001 em `prisma:migrate:deploy`:** a CLI não alcançou o MySQL. Volte aos comandos do Docker e ao teste da porta antes de repetir a migration. Se o banco está saudável mas o login é recusado, confira as credenciais existentes; alterar a `.env` não altera a senha de um volume já inicializado. Não remova o volume.
 
@@ -272,6 +269,20 @@ Com backend, migrations e conta de teste preparados, execute `npm ci` e `npm sta
 
 ---
 
+### Computador Lux real
+
+O Agent roda no Lux e precisa alcançar o backend por HTTPS ([HTTPS no desenvolvimento](docs/lux-https-development.md)). Para o backend gerar comandos reais, defina `ENABLE_PARENTAL_COMMANDS=true` na `.env` e reinicie a API. No WSL, copie os arquivos permitidos para o Lux e, no Lux, instale e pareie:
+
+```bash
+rsync -rltiv --files-from=lux-agent/deploy-files.txt lux-agent/ lux:lux-agent-poc/
+sudo ~/lux-agent-poc/install.sh --backend-url https://<endereço-do-backend> --managed-user <conta-da-criança> [--ca-file /caminho/ca.pem]
+lux-agent pair
+```
+
+O último comando (ou o app **Piplup** no menu) pede a senha de administrador e mostra o QR; leia-o em **Adicionar computador** no app. Detalhes, desinstalação e códigos de saída: [Lux Agent](lux-agent/README.md#instalar-como-serviço).
+
+---
+
 ## Uso diário e atualizações
 
 | Processo | Comando / diretório |
@@ -307,7 +318,7 @@ Os fluxos com e sem Docker usam os mesmos scripts, configuração e migrations. 
 
 ## Documentação
 
-Testes: [Cypress/API/MySQL em Docker](docs/testing.md), [backend](docs/backend.md#verificações), [mobile](docs/mobile.md#configuração-e-verificações) e [checklist no celular](docs/mobile.md#validação-manual-no-celular). Builds: [EAS](docs/mobile.md#builds-com-eas). Projeto: [índice](docs/README.md), [Engenharia de Software III](docs/software-engineering-iii.md), [arquitetura](docs/architecture.md), [design](docs/design.md) e [Lux Agent](docs/lux-integration.md).
+Testes: [Cypress/API/MySQL em Docker](docs/testing.md), [backend](docs/backend.md#verificações), [mobile](docs/mobile.md#configuração-e-verificações) e [checklist no celular](docs/mobile.md#validação-manual-no-celular). Builds: [EAS](docs/mobile.md#builds-com-eas). Projeto: [índice](docs/README.md), [Engenharia de Software III](docs/engenharia-de-software-iii.md), [arquitetura](docs/architecture.md), [design](docs/design.md), [Lux Agent](docs/lux-integration.md), [segurança](docs/security.md) e [validação](docs/validation.md).
 
 ---
 

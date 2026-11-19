@@ -2,9 +2,9 @@
 
 Pacote Python `lux_agent` com cinco subcomandos: `pair` pareia o computador com um responsável por QR no terminal; `read-policies` lê políticas nativas; `prove-app-filter` prova a escrita do filtro de aplicativos com releitura e restauração; `check-backend` valida uma vez a identidade provisionada; `poll` consulta vínculos, processa `agent.ping` e `parental.app_filter.set` e, com `--collect-report-file` e `--state-dir`, coleta aplicativos Linux e envia relatórios autenticados para `PUT /agent/reports`. No Lux, `poll` roda como serviço systemd instalado por `install.sh` ([Instalar como serviço](#instalar-como-serviço)). A janela GTK de pareamento **Piplup** fica no pacote separado `lux_agent_gui` ([Parear](#parear-com-um-responsável)).
 
-O [protocolo v1](../docs/agent-protocol.md) implementa reserva única e resultado idempotente de ping com diário privado. A [validação ponta a ponta](../docs/agent-ping-validation.md) usou NestJS/MySQL e Lux reais por HTTPS. O executor também aplica o filtro de aplicativos (`parental.app_filter.set`) na conta gerenciada local, com releitura ([execução no Agent](../docs/agent-protocol.md#execução-no-agent)).
+O [protocolo v1](../docs/agent-protocol.md) implementa reserva única e resultado idempotente com diário privado. O executor responde `agent.ping` e aplica o filtro de aplicativos (`parental.app_filter.set`) na conta gerenciada local, com releitura ([execução no Agent](../docs/agent-protocol.md#execução-no-agent)).
 
-A PoC de leitura usa PyGObject/libmalcontent e AccountsService, sem alterar políticas ou solicitar elevação. A VM de referência é Lux 3/Canopus, GNOME 50.4 e malcontent 0.13.1-5. Leituras com e sem restrições foram validadas; consultar outra conta exigiu autenticação administrativa. A escrita do filtro de aplicativos pelo usuário de sistema `lux-agent`, sem root, foi provada com a regra polkit em `polkit/` ([evidência](../docs/lux-integration.md#escrita-do-filtro-de-aplicativos-via-polkit--2026-11-13)). O [client simulado](../docs/simulated-client.md) é um programa separado para demonstração; seu contrato não implementa comandos ou políticas Linux neste Agent.
+Leitura e escrita usam PyGObject/libmalcontent e AccountsService. A escrita pelo usuário de sistema `lux-agent`, sem root, depende da regra polkit em `polkit/` ([decisões e limites](../docs/lux-integration.md#provas-que-sustentam-as-decisões)); o que já foi validado no Lux está em [Validação](../docs/validation.md). O [client simulado](../docs/simulated-client.md) é um programa separado para demonstração; seu contrato não implementa comandos ou políticas Linux neste Agent.
 
 ## Organização e execução
 
@@ -39,6 +39,7 @@ lux-agent/
 │   ├── config.py
 │   ├── errors.py
 │   ├── backend.py
+│   ├── collector.py
 │   ├── polling.py
 │   ├── reports.py
 │   ├── commands.py
@@ -46,6 +47,7 @@ lux-agent/
 │   ├── pairing.py
 │   └── parental.py
 ├── lux_agent_gui/            janela GTK4/libadwaita, sem importar lux_agent
+│   ├── __init__.py
 │   ├── __main__.py
 │   ├── session.py            eventos do auxiliar → estados, QR em pixels (sem GTK)
 │   └── window.py
@@ -53,6 +55,7 @@ lux-agent/
     ├── __init__.py
     ├── test_check_backend.py
     ├── test_poll_associations.py
+    ├── test_collector.py
     ├── test_commands.py
     ├── test_https_transport.py
     ├── test_read_policies.py
@@ -82,6 +85,7 @@ A partir da raiz do repositório:
 ```bash
 cd lux-agent
 python3 -B -m lux_agent --help
+python3 -B -m lux_agent pair --help
 python3 -B -m lux_agent check-backend --help
 python3 -B -m lux_agent poll --help
 python3 -B -m lux_agent read-policies --help
@@ -111,9 +115,9 @@ python3 -B -m lux_agent poll --backend-url https://api.exemplo \
     --collect-report-file /caminho/privado/report.json
 ```
 
-`--collect-report-file` e `--report-file` são alternativas. A coleta atualiza o arquivo uma vez no início do processo; o diário conserva o mesmo `reportId` e reenvia o payload após timeout, reinício ou resposta perdida. Uma rejeição definitiva (`400`, `409`, `413` ou `422`) marca o relatório como `rejected` no diário, que não é reenviado, e o polling continua. O backend só aceita relatório de computador com vínculo ativo; enquanto a consulta de vínculos do ciclo não trouxer um com `revokedAt: null`, o Agent não envia e registra `Relatórios: aguardando vínculo ativo com um responsável.`. Assim, um computador instalado antes do pareamento não confunde o `401` de "sem vínculo" com credencial revogada. A coleta de pedidos de instalação e a leitura de políticas parentais ainda dependem de fontes Linux que não foram validadas.
+`--collect-report-file` e `--report-file` são alternativas. A coleta atualiza o arquivo uma vez no início do processo; o diário conserva o mesmo `reportId` e reenvia o payload após timeout, reinício ou resposta perdida. Uma rejeição definitiva (`400`, `409`, `413` ou `422`) marca o relatório como `rejected` no diário, que não é reenviado, e o polling continua. O backend só aceita relatório de computador com vínculo ativo; enquanto a consulta de vínculos do ciclo não trouxer um com `revokedAt: null`, o Agent não envia e registra `Relatórios: aguardando vínculo ativo com um responsável.`. Assim, um computador instalado antes do pareamento não confunde o `401` de "sem vínculo" com credencial revogada. O Agent não coleta pedidos de instalação (fora do escopo).
 
-Os três scripts antigos permanecem como wrappers para a mesma CLI; argumentos, mensagens operacionais e códigos de saída são preservados. O texto de uso do argparse passa a identificar os subcomandos. Imports internos devem usar `lux_agent.*`; `command_processor.py` e `command_journal.py` foram movidos para `commands.py` e `journal.py`, sem wrappers de biblioteca. Registros históricos abaixo mantêm os nomes usados nas provas anteriores.
+Os três scripts antigos permanecem como wrappers para a mesma CLI; argumentos, mensagens operacionais e códigos de saída são preservados. O texto de uso do argparse passa a identificar os subcomandos. Imports internos devem usar `lux_agent.*`; `command_processor.py` e `command_journal.py` foram movidos para `commands.py` e `journal.py`, sem wrappers de biblioteca.
 
 Configuração continua explícita nos argumentos. Credencial/CA ficam fora dos fontes; por exemplo, `~/.config/lux-agent/credential` e `~/.config/lux-agent/ca.pem`, em diretório privado. O diário deve ficar em armazenamento persistente, por exemplo `~/.local/state/lux-agent/commands`, com pai existente e confiável. Não use `~/lux-agent-poc/`, caches de build ou diretórios temporários de deploy para estado. A refatoração não move, apaga ou migra diários existentes; continue apontando `--state-dir` para o mesmo diretório, com a mesma origem e credencial.
 
@@ -121,15 +125,13 @@ Configuração continua explícita nos argumentos. Credencial/CA ficam fora dos 
 
 `prove-app-filter` grava um filtro de bloqueio na conta gerenciada, relê e compara, e **sempre** restaura o filtro anterior, inclusive em erro ou Ctrl+C. Bloqueia os aplicativos de `--block desktop:<id>.desktop` (repetível) e proíbe instalação de usuário e de sistema. `--hold N` (até 600 s) mantém o bloqueio ativo por N segundos antes de restaurar, para observação na sessão gráfica.
 
-Recusa conta administrativa (root ou grupo `sudo`) antes de carregar GI. Códigos de saída: `0` gravado, relido igual e restaurado; `1` releitura diferente, restauração não confirmada ou falha; `2` argumento ou aplicativo inválido; `3` conta administrativa; `4` permissão negada pelo polkit.
+Recusa conta administrativa (root ou grupos `sudo`, `admin`, `wheel`) antes de carregar GI. Códigos de saída: `0` gravado, relido igual e restaurado; `1` releitura diferente, restauração não confirmada ou falha; `2` argumento ou aplicativo inválido; `3` conta administrativa; `4` permissão negada pelo polkit.
 
 Com o Agent instalado ([Instalar como serviço](#instalar-como-serviço)), que cria o usuário `lux-agent` e a regra polkit:
 
 ```bash
 cd /opt/lux-agent && sudo -u lux-agent python3 -B -m lux_agent prove-app-filter --user CONTA_GERENCIADA --block desktop:firefox-esr.desktop
 ```
-
-A prova do LUX-1 usou uma cópia manual em `/opt/lux-agent-poc`, removida no LUX-3.
 
 ## Instalar como serviço
 
@@ -158,11 +160,12 @@ sudo ~/lux-agent-poc/uninstall.sh [--reset-policies] [--yes]
 | `/usr/share/polkit-1/actions/org.piplup.luxagent.pair.policy` | root, `0644` | Ação polkit do pareamento (`auth_admin`) |
 
 - **Usuário:** `lux-agent`, de sistema, sem shell nem home. O serviço não roda como root.
-- **Conta gerenciada:** `--managed-user` ou pergunta interativa. É decisão local; o backend nunca a escolhe. A unit a repassa ao `poll` por `--managed-user`. Recusa conta inexistente, root, UID fora de 1000–59999 e membros do grupo `sudo`.
+- **Conta gerenciada:** `--managed-user` ou pergunta interativa. É decisão local; o backend nunca a escolhe. A unit a repassa ao `poll` por `--managed-user`. Recusa conta inexistente, root, UID fora de 1000–59999 e membros dos grupos `sudo`, `admin` ou `wheel`.
 - **Credencial:** gerada por `lux-agent pair`; o `install.sh` não a recebe e reexecuções a mantêm. Sem credencial, a unit fica habilitada mas não inicia (`ConditionPathExists`) até o pareamento.
 - **Dependências:** `python3-qrcode`, `pkexec`, `python3-gi`, `gir1.2-gtk-4.0` e `gir1.2-adw-1`, instalados com `apt-get` quando faltam (o papel do `Depends` de um futuro pacote).
 - **Reexecução:** idempotente. Atualiza código, unit e regra, reaproveita URL, opções e conta já gravadas e reinicia o serviço.
 - **Reinício:** `Restart=on-failure`, exceto códigos 2 (configuração), 3 (credencial revogada) e 6 (incompatibilidade), que param o serviço sem loop (`RestartPreventExitStatus`). Falhas de rede e TLS continuam reiniciando ou repetindo com backoff.
+- **Isolamento:** a unit usa `NoNewPrivileges`, `ProtectSystem=strict`, `ProtectHome`, `PrivateTmp`, `PrivateDevices`, `ProtectKernel*`, `RestrictNamespaces`, `RestrictAddressFamilies`, `CapabilityBoundingSet=` vazio e `SystemCallFilter=@system-service`. As diretivas após `PrivateTmp` ainda precisam ser validadas no Lux (LUX-10).
 - **Logs:** journald (`journalctl -u lux-agent`), sem credencial, Bearer ou corpo HTTP.
 - **Desinstalação:** remove tudo da tabela, inclusive a credencial, e o usuário. As políticas da criança são mantidas; `--reset-policies` limpa o filtro de aplicativos via `malcontent-client set-app-filter`. A identidade continua válida no backend até ser revogada.
 - **Coleta:** o serviço não lê `$HOME` (`ProtectHome=yes`); o relatório lista aplicativos de `/usr/local/share` e `/usr/share`.
@@ -181,39 +184,6 @@ Um administrador abre **Piplup** no menu de aplicativos (ou roda `piplup` no ter
 | 6 | Resposta incompatível |
 
 Na primeira vez, ou quando o backend recusa a credencial (`401`, revogada ou nunca confirmada), o auxiliar gera outra e faz o autorregistro; com credencial válida, só abre uma nova sessão. O fluxo, as garantias e os limites estão em [Pareamento pelo Agent](../docs/lux-integration.md#pareamento-pelo-agent). Revogado o vínculo, o serviço para com código 3 e um novo `lux-agent pair` gera outra identidade.
-
-### Validação da janela de pareamento no Lux — 2026-11-18
-
-GNOME 50 com GTK 4.22 e libadwaita 1.9, backend no WSL2 por HTTPS com CA explícita e túnel SSH. A confirmação do responsável foi simulada: o QR foi decodificado da captura da janela e enviado a `POST /pairing/validate` e `/pairing/complete` com o token de um responsável de teste. A leitura pela câmera fica para o LUX-10.
-
-- `install.sh` instalou o atalho, o ícone e o comando `piplup`; o Piplup apareceu na busca do GNOME. Os avisos do Mesa/EGL no terminal vêm da VM sem aceleração; o GTK usa o renderizador por software.
-- Com vínculo ativo: "Computador já pareado". Senha cancelada: "Autorização necessária". Com o vínculo revogado: QR com contagem regressiva, e depois da confirmação "Computador pareado". O serviço reiniciou pelo auxiliar (`NRestarts=0`, HTTP 200, relatório aceito).
-- Janela fechada com o QR na tela: o auxiliar saiu sem reiniciar o serviço, que seguiu consultando.
-- Revogar o vínculo não para o serviço: a credencial continua válida (HTTP 200 com o vínculo revogado no histórico).
-- 149 testes passaram no WSL2 e no Lux. O tema do Lux não tem `emblem-ok-symbolic`; a janela usa `object-select-symbolic`.
-
-### Validação do pareamento no Lux — 2026-11-15
-
-Mesmo ambiente da validação abaixo (backend no WSL2 por HTTPS com CA explícita e túnel SSH), mobile em aparelho físico pelo Expo.
-
-- `install.sh` sem credencial instalou `python3-qrcode`, auxiliar, comando e ação polkit; a unit ficou habilitada e parada.
-- `lux-agent pair` na sessão gráfica da conta administrativa pediu a senha de administrador e mostrou o QR. O app leu, mostrou `Cradle` (hostname) e `crianca-teste`, e confirmou. O serviço iniciou logo após a confirmação (`NRestarts=0`), consultou o vínculo com HTTP 200 e teve o primeiro relatório aceito.
-- Na conta `crianca-teste`, cancelar ou errar a senha de administrador terminou com autorização negada.
-- Banco: `Device` com `isDemo=0`, conta gerenciada e vínculo ativo. Journal sem credencial, Bearer, token ou traceback.
-- 121 testes passaram no WSL2 e no Lux. Revogação com o serviço pareado não foi repetida: o caminho do `401` não mudou.
-
-### Validação no Lux — 2026-11-14
-
-Lux 3/Canopus, Python 3.14.6, backend NestJS/MySQL no WSL2 por HTTPS com CA explícita e proxy temporário ([guia](../docs/lux-https-development.md)), alcançado por túnel SSH em `https://localhost:13443`.
-
-- `install.sh` recusou `gabriel` (grupo `sudo`) e instalou para `crianca-teste`; reexecução manteve a credencial e reiniciou o serviço.
-- Sem vínculo, o primeiro report recebeu `401` e o serviço parou com código 3 sem reiniciar. Isso revelou o caso do computador ainda não pareado, corrigido com a espera por vínculo ativo descrita em [Coleta](#coleta-de-aplicativos-linux).
-- Após parear por API: report aceito com 59 aplicativos (de 120 `.desktop`, os demais ocultos), sem corte por limite; Firefox incluído. `agent.ping` processado pelo serviço em ~4 s.
-- `systemctl restart` e reboot da VM: serviço iniciou no boot, repetiu com backoff até o túnel voltar e não reprocessou o ping (mesmo `claimId`). Cada processo envia um relatório novo.
-- Revogação pela ferramenta administrativa: `401`, código 3, `NRestarts=0`.
-- Journal (131 linhas) sem a credencial, `Bearer` ou traceback.
-- `uninstall.sh --yes` removeu unit, diretórios, usuário e grupo; filtro da criança igual antes e depois. `--reset-policies` não foi exercitado no Lux (filtro já estava vazio).
-- 99 testes passaram no WSL2 e no Lux.
 
 ## Diagnóstico autenticado
 
@@ -251,17 +221,6 @@ ssh -o BatchMode=yes -o ExitOnForwardFailure=yes -R 127.0.0.1:13000:127.0.0.1:30
 
 O Agent inicia a requisição no Lux; o backend não acessa a VM. O túnel existe somente durante o comando. Essa prova usa HTTP em loopback dentro de SSH, não valida uma implantação HTTPS real.
 
-### Evidência desta iteração — 2026-10-24
-
-- Identidade demonstrativa criada pela ferramenta existente; consulta real Agent → NestJS → MySQL retornou HTTP 200/histórico vazio no WSL2 e no Lux via túnel SSH.
-- No Lux: credencial aleatória no formato correto recusada com HTTP 401/código 3; a credencial válida também foi recusada após revogação pela ferramenta administrativa. Conexão recusada em loopback retornou código 4.
-- 14 testes Python passaram no WSL2 (3.12.3) e Lux (3.14.6), incluindo os sete testes originais da PoC. HTTP 503, timeout e respostas inválidas foram simulados; não se interrompeu o MySQL/backend para provocar indisponibilidade real.
-- A PoC leu novamente a própria conta no Lux sem sudo, com filtros/limites desativados. A leitura restritiva anterior está preservada no [registro de integração](../docs/lux-integration.md#registro-de-provas-técnicas); não foi repetida com privilégios nesta iteração.
-- Backend no container Node 24.21.0: lint, typecheck, seis testes unitários e cinco testes HTTP passaram. Para os HTTP, foi necessário copiar `backend/test` para `/app/test`, pois o Compose não monta esse diretório. Nenhum contrato/backend foi alterado; a suíte MySQL dedicada não foi executada.
-- A identidade demonstrativa de validação foi revogada, preservando seu histórico; os arquivos temporários da credencial foram removidos do WSL2, container e Lux. Os containers de desenvolvimento ficaram iniciados. Não houve alteração de PAM, políticas, permissões Linux, serviços ou comandos privilegiados na VM.
-
-Pendências daquele diagnóstico inicial: HTTPS real e falhas TLS, usuário/instalação do serviço, polling e recuperação de conexão, autorização administrativa local e pareamento. O incremento de polling abaixo cobre repetição de consultas e recuperação transitória. Sucesso deste diagnóstico não comprova aplicação de política nem identidade física do equipamento.
-
 Referências de implementação: [urllib.request no Python 3.12](https://docs.python.org/3.12/library/urllib.request.html) e [os no Python 3.14](https://docs.python.org/3.14/library/os.html#os.open).
 
 ## Polling somente de leitura
@@ -294,14 +253,6 @@ No Lux, com a credencial já instalada separadamente, use o mesmo túnel tempor�
 ssh -o BatchMode=yes -o ExitOnForwardFailure=yes -R 127.0.0.1:13000:127.0.0.1:3000 lux 'cd ~/lux-agent-poc && python3 -B -m lux_agent poll --backend-url http://127.0.0.1:13000 --credential-file ~/.local/state/lux-agent/credential --allow-local-http --interval 1 --jitter 0 --max-queries 3'
 ```
 
-### Validação do polling — 2026-10-24
-
-- Três consultas consecutivas retornaram HTTP 200/histórico vazio no WSL2 e no Lux contra NestJS/MySQL reais, com intervalo de 1 s, jitter 0 e limite 3. A VM usou loopback por túnel SSH; HTTPS real estava pendente nessa etapa e foi validado posteriormente no [guia HTTPS](../docs/lux-https-development.md).
-- Revogação durante um ciclo no WSL2: primeira consulta HTTP 200; após invalidação administrativa da identidade demonstrativa, a segunda recebeu HTTP 401 e o processo encerrou com código 3, sem terceira tentativa. No Lux, a mesma identidade já revogada foi recusada na primeira consulta, também com código 3.
-- A suíte final tem 42 testes, executados em Python 3.12.3 no WSL2 e 3.14.6 no Lux. Cadência, recuperação, backoff, jitter e esperas longas usam tempo simulado. HTTP 429/503 e `Retry-After` usam servidor local; falhas de certificado são simuladas. Subprocessos limitados verificam SIGINT/SIGTERM durante espera e SIGTERM durante HTTP em andamento. O prazo total também foi exercitado, sem esperar o atraso completo.
-- A PoC leu novamente a própria conta no Lux sem sudo, com filtros/limites desativados. Não houve nova leitura privilegiada. Não se desligou o backend/MySQL para provocar indisponibilidade e não se executou a suíte MySQL dedicada.
-- A identidade demonstrativa foi revogada; os arquivos temporários de credencial foram removidos ao concluir. A sincronização de fontes incluiu somente os seis arquivos Python, excluindo configurações/credenciais; a transferência do segredo foi separada, por SSH. Nenhuma configuração parental, serviço ou código do backend foi alterado.
-
 Referências: [sinais Python 3.14](https://docs.python.org/3.14/library/signal.html), [erros urllib no Python 3.12](https://docs.python.org/3.12/library/urllib.error.html) e [Retry-After na RFC 9110](https://www.rfc-editor.org/rfc/rfc9110.html#section-10.2.3).
 
 ## Processar `agent.ping`
@@ -316,7 +267,7 @@ PYTHONPATH=lux-agent python3 -B -m lux_agent poll --backend-url https://localhos
 
 A CLI mantém backoff, TLS, timeout por requisição e sinais. Comandos usam limite de 16 KiB por resposta. Sem rede/503, preserva pendências para o ciclo seguinte; 401/TLS/409 encerram. 404/410 de claim/resultado abandonam a autorização local. Não recebe shell nem conta pelo comando, e não altera presença no mobile.
 
-Procedimento e resultados: [validação de ping](../docs/agent-ping-validation.md). Passaram 63 testes Python no WSL2 e Lux, incluindo respostas de claim/resultado perdidas, reinício, erros de diário e comandos desconhecidos. A aplicação de políticas e o pareamento/autorização administrativa local permanecem pendentes.
+Os testes cobrem respostas de claim/resultado perdidas, reinício, erros de diário e comandos desconhecidos.
 
 ## Desenvolver e testar no WSL2
 
@@ -330,18 +281,7 @@ python3 -B -m lux_agent read-policies --help
 python3 -B -m lux_agent prove-app-filter --help
 ```
 
-A suíte tem 149 testes em `tests/`, incluindo CLI/imports, wrappers, lista restrita de deploy e sintaxe dos scripts de instalação. O comando antigo `python3 -m unittest discover -s lux-agent -v`, na raiz do repositório, continua descobrindo a suíte. O diretório ainda não tem ferramentas Python de lint/typecheck configuradas. Compilação verifica sintaxe; os testes de comunicação usam um servidor HTTP local temporário e verificam Bearer, respostas, redirecionamento, falhas e proteção da credencial. Os testes da PoC verificam usuário obrigatório/inexistente, dependência ausente, flags sem interação, valores nativos, políticas desativadas e falha sem saída parcial. Esses testes isolados não comprovam permissões nem aplicação de restrições no Lux. A janela GTK não roda no WSL sem `gir1.2-gtk-4.0`/`gir1.2-adw-1`; seus testes cobrem só `session.py`.
-
-## Validação da reorganização — 2026-10-26
-
-- Referência anterior: 63 testes passaram antes da alteração; todos os nomes/casos foram preservados em `tests/`. Depois, 69 testes passaram no WSL2/Python 3.12.3 e Lux/Python 3.14.6. Incluem sinais, TLS real, credencial, polling, ping, respostas perdidas e diário; os seis novos casos verificam estrutura/CLI/deploy.
-- Wheel construído e instalado somente em área isolada, sem rede ou dependências de execução adicionais; entrada `lux-agent` e `python3 -m lux_agent` funcionaram fora do repositório. Compilação e checagens de links/sintaxe passaram. Não há lint/typecheck Python configurado.
-- Deploy via allowlist validado no Lux. Os sete fontes antigos foram removidos somente após comparar seus hashes com a versão anterior do repositório; os três wrappers permaneceram. Nenhuma credencial/diário existente foi migrado.
-- CLI real no Lux contra servidor HTTPS de contrato isolado no WSL2, por SSH: diagnóstico autenticado, polling/ping e reinício com o mesmo diário retornaram 0; CA/hostname inválidos retornaram 4 e credencial inválida retornou 3. Confirmação do resultado perdida retornou 4; reinício reenviou dois PUTs idênticos no total, com apenas um claim. Dados de teste ficaram fora do deploy e foram removidos ao concluir.
-- `read-policies` consultou a própria conta do Lux sem sudo e retornou JSON válido. Não houve nova leitura privilegiada, escrita parental, instalação ou alteração de serviços.
-- O relógio da VM estava aproximadamente quatro minutos atrás do host. A recusa inicial de certificado recém-emitido foi correta; a prova cruzada usou certificados de teste com validade iniciada no dia anterior. Não se alterou relógio, validação TLS ou confiança global.
-
-O backend, Prisma, banco e protocolo HTTP não foram alterados nem reiniciados. A prova NestJS/MySQL anterior continua registrada em [Validação de ping](../docs/agent-ping-validation.md); nesta refatoração, o teste cruzado usou servidor de contrato, sem repetir essa integração real. A classe `CommandJournal` foi comparada por AST e permaneceu idêntica, preservando formato e persistência.
+A suíte em `tests/` inclui CLI/imports, wrappers, lista restrita de deploy e sintaxe dos scripts de instalação. O comando antigo `python3 -m unittest discover -s lux-agent -v`, na raiz do repositório, continua descobrindo a suíte. O diretório ainda não tem ferramentas Python de lint/typecheck configuradas. Compilação verifica sintaxe; os testes de comunicação usam um servidor HTTP local temporário e verificam Bearer, respostas, redirecionamento, falhas e proteção da credencial. Os testes da PoC verificam usuário obrigatório/inexistente, dependência ausente, flags sem interação, valores nativos, políticas desativadas e falha sem saída parcial. Esses testes isolados não comprovam permissões nem aplicação de restrições no Lux. A janela GTK não roda no WSL sem `gir1.2-gtk-4.0`/`gir1.2-adw-1`; seus testes cobrem só `session.py`.
 
 ## Sincronizar e executar no Lux
 
@@ -365,12 +305,10 @@ ssh -o BatchMode=yes lux 'cd ~/lux-agent-poc && python3 -B -m lux_agent read-pol
 
 O destino é uma cópia executável em `~/lux-agent-poc/`, sem Git e sem edição de fonte na VM. A allowlist inclui somente fontes/metadados: `.env`, chaves, certificados, credenciais, caches e SQLite/diários não são sincronizados. Não use `--delete`, não sincronize a raiz do repositório e não copie estado junto aos fontes. Transfira credencial e CA pública separadamente pelo canal seguro e use caminhos externos ao deploy. Substitua `USUARIO_ALVO` explicitamente; não há seleção automática de conta.
 
-Na primeira atualização de uma cópia antiga, sete fontes deixam de pertencer ao deploy: os cinco `test_*.py` antigos na raiz, `command_processor.py` e `command_journal.py`. Após conferir que não possuem alterações locais, remova somente esses arquivos obsoletos; não remova credenciais, bancos ou diretórios de estado. Os três scripts executáveis antigos são atualizados como wrappers e continuam funcionando. A descoberta recomendada usa `-s tests`, evitando executar testes antigos que ainda não tenham sido removidos.
-
 Use o Python do sistema Lux com seus bindings GI e comece sem `sudo`: a PoC usa `ManagerGetValueFlags.NONE`, sem autorização interativa ou elevação automática. Permissão negada, serviço indisponível ou dados inválidos retornam erro em stderr e código 1, sem JSON parcial. Argumentos inválidos retornam 2; uma consulta completa retorna 0 e JSON em stdout.
 
-Na VM de referência, consultar a própria conta funcionou sem sudo, mas consultar outra conta pela sessão SSH administrativa foi negado à PoC e à CLI. As regras locais exigem autenticação administrativa para `ReadAny`; pertencer ao grupo sudo não basta. A negativa é falha de autorização, não prova de que a conta está sem restrições. Para comparar sem solicitar interação, use `malcontent-client get-app-filter --no-interactive USUARIO_ALVO` e `malcontent-client get-session-limits --no-interactive USUARIO_ALVO` no Lux. Consultas privilegiadas dependem de autorização explícita e autenticação local: `sudo -n` exigiu senha, e a leitura restritiva foi concluída pelo usuário com sudo autenticado no próprio terminal. Os JSONs antes/depois foram idênticos e os campos expostos pela CLI foram compatíveis. Não altere regras polkit para contornar essa limitação. Evidências em [Integração Lux](../docs/lux-integration.md#registro-de-provas-técnicas).
+Na VM de referência, consultar a própria conta funcionou sem sudo, mas consultar outra conta pela sessão SSH administrativa foi negado à PoC e à CLI. As regras locais exigem autenticação administrativa para `ReadAny`; pertencer ao grupo sudo não basta. A negativa é falha de autorização, não prova de que a conta está sem restrições. Para comparar sem solicitar interação, use `malcontent-client get-app-filter --no-interactive USUARIO_ALVO` e `malcontent-client get-session-limits --no-interactive USUARIO_ALVO` no Lux. Consultas privilegiadas exigem autenticação local (`sudo` interativo). Não altere regras polkit para contornar essa limitação.
 
-O JSON inclui nome/UID, `enabled` e `policy` para cada consulta. `policy` preserva `serialize().unpack()` da biblioteca; tuplas viram arrays JSON. É saída diagnóstica da PoC, sem contrato de backend. `enabled` descreve a configuração, não comprova bloqueio efetivo. As duas leituras são sequenciais, sem snapshot transacional. `DailySchedule`, quando presente, mantém segundos desde meia-noite; não convertemos para horário local. A interpretação de UTC exige cuidado e validação antes de futuras escritas.
+O JSON inclui nome/UID, `enabled` e `policy` para cada consulta. `policy` preserva `serialize().unpack()` da biblioteca; tuplas viram arrays JSON. É saída diagnóstica da PoC, sem contrato de backend. `enabled` descreve a configuração, não comprova bloqueio efetivo. As duas leituras são sequenciais, sem snapshot transacional. `DailySchedule`, quando presente, mantém segundos desde meia-noite; não convertemos para horário local. A interpretação de UTC exige validação antes de escrever horários (LUX-11).
 
-Referências usadas: cliente oficial instalado em `/usr/bin/malcontent-client`, contrato local `/usr/share/dbus-1/interfaces/com.endlessm.ParentalControls.SessionLimits.xml` e [fonte de SessionLimits 0.13.1-5](https://sources.debian.org/src/malcontent/0.13.1-5/libmalcontent/session-limits.c/). Registro de resultados e limitações em [Integração Lux](../docs/lux-integration.md#registro-de-provas-técnicas).
+Referências usadas: cliente oficial instalado em `/usr/bin/malcontent-client`, contrato local `/usr/share/dbus-1/interfaces/com.endlessm.ParentalControls.SessionLimits.xml` e [fonte de SessionLimits 0.13.1-5](https://sources.debian.org/src/malcontent/0.13.1-5/libmalcontent/session-limits.c/).

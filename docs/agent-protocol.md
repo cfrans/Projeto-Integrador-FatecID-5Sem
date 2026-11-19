@@ -1,6 +1,6 @@
 # Protocolo de comandos do Lux Agent — versão 1
 
-Implementado e validado com `agent.ping` entre responsável HTTP, NestJS, MySQL e Agent Python no Lux por HTTPS. O mobile ainda não cria nem apresenta comandos. Procedimento e evidências em [Validação de ping](agent-ping-validation.md); os comandos parentais têm [contrato e backend](#comandos-parentais-contrato) testados só com Agent simulado; execução no Agent e no GNOME continua pendente.
+Implementado para `agent.ping` e para os [comandos parentais](#comandos-parentais-contrato), entre NestJS, MySQL e Agent Python no Lux por HTTPS. O mobile não cria comandos: edita as configurações do computador e mostra o estado da política. O que já foi validado no Lux está em [Validação](validation.md).
 
 ## Escopo e revisão da proposta
 
@@ -67,9 +67,9 @@ Erros: 400 contrato inválido; 401 autenticação/identidade revogada; 404 recur
 
 ## Comandos parentais (contrato)
 
-Estado: contrato e backend implementados e cobertos por testes unitários e por um teste MySQL com um Agent simulado (`backend/test/parental-commands.mysql-test.mjs`). O Lux Agent executa `set` ([execução no Agent](#execução-no-agent)), coberto por testes Python com malcontent substituído; `read` não é implementado e recebe `UNSUPPORTED_OPERATION`. Enquanto `ENABLE_PARENTAL_COMMANDS` não for `true` (padrão), o backend não gera `set` a partir das configurações e recusa `read` com `501`. Reutilizam o ciclo criação, polling, claim e resultado do ping, sem novos endpoints de Agent.
+Estado: contrato e backend implementados e cobertos por testes unitários e por um teste MySQL com um Agent simulado (`backend/test/parental-commands.mysql-test.mjs`). O Lux Agent executa `set` ([execução no Agent](#execução-no-agent)), coberto por testes Python com malcontent substituído e validado no Lux; `read` não é implementado e recebe `UNSUPPORTED_OPERATION`. Enquanto `ENABLE_PARENTAL_COMMANDS` não for `true` (padrão), o backend não gera `set` a partir das configurações e recusa `read` com `501`. Reutilizam o ciclo criação, polling, claim e resultado do ping, sem novos endpoints de Agent.
 
-A escrita só cobre o filtro de aplicativos, a única operação com prova técnica de escrita no Lux ([registro](lux-integration.md#escrita-do-filtro-de-aplicativos-via-polkit--2026-11-13)). A conta gerenciada é definida localmente pelo Agent, nunca pelo backend ou pelo mobile; contas administrativas são recusadas localmente.
+A escrita só cobre o filtro de aplicativos, a única operação com prova técnica de escrita no Lux ([provas](lux-integration.md#provas-que-sustentam-as-decisões)). A conta gerenciada é definida localmente pelo Agent, nunca pelo backend ou pelo mobile; contas administrativas são recusadas localmente.
 
 | `type` (versão 1) | `parameters` | Resultado de sucesso |
 | --- | --- | --- |
@@ -113,13 +113,13 @@ Para computador real, `GET`/`PATCH /simulation/devices/:id` mantêm o formato do
 
 1. A conta vem de `poll --managed-user` (a unit repassa `LUX_AGENT_MANAGED_USER` de `/etc/lux-agent/agent.env`), nunca do comando. Ausente, inexistente, root ou membro do grupo `sudo` → `ACCOUNT_NOT_MANAGED`, sem tocar no malcontent.
 2. Cada `sourceId` vira o caminho do executável (`.desktop` em `/usr/local/share` e `/usr/share`, `Exec` resolvido no `PATH` da sessão). App ausente, sem `Exec` resolvível ou aberto por lançador genérico (`env`, `sh`, `bash`, `xdg-open`, `flatpak`, `python3` etc., lista em `parental.GENERIC_LAUNCHERS`) → `POLICY_UNAVAILABLE`, sem gravar: o malcontent bloqueia pelo executável, e bloquear o lançador afetaria todos os apps que o usam. Pela mesma razão, apps que compartilham o executável são bloqueados juntos (no Lux de referência, os seis atalhos do LibreOffice usam `/usr/bin/libreoffice`). O relatório já informa esses casos (`blockable`, `executable`) e o backend não os pede; a recusa no Agent é a última barreira, para inventário desatualizado.
-3. Grava com `Malcontent.Manager.set_app_filter` (lista de bloqueio + `AllowUser/SystemInstallation = !blockInstallation`) e relê. O filtro gravado substitui o anterior inteiro, inclusive o filtro OARS, que fica vazio.
+3. Grava com `Malcontent.Manager.set_app_filter` (lista de bloqueio + `AllowUser/SystemInstallation = !blockInstallation`) e relê. O filtro gravado substitui o anterior inteiro, inclusive o filtro OARS, que fica vazio; aplicar classificação etária real exigirá mesclar os dois.
 4. Se os caminhos e as flags relidos forem idênticos aos desejados, devolve `succeeded` com os `sourceId` pedidos (o conjunto de caminhos relido corresponde exatamente a eles). Releitura divergente ou em lista de permissão → `VERIFICATION_FAILED`.
 5. Erros do malcontent: `PERMISSION_DENIED` → `PERMISSION_DENIED`; `INVALID_USER` → `ACCOUNT_NOT_MANAGED`; bindings GI ausentes, D-Bus ou outro erro → `LOCAL_UNAVAILABLE`.
 
 Gravar o mesmo filtro de novo é inofensivo, então a reemissão (novo `requestId`) é simplesmente reaplicada. Queda entre `started` e o resultado salvo não reexecuta: o backend marca `unknown` e reemite. Com o vínculo revogado a fila fica vazia: o Agent mantém o filtro aplicado e não limpa nada; limpar exige `uninstall.sh --reset-policies` ou `malcontent-client` pelo administrador.
 
-Pendências antes de habilitar: validar a execução do Agent no Lux com o serviço instalado, o mobile editar as configurações do computador real e exibir o estado, e verificar no Lux o efeito do bloqueio de instalação (LUX-10), que o registro técnico ainda não confirmou.
+Pendência: verificar no Lux o efeito do bloqueio de instalação (exige flatpak na VM; ver [provas](lux-integration.md#provas-que-sustentam-as-decisões)).
 
 ## Contrato de relatórios do Agent
 
@@ -132,9 +132,9 @@ O Agent usa a credencial individual provisionada para o computador e nunca escol
 | Endpoint | Finalidade | Estado |
 | --- | --- | --- |
 | `GET /agent/associations` | Confirma a identidade e consulta o vínculo ativo do próprio computador. | Implementado |
-| `GET /agent/commands` | Busca no máximo um comando parental pendente. | Implementado para `agent.ping` |
-| `POST /agent/commands/:id/claim` | Reserva um comando antes da execução local. | Implementado para `agent.ping` |
-| `PUT /agent/commands/:id/result` | Informa o resultado de uma operação reservada. | Implementado para `agent.ping` |
+| `GET /agent/commands` | Busca no máximo um comando pendente. | Implementado |
+| `POST /agent/commands/:id/claim` | Reserva um comando antes da execução local. | Implementado |
+| `PUT /agent/commands/:id/result` | Informa o resultado de uma operação reservada. | Implementado |
 | `PUT /agent/reports` | Envia inventário e pedidos observados pelo computador em um relatório. | Implementado |
 
 O endpoint de relatório deve derivar o dispositivo da identidade autenticada. Não aceita `deviceId`, `guardianId` ou associação escolhida pelo cliente. A resposta de sucesso deve incluir `reportId`, `receivedAt`, `applicationsReportedAt` e `installationRequestsReportedAt`.
@@ -269,8 +269,8 @@ Cadência/backoff/jitter/`Retry-After` e sinais são os do polling existente. 42
 
 ## Validação e limites
 
-[Testes MySQL](../backend/test/commands.mysql-test.mjs): vínculo/identidade, fixture legada, isolamento, criação/claim/resultado idempotentes, concorrência, expiração após espera por lock, revogação administrativa/do responsável e resultado tardio. [Testes Python](../lux-agent/tests/test_commands.py): diário, exclusão, permissões, corrupção, troca de identidade/origem, respostas perdidas, reinício ambíguo e contratos não suportados. [Evidência real no Lux](agent-ping-validation.md#evidência--2026-10-26).
+[Testes MySQL](../backend/test/commands.mysql-test.mjs): vínculo/identidade, fixture legada, isolamento, criação/claim/resultado idempotentes, concorrência, expiração após espera por lock, revogação administrativa/do responsável e resultado tardio. [Testes Python](../lux-agent/tests/test_commands.py): diário, exclusão, permissões, corrupção, troca de identidade/origem, respostas perdidas, reinício ambíguo e contratos não suportados.
 
-Ficam pendentes: UI mobile de comandos, pareamento/autorização local, quotas/retenção, hospedagem HTTPS definitiva, primeira leitura remota e reconciliação antes de escritas parentais. Sucesso de ping não comprova política aplicada ou identidade física do equipamento.
+Ficam pendentes: quotas/retenção do diário, hospedagem HTTPS definitiva e `parental.app_filter.read` no Agent. Sucesso de ping não comprova política aplicada ou identidade física do equipamento.
 
 Referências: [Prisma 7: transações](https://www.prisma.io/docs/orm/v7/prisma-client/queries/transactions), [Prisma 7: migrations](https://www.prisma.io/docs/orm/v7/prisma-migrate/workflows/development-and-production), [SQLite no Python](https://docs.python.org/3.12/library/sqlite3.html) e [flock](https://docs.python.org/3.12/library/fcntl.html#fcntl.flock).
