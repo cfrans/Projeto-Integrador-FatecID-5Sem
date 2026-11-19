@@ -20,6 +20,14 @@ async function bootstrap() {
       forbidNonWhitelisted: true,
     }),
   );
+  if (process.env.NODE_ENV !== 'production') {
+    setupOpenApi(app);
+  }
+
+  await app.listen(Number(process.env.PORT ?? 3000), '0.0.0.0');
+}
+
+function setupOpenApi(app: NestExpressApplication) {
   const openApi = new DocumentBuilder()
     .setTitle('Piplup API')
     .setDescription('API do projeto integrador.')
@@ -34,7 +42,6 @@ async function bootstrap() {
   SwaggerModule.setup('docs', app, () =>
     SwaggerModule.createDocument(app, openApi),
   );
-
-  await app.listen(Number(process.env.PORT ?? 3000), '0.0.0.0');
 }
+
 await bootstrap();
