@@ -124,6 +124,20 @@ describe('AppController (e2e)', () => {
       .expect(400);
   });
 
+  it('limits attempts on public authentication routes per address', async () => {
+    const http = request(app.getHttpServer());
+    for (let attempt = 0; attempt < 20; attempt += 1) {
+      await http.post('/auth/login').send({ email: 'not-an-email', password: '' }).expect(400);
+    }
+    await http.post('/auth/login').send({ email: guardian.email, password: 'correct-horse-battery' }).expect(429);
+
+    for (let attempt = 0; attempt < 5; attempt += 1) {
+      await http.post('/auth/recovery/reset').send({}).expect(400);
+    }
+    await http.post('/auth/recovery/reset').send({}).expect(429);
+    await http.post('/auth/recovery/verify').send({}).expect(400);
+  });
+
   it('registers, updates account credentials and recovers password through HTTP routes', async () => {
     const http = request(app.getHttpServer());
 

@@ -1,6 +1,6 @@
 import { Body, Controller, Post, UseGuards } from '@nestjs/common';
 import { ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
-import { ThrottlerGuard } from '@nestjs/throttler';
+import { Throttle, ThrottlerGuard } from '@nestjs/throttler';
 import { AgentPairingSessionResponseDto } from './dto/agent-pairing-session-response.dto.js';
 import { AgentRegistrationDto } from './dto/agent-registration.dto.js';
 import { PairingService } from './pairing.service.js';
@@ -12,6 +12,7 @@ export class AgentRegistrationController {
 
   @Post('registrations')
   @UseGuards(ThrottlerGuard)
+  @Throttle({ default: { limit: 5, ttl: 60_000 } })
   @ApiOperation({
     summary: 'Registra um computador ainda sem identidade e abre o pareamento',
   })

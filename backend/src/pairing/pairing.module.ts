@@ -1,5 +1,4 @@
 import { Module } from '@nestjs/common';
-import { ThrottlerModule } from '@nestjs/throttler';
 import { AuthModule } from '../auth/auth.module.js';
 import { PairingController } from './pairing.controller.js';
 import { PairingService } from './pairing.service.js';
@@ -8,7 +7,7 @@ import { AgentRegistrationController } from './agent-registration.controller.js'
 import { AgentAuthGuard } from './agent-auth/agent-auth.guard.js';
 
 @Module({
-  imports: [AuthModule, ThrottlerModule.forRoot([{ ttl: 60_000, limit: 5 }])],
+  imports: [AuthModule],
   controllers: [
     PairingController,
     AgentPairingController,
