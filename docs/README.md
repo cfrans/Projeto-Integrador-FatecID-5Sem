@@ -1,24 +1,22 @@
 # Documentação
 
-Para instalar e abrir o aplicativo no celular, comece pelo [tutorial da raiz](../README.md). Os documentos abaixo detalham decisões e responsabilidades.
+Para instalar e rodar o projeto, comece pelo [README da raiz](../README.md). O estado de cada etapa fica só em [Arquitetura → etapas](architecture/overview.md#etapas-de-implementação); os demais documentos não o repetem.
 
-| Documento | Onde procurar |
+| Quero… | Leia |
 | --- | --- |
-| [Produto](product.md) | Propósito, estado atual e MVP planejado |
-| [Arquitetura](architecture.md) | Componentes, etapas, contratos e fronteiras entre mocks e integração real |
-| [Mobile](mobile.md) | Organização, sessão REST, URL da API e Expo Go |
-| [Backend](backend.md) | Responsabilidades, implementação e contrato da API |
-| [Banco](database.md) | MySQL 8.4 com Docker ou local, Prisma e migrations |
-| [Engenharia de Software III](engenharia-de-software-iii.md) | Casos de uso, classes, backlog, padrões e metodologia ágil |
-| [Testes](testing.md) | Cobertura, limites e execução Cypress/API/MySQL em Docker |
-| [Lux](lux-integration.md) | Agent Python/systemd, interface GTK, malcontent/polkit e provas que sustentam as decisões |
-| [HTTPS do Agent](lux-https-development.md) | Proxy temporário, CA explícita, testes e evidências de transporte seguro |
-| [Protocolo do Agent](agent-protocol.md) | Contrato v1: ping, comandos parentais, relatórios, idempotência e recuperação |
-| [Segurança](security.md) | Controles implementados e limitações conhecidas |
-| [Validação](validation.md) | Última validação de cada parte do sistema e como repetir |
-| [Design](design.md) | PDF, padrões visuais e componentes |
-| [Client simulado](simulated-client.md) | Cadastro demonstrativo, QR e sincronização com o app sem depender do GNOME |
+| Entender o produto, o escopo e o que está fora | [product/overview.md](product/overview.md) |
+| Ver o padrão visual e o protótipo | [product/design.md](product/design.md) |
+| Consultar casos de uso, backlog e metodologia da disciplina | [product/engenharia-de-software-iii.md](product/engenharia-de-software-iii.md) |
+| Saber como as peças se conectam e o estado do projeto | [architecture/overview.md](architecture/overview.md) |
+| Saber o que é protegido e quais limitações existem | [architecture/security.md](architecture/security.md) |
+| Mexer na API NestJS (rotas, autenticação, pareamento) | [backend/api.md](backend/api.md) |
+| Configurar o MySQL, Prisma e migrations | [backend/database.md](backend/database.md) |
+| Mexer no app Expo, rodar no celular ou gerar build | [mobile/app.md](mobile/app.md) |
+| Entender o Agent no Lux, malcontent, polkit e pareamento | [lux/integration.md](lux/integration.md) |
+| Ver o contrato de comandos e relatórios entre Agent e API | [lux/agent-protocol.md](lux/agent-protocol.md) |
+| Montar HTTPS de desenvolvimento para o Agent | [lux/https-development.md](lux/https-development.md) |
+| Demonstrar sem o Lux (plano B) | [simulated/client.md](simulated/client.md) |
+| Rodar a suíte de testes (Cypress/API/MySQL em Docker) | [testing/test-suite.md](testing/test-suite.md) |
+| Saber o que já foi validado e quando | [testing/validation.md](testing/validation.md) |
 
-Este diretório descreve o estado presente. O [roadmap em Arquitetura](architecture.md#etapas-de-implementação) é a referência única para o estado de cada etapa; os demais documentos não repetem esse estado.
-
-Para a entrega acadêmica, o [client simulado](simulated-client.md) permite cadastrar/parear PCs demonstrativos e refletir configurações do app pela API, como plano B quando o Lux não estiver disponível. O app mobile não acessa o banco; o ambiente MySQL é usado só pelo backend ([Banco](database.md)).
+O código do Agent e seus comandos de instalação estão em [lux-agent/README.md](../lux-agent/README.md).

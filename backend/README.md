@@ -1,6 +1,6 @@
 # Backend
 
-Fundação NestJS/TypeScript, Prisma e MySQL. Consulte [execução, estrutura e verificações](../docs/backend.md), [persistência](../docs/database.md) e [arquitetura](../docs/architecture.md).
+Fundação NestJS/TypeScript, Prisma e MySQL. Consulte [execução, estrutura e verificações](../docs/backend/api.md), [persistência](../docs/backend/database.md) e [arquitetura](../docs/architecture/overview.md).
 
 Na raiz, configure `.env` a partir de `.env.example` e execute `docker compose up -d --build`. Saúde: `http://localhost:3000/health`; Swagger: `http://localhost:3000/docs` (desligado com `NODE_ENV=production`).
 

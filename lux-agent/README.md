@@ -2,9 +2,9 @@
 
 Pacote Python `lux_agent` com cinco subcomandos: `pair` pareia o computador com um responsável por QR no terminal; `read-policies` lê políticas nativas; `prove-app-filter` prova a escrita do filtro de aplicativos com releitura e restauração; `check-backend` valida uma vez a identidade provisionada; `poll` consulta vínculos, processa `agent.ping` e `parental.app_filter.set` e, com `--collect-report-file` e `--state-dir`, coleta aplicativos Linux e envia relatórios autenticados para `PUT /agent/reports`. No Lux, `poll` roda como serviço systemd instalado por `install.sh` ([Instalar como serviço](#instalar-como-serviço)). A janela GTK de pareamento **Piplup** fica no pacote separado `lux_agent_gui` ([Parear](#parear-com-um-responsável)).
 
-O [protocolo v1](../docs/agent-protocol.md) implementa reserva única e resultado idempotente com diário privado. O executor responde `agent.ping` e aplica o filtro de aplicativos (`parental.app_filter.set`) na conta gerenciada local, com releitura ([execução no Agent](../docs/agent-protocol.md#execução-no-agent)).
+O [protocolo v1](../docs/lux/agent-protocol.md) implementa reserva única e resultado idempotente com diário privado. O executor responde `agent.ping` e aplica o filtro de aplicativos (`parental.app_filter.set`) na conta gerenciada local, com releitura ([execução no Agent](../docs/lux/agent-protocol.md#execução-no-agent)).
 
-Leitura e escrita usam PyGObject/libmalcontent e AccountsService. A escrita pelo usuário de sistema `lux-agent`, sem root, depende da regra polkit em `polkit/` ([decisões e limites](../docs/lux-integration.md#provas-que-sustentam-as-decisões)); o que já foi validado no Lux está em [Validação](../docs/validation.md). O [client simulado](../docs/simulated-client.md) é um programa separado para demonstração; seu contrato não implementa comandos ou políticas Linux neste Agent.
+Leitura e escrita usam PyGObject/libmalcontent e AccountsService. A escrita pelo usuário de sistema `lux-agent`, sem root, depende da regra polkit em `polkit/` ([decisões e limites](../docs/lux/integration.md#provas-que-sustentam-as-decisões)); o que já foi validado no Lux está em [Validação](../docs/testing/validation.md). O [client simulado](../docs/simulated/client.md) é um programa separado para demonstração; seu contrato não implementa comandos ou políticas Linux neste Agent.
 
 ## Organização e execução
 
@@ -104,7 +104,7 @@ Os exemplos com `PYTHONPATH=lux-agent` abaixo partem da raiz do repositório; os
 
 ### Coleta de aplicativos Linux
 
-O Agent coleta entradas `.desktop` visíveis em `$XDG_DATA_HOME/applications` e nos diretórios `applications` de `$XDG_DATA_DIRS`. Entradas `Hidden=true`, `NoDisplay=true` e tipos diferentes de `Application` são ignoradas. O relatório usa o nome do arquivo `.desktop` como `sourceId`, gera um novo `reportId`, não inventa pedidos de instalação e é gravado com modo `0600`. Os aplicativos são ordenados por `sourceId`. Com mais de 200 aplicativos ou mais de 16 KiB, só o maior prefixo que cabe nos dois limites é enviado, com aviso no stderr (detalhes em [protocolo](../docs/agent-protocol.md#relatório-enviado)). Cada aplicativo informa também `blockable` e `executable` (executável resolvido do `Exec`, como na execução do `set`), que o backend usa para não pedir apps impossíveis de bloquear e para tratar apps do mesmo executável como grupo. Com uma média de ~140 bytes por aplicativo, cabem cerca de 115 no limite de 16 KiB, antes do limite de 200; o Lux de referência tem 59 visíveis.
+O Agent coleta entradas `.desktop` visíveis em `$XDG_DATA_HOME/applications` e nos diretórios `applications` de `$XDG_DATA_DIRS`. Entradas `Hidden=true`, `NoDisplay=true` e tipos diferentes de `Application` são ignoradas. O relatório usa o nome do arquivo `.desktop` como `sourceId`, gera um novo `reportId`, não inventa pedidos de instalação e é gravado com modo `0600`. Os aplicativos são ordenados por `sourceId`. Com mais de 200 aplicativos ou mais de 16 KiB, só o maior prefixo que cabe nos dois limites é enviado, com aviso no stderr (detalhes em [protocolo](../docs/lux/agent-protocol.md#relatório-enviado)). Cada aplicativo informa também `blockable` e `executable` (executável resolvido do `Exec`, como na execução do `set`), que o backend usa para não pedir apps impossíveis de bloquear e para tratar apps do mesmo executável como grupo. Com uma média de ~140 bytes por aplicativo, cabem cerca de 115 no limite de 16 KiB, antes do limite de 200; o Lux de referência tem 59 visíveis.
 
 Para coletar e enviar um relatório no primeiro ciclo do polling:
 
@@ -172,7 +172,7 @@ sudo ~/lux-agent-poc/uninstall.sh [--reset-policies] [--yes]
 
 ## Parear com um responsável
 
-Um administrador abre **Piplup** no menu de aplicativos (ou roda `piplup` no terminal da sessão gráfica) e clica em **Parear**, ou roda `lux-agent pair` no terminal; digita a senha de administrador e vê um QR com a expiração (5 min). A janela mostra contagem regressiva e os estados descritos em [interface gráfica](../docs/lux-integration.md#interface-gráfica-local-de-pareamento); fechá-la cancela o pareamento. O responsável lê o QR em **Adicionar computador** no app e confirma; o comando informa o vínculo e o serviço reinicia sozinho. Usuário sem senha de administrador é negado.
+Um administrador abre **Piplup** no menu de aplicativos (ou roda `piplup` no terminal da sessão gráfica) e clica em **Parear**, ou roda `lux-agent pair` no terminal; digita a senha de administrador e vê um QR com a expiração (5 min). A janela mostra contagem regressiva e os estados descritos em [interface gráfica](../docs/lux/integration.md#interface-gráfica-local-de-pareamento); fechá-la cancela o pareamento. O responsável lê o QR em **Adicionar computador** no app e confirma; o comando informa o vínculo e o serviço reinicia sozinho. Usuário sem senha de administrador é negado.
 
 | Saída | Situação |
 | --- | --- |
@@ -183,20 +183,20 @@ Um administrador abre **Piplup** no menu de aplicativos (ou roda `piplup` no ter
 | 5 | Backend indisponível ou limite de registros (429) |
 | 6 | Resposta incompatível |
 
-Na primeira vez, ou quando o backend recusa a credencial (`401`, revogada ou nunca confirmada), o auxiliar gera outra e faz o autorregistro; com credencial válida, só abre uma nova sessão. O fluxo, as garantias e os limites estão em [Pareamento pelo Agent](../docs/lux-integration.md#pareamento-pelo-agent). Revogado o vínculo, o serviço para com código 3 e um novo `lux-agent pair` gera outra identidade.
+Na primeira vez, ou quando o backend recusa a credencial (`401`, revogada ou nunca confirmada), o auxiliar gera outra e faz o autorregistro; com credencial válida, só abre uma nova sessão. O fluxo, as garantias e os limites estão em [Pareamento pelo Agent](../docs/lux/integration.md#pareamento-pelo-agent). Revogado o vínculo, o serviço para com código 3 e um novo `lux-agent pair` gera outra identidade.
 
 ## Diagnóstico autenticado
 
 `lux_agent.backend` usa somente a biblioteca padrão Python e o contrato existente `GET /agent/associations`. A credencial Bearer identifica o computador no backend por SHA-256; não é necessário enviar `deviceId`, hostname ou JWT de responsável. A consulta aceita histórico vazio e não cria vínculo, presença ou sessão de pareamento. Nenhum endpoint novo foi necessário.
 
-Para desenvolvimento, fora do serviço instalado, provisione pela [ferramenta administrativa existente](../docs/backend.md#provisionamento-e-invalidação-administrativa), usando `--demo` para fixtures com `NODE_ENV=development`. O arquivo contém somente a credencial aleatória, nunca seu hash. Transfira-o separadamente por SSH/SFTP, sem incluí-lo no rsync dos fontes. Mantenha-o fora do repositório e em diretório privado `0700`, pertencente à conta executora; o arquivo deve pertencer à mesma conta e ter modo `0400` ou `0600`. Não use symlink ou hardlink. O comando verifica essas propriedades do arquivo antes de enviá-lo; não corrige permissões nem instala credenciais automaticamente. Administradores/root continuam capazes de acessar o segredo. No serviço instalado, a credencial fica em `/etc/lux-agent/credential`, do usuário `lux-agent`, modo `0600`.
+Para desenvolvimento, fora do serviço instalado, provisione pela [ferramenta administrativa existente](../docs/backend/api.md#provisionamento-e-invalidação-administrativa), usando `--demo` para fixtures com `NODE_ENV=development`. O arquivo contém somente a credencial aleatória, nunca seu hash. Transfira-o separadamente por SSH/SFTP, sem incluí-lo no rsync dos fontes. Mantenha-o fora do repositório e em diretório privado `0700`, pertencente à conta executora; o arquivo deve pertencer à mesma conta e ter modo `0400` ou `0600`. Não use symlink ou hardlink. O comando verifica essas propriedades do arquivo antes de enviá-lo; não corrige permissões nem instala credenciais automaticamente. Administradores/root continuam capazes de acessar o segredo. No serviço instalado, a credencial fica em `/etc/lux-agent/credential`, do usuário `lux-agent`, modo `0600`.
 
 ```bash
 PYTHONPATH=lux-agent python3 -B -m lux_agent check-backend --backend-url https://api.exemplo --credential-file /caminho/privado/agent-credential
 PYTHONPATH=lux-agent python3 -B -m lux_agent check-backend --backend-url http://127.0.0.1:3000 --credential-file /caminho/privado/agent-credential --allow-local-http
 ```
 
-Para HTTPS real no WSL2 e no Lux, siga o [procedimento temporário com CA explícita](../docs/lux-https-development.md). Os dois comandos de rede aceitam `--ca-file /caminho/ca.pem`, sem instalar confiança global ou desativar a validação TLS.
+Para HTTPS real no WSL2 e no Lux, siga o [procedimento temporário com CA explícita](../docs/lux/https-development.md). Os dois comandos de rede aceitam `--ca-file /caminho/ca.pem`, sem instalar confiança global ou desativar a validação TLS.
 
 A URL deve ser apenas a origem (sem usuário, senha, caminho, query ou fragmento). HTTPS valida certificados pelo Python/sistema; não existe opção para ignorar TLS. HTTP exige `--allow-local-http` e host loopback (`127.0.0.1`, `::1` ou `localhost`). Proxies de ambiente são ignorados e redirecionamentos recusados para evitar encaminhamento da credencial. Configure somente um backend confiável. `--timeout` controla operações de rede (padrão 10 segundos; máximo 120), não um prazo total da execução. Não há repetição automática.
 

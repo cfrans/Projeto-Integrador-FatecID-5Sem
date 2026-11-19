@@ -20,8 +20,8 @@
 ## Documentação
 
 - Comece por [docs/README.md](docs/README.md) e leia somente os documentos pertinentes à tarefa.
-- Consulte [README.md](README.md) para instalação e execução; [Produto](docs/product.md) para escopo; [Arquitetura](docs/architecture.md) para responsabilidades, contratos e roadmap.
-- Para mudanças técnicas, consulte [Mobile](docs/mobile.md), [Backend](docs/backend.md), [Banco](docs/database.md) ou [Integração Linux](docs/lux-integration.md), conforme a área afetada. Para UI, leia [Design](docs/design.md) e a referência correspondente em `prototypes/`.
+- Consulte [README.md](README.md) para instalação e execução; [Produto](docs/product/overview.md) para escopo; [Arquitetura](docs/architecture/overview.md) para responsabilidades, contratos e roadmap.
+- Para mudanças técnicas, consulte [Mobile](docs/mobile/app.md), [Backend](docs/backend/api.md), [Banco](docs/backend/database.md) ou [Integração Linux](docs/lux/integration.md), conforme a área afetada. Para UI, leia [Design](docs/product/design.md) e a referência correspondente em `prototypes/`.
 - Mantenha a documentação curta e alinhada ao código. Separe decisões confirmadas, implementação, planejamento, hipóteses e verificações pendentes; evite duplicar informações entre arquivos.
 
 ## Qualidade e segurança

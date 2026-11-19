@@ -15,7 +15,7 @@ Cypress testa a **versão web do mesmo aplicativo Expo**, servida a partir de um
 
 Os casos usam contas e PCs aleatórios, separados por teste, e removem apenas seus fixtures. A suíte exige `NODE_ENV=test`, banco terminado em `_test` e execução no container de testes. Não execute testes MySQL contra o banco de uso diário.
 
-Câmera, permissões, armazenamento nativo, acessibilidade e navegação Android/iOS continuam no [roteiro em aparelho](mobile.md#validação-manual-no-celular). Cypress não comprova políticas no Lux nem substitui testes nativos. [Limites oficiais](https://docs.cypress.io/app/references/trade-offs).
+Câmera, permissões, armazenamento nativo, acessibilidade e navegação Android/iOS continuam no [roteiro em aparelho](../mobile/app.md#validação-manual-no-celular). Cypress não comprova políticas no Lux nem substitui testes nativos. [Limites oficiais](https://docs.cypress.io/app/references/trade-offs).
 
 ## Execução completa em Docker
 
@@ -54,6 +54,6 @@ Cypress gera relatório JUnit em `e2e/results/` e captura de tela quando um cen�
 
 Um arquivo de teste existente não é evidência de aprovação. Ao registrar uma execução, informe data, commit/diff, ferramenta, ambiente, quantidade de casos, falhas e limitações. A validação final precisa corresponder aos arquivos atuais, após todas as correções.
 
-Os comandos individuais de lint/typecheck/unitários continuam em [Backend](backend.md#verificações), [Mobile](mobile.md#configuração-e-verificações) e [Client](simulated-client.md#verificações). Não execute suites de integração em paralelo com processos que recompilam a mesma saída.
+Os comandos individuais de lint/typecheck/unitários continuam em [Backend](../backend/api.md#verificações), [Mobile](../mobile/app.md#configuração-e-verificações) e [Client](../simulated/client.md#verificações). Não execute suites de integração em paralelo com processos que recompilam a mesma saída.
 
 A última execução completa registrada está em [Validação](validation.md); ao repetir, substitua aquela linha.

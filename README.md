@@ -48,7 +48,7 @@
 
 ## 📖 O que é o piplup?
 
-Projeto Integrador: aplicativo Expo para controle parental em computadores Lenovo Lux, com API NestJS, Prisma e MySQL. Login, perfil, listagem, pareamento e revogação de vínculos usam a API real. O mobile também possui telas de controle para navegadores, aplicativos, instalação e faixa etária, seleção de idioma em português, inglês e espanhol, e temas claro/escuro com acento vermelho. O [client simulado](docs/simulated-client.md) permite cadastrar PCs demonstrativos, parear por QR e refletir configurações persistidas do app. Existe uma [implementação Python do Agent](lux-agent/README.md) com consulta autenticada, `agent.ping`, coleta de aplicativos Linux e envio idempotente de relatórios por HTTPS. No Lux, o Agent é instalado como serviço `systemd` por `lux-agent/install.sh`, pareado pela janela GTK Piplup ou pelo terminal, e aplica o bloqueio de aplicativos e de instalação definido no app, confirmando por releitura. Consulte o [estado das etapas](docs/architecture.md#etapas-de-implementação).
+Projeto Integrador: aplicativo Expo para controle parental em computadores Lenovo Lux, com API NestJS, Prisma e MySQL. Login, perfil, listagem, pareamento e revogação de vínculos usam a API real. O mobile também possui telas de controle para navegadores, aplicativos, instalação e faixa etária, seleção de idioma em português, inglês e espanhol, e temas claro/escuro com acento vermelho. O [client simulado](docs/simulated/client.md) permite cadastrar PCs demonstrativos, parear por QR e refletir configurações persistidas do app. Existe uma [implementação Python do Agent](lux-agent/README.md) com consulta autenticada, `agent.ping`, coleta de aplicativos Linux e envio idempotente de relatórios por HTTPS. No Lux, o Agent é instalado como serviço `systemd` por `lux-agent/install.sh`, pareado pela janela GTK Piplup ou pelo terminal, e aplica o bloqueio de aplicativos e de instalação definido no app, confirmando por releitura. Consulte o [estado das etapas](docs/architecture/overview.md#etapas-de-implementação).
 
 ---
 
@@ -79,7 +79,7 @@ Projeto Integrador: aplicativo Expo para controle parental em computadores Lenov
 1. Validar o fluxo completo do zero no Lux real e preparar o roteiro da demonstração.
 2. Opcionais: horário de dormir e classificação etária reais no computador.
 
-O [roadmap da arquitetura](docs/architecture.md#etapas-de-implementação) mantém o estado técnico; limites e riscos conhecidos estão em [Segurança](docs/security.md).
+O [roadmap da arquitetura](docs/architecture/overview.md#etapas-de-implementação) mantém o estado técnico; limites e riscos conhecidos estão em [Segurança](docs/architecture/security.md).
 
 ---
 
@@ -123,7 +123,7 @@ Edite `.env`:
 
 - Preencha `MYSQL_PASSWORD`, `JWT_SECRET` e, com Docker, `MYSQL_ROOT_PASSWORD` com uma senha diferente. Para gerar o JWT_SECRET: `node -e "console.log(require('node:crypto').randomBytes(32).toString('hex'))"`.
 - Mantenha `NODE_ENV=development`. Defina `DEV_GUARDIAN_EMAIL`, `DEV_GUARDIAN_NAME` e `DEV_GUARDIAN_PASSWORD` (12–128 caracteres) para criar sua conta de teste.
-- Os valores padrão usam banco `piplup`, usuário `piplup_app`, MySQL `127.0.0.1:3306` e API `3000`. Ajuste os dados MySQL se usar outro servidor; para conexão remota, consulte [configuração de transporte](docs/backend.md#desenvolvimento-no-host).
+- Os valores padrão usam banco `piplup`, usuário `piplup_app`, MySQL `127.0.0.1:3306` e API `3000`. Ajuste os dados MySQL se usar outro servidor; para conexão remota, consulte [configuração de transporte](docs/backend/api.md#desenvolvimento-no-host).
 
 As credenciais são individuais e privadas: nunca versione `.env`. NestJS e Prisma carregam esse arquivo mesmo executados em `backend/`; não crie outra cópia nem uma `DATABASE_URL`. O mobile recebe somente a configuração pública da API, explicada no passo 5.
 
@@ -181,7 +181,7 @@ docker compose run --rm backend npm run prisma:seed
 
 Opcionalmente, crie dispositivos demonstrativos com `docker compose run --rm backend npm run prisma:seed:devices`. Não repita o seed de conta se ela já existir. Seeds ficam em containers separados para preservar o servidor em watch.
 
-Logs: `docker compose logs -f backend`; reiniciar API: `docker compose restart backend`; desligar: `docker compose down`, que preserva os dados. Mudanças TypeScript têm hot reload; dependências/Dockerfile exigem `docker compose up -d --build`. [Detalhes do Docker](docs/backend.md#executar-com-docker).
+Logs: `docker compose logs -f backend`; reiniciar API: `docker compose restart backend`; desligar: `docker compose down`, que preserva os dados. Mudanças TypeScript têm hot reload; dependências/Dockerfile exigem `docker compose up -d --build`. [Detalhes do Docker](docs/backend/api.md#executar-com-docker).
 
 ### 3C. Alternativa: sem Docker
 
@@ -193,7 +193,7 @@ CREATE USER 'piplup_app'@'localhost' IDENTIFIED BY '<senha_local>';
 GRANT ALL PRIVILEGES ON piplup.* TO 'piplup_app'@'localhost';
 ```
 
-Use esses dados na `.env`: `MYSQL_HOST=127.0.0.1`, `MYSQL_PORT=3306`, `MYSQL_DATABASE=piplup`, `MYSQL_USER=piplup_app` e a senha escolhida. `MYSQL_ROOT_PASSWORD` pode ficar vazio; a API não usa root. Para banco existente/remoto e permissões de origem, veja [MySQL sem Docker](docs/database.md#sem-docker).
+Use esses dados na `.env`: `MYSQL_HOST=127.0.0.1`, `MYSQL_PORT=3306`, `MYSQL_DATABASE=piplup`, `MYSQL_USER=piplup_app` e a senha escolhida. `MYSQL_ROOT_PASSWORD` pode ficar vazio; a API não usa root. Para banco existente/remoto e permissões de origem, veja [MySQL sem Docker](docs/backend/database.md#sem-docker).
 
 A partir da raiz:
 
@@ -216,13 +216,13 @@ Confira `http://localhost:3000/health` e Swagger em `/docs`. Nenhum comando Dock
 
 `npm run prisma:migrate:deploy` aplica migrations existentes; o Docker faz isso ao iniciar. Após receber novas migrations/schema, no host aplique as migrations e execute `npm run prisma:generate` antes do watch.
 
-Para criar uma migration, prepare as [permissões shadow](docs/database.md#prisma-e-sql) num banco exclusivo de desenvolvimento e, em `backend/`, execute:
+Para criar uma migration, prepare as [permissões shadow](docs/backend/database.md#prisma-e-sql) num banco exclusivo de desenvolvimento e, em `backend/`, execute:
 
 ```bash
 npm run prisma:migrate:dev -- --name <nome> --create-only
 ```
 
-Revise o SQL, aplique com `npm run prisma:migrate:deploy` e gere o client. Não use `db push` ou reset para contornar erros. Mudar credenciais na `.env` não altera contas de um volume MySQL existente. [Banco e migrations](docs/database.md).
+Revise o SQL, aplique com `npm run prisma:migrate:deploy` e gere o client. Não use `db push` ou reset para contornar erros. Mudar credenciais na `.env` não altera contas de um volume MySQL existente. [Banco e migrations](docs/backend/database.md).
 
 ### 4. Client simulado (segundo terminal)
 
@@ -234,7 +234,7 @@ npm ci
 npm start
 ```
 
-Mantenha aberto e acesse `http://127.0.0.1:4317` no PC. Cadastre o computador usando o login do responsável. Depois leia **esse QR dentro do app**, em **Adicionar computador**, e confirme. [Roteiro da demonstração](docs/simulated-client.md).
+Mantenha aberto e acesse `http://127.0.0.1:4317` no PC. Cadastre o computador usando o login do responsável. Depois leia **esse QR dentro do app**, em **Adicionar computador**, e confirme. [Roteiro da demonstração](docs/simulated/client.md).
 
 ### 5. Abrir o app no celular (terceiro terminal)
 
@@ -261,17 +261,17 @@ Se o app ficar branco e não aparecer bundle no terminal, teste no navegador do 
 npx expo start --go --tunnel --clear
 ```
 
-O túnel resolve o acesso ao Metro, **não expõe a API**: o teste `/health` no celular continua necessário. Não use a URL do túnel como `EXPO_PUBLIC_API_URL`. [Conectividade, WSL e firewall](docs/mobile.md#wsl2-e-firewall).
+O túnel resolve o acesso ao Metro, **não expõe a API**: o teste `/health` no celular continua necessário. Não use a URL do túnel como `EXPO_PUBLIC_API_URL`. [Conectividade, WSL e firewall](docs/mobile/app.md#wsl2-e-firewall).
 
 ### Demonstração sem Lux
 
-Com backend, migrations e conta de teste preparados, execute `npm ci` e `npm start` em `simulated-client/`. Abra `http://127.0.0.1:4317`, cadastre o PC e leia o QR em **Adicionar computador** no app. As quatro abas salvam configurações e aguardam confirmação do client. [Roteiro completo](docs/simulated-client.md).
+Com backend, migrations e conta de teste preparados, execute `npm ci` e `npm start` em `simulated-client/`. Abra `http://127.0.0.1:4317`, cadastre o PC e leia o QR em **Adicionar computador** no app. As quatro abas salvam configurações e aguardam confirmação do client. [Roteiro completo](docs/simulated/client.md).
 
 ---
 
 ### Computador Lux real
 
-O Agent roda no Lux e precisa alcançar o backend por HTTPS ([HTTPS no desenvolvimento](docs/lux-https-development.md)). Para o backend gerar comandos reais, defina `ENABLE_PARENTAL_COMMANDS=true` na `.env` e reinicie a API. No WSL, copie os arquivos permitidos para o Lux e, no Lux, instale e pareie:
+O Agent roda no Lux e precisa alcançar o backend por HTTPS ([HTTPS no desenvolvimento](docs/lux/https-development.md)). Para o backend gerar comandos reais, defina `ENABLE_PARENTAL_COMMANDS=true` na `.env` e reinicie a API. No WSL, copie os arquivos permitidos para o Lux e, no Lux, instale e pareie:
 
 ```bash
 rsync -rltiv --files-from=lux-agent/deploy-files.txt lux-agent/ lux:lux-agent-poc/
@@ -300,7 +300,7 @@ Após mudanças apenas em telas, pressione **r** no terminal Expo. Se um asset c
 
 ## Limites de validação dos fluxos
 
-Os fluxos com e sem Docker usam os mesmos scripts, configuração e migrations. `docker compose config --quiet` verifica a configuração; `/health` com HTTP 200 e `database: "ok"` verifica o acesso da API ao banco. Esses checks não comprovam instalação do zero, execução com MySQL independente do Docker ou acesso por celular físico. A instalação com MySQL 8.4 isolado em Docker, migrations, backend local e fluxo app/API/client possui testes de integração. MySQL instalado diretamente no host e abertura em outros celulares ainda exigem validação no ambiente de cada integrante. Use a versão Node declarada nos pré-requisitos e execute o [roteiro manual](docs/mobile.md#validação-manual-no-celular) para verificar rede, WSL/firewall e câmera no ambiente de cada integrante.
+Os fluxos com e sem Docker usam os mesmos scripts, configuração e migrations. `docker compose config --quiet` verifica a configuração; `/health` com HTTP 200 e `database: "ok"` verifica o acesso da API ao banco. Esses checks não comprovam instalação do zero, execução com MySQL independente do Docker ou acesso por celular físico. A instalação com MySQL 8.4 isolado em Docker, migrations, backend local e fluxo app/API/client possui testes de integração. MySQL instalado diretamente no host e abertura em outros celulares ainda exigem validação no ambiente de cada integrante. Use a versão Node declarada nos pré-requisitos e execute o [roteiro manual](docs/mobile/app.md#validação-manual-no-celular) para verificar rede, WSL/firewall e câmera no ambiente de cada integrante.
 
 ---
 
@@ -308,17 +308,17 @@ Os fluxos com e sem Docker usam os mesmos scripts, configuração e migrations. 
 
 | Problema                                           | Onde conferir                                                                                                                                                                                  |
 | -------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Porta ocupada / containers falhando                | Confira `PORT` e `.env`. Com Docker: `docker compose config --quiet`, `docker compose ps -a` e `docker compose logs --tail 100 backend mysql`. [Backend](docs/backend.md#executar-com-docker). |
-| MySQL indisponível / credenciais recusadas         | Confira serviço, host, porta e conta; `npx prisma migrate status` em `backend/`. Não remova volumes para corrigir credenciais. [Banco](docs/database.md).                                      |
-| Prisma Client desatualizado / migrations pendentes | Pare o watch, aplique migrations e gere o client; no Docker, reinicie o backend. [Migrations](docs/database.md#prisma-e-sql).                                                                  |
-| API funciona no PC, mas não no celular             | Teste a URL mostrada no erro do app; confira IP, firewall e isolamento. [WSL e firewall](docs/mobile.md#wsl2-e-firewall).                                                                      |
-| Expo Go não abre / login falha                     | Confira SDK 57, conexão ao Metro, URL da API e conta criada. [Mobile](docs/mobile.md#autenticação-e-api).                                                                                      |
+| Porta ocupada / containers falhando                | Confira `PORT` e `.env`. Com Docker: `docker compose config --quiet`, `docker compose ps -a` e `docker compose logs --tail 100 backend mysql`. [Backend](docs/backend/api.md#executar-com-docker). |
+| MySQL indisponível / credenciais recusadas         | Confira serviço, host, porta e conta; `npx prisma migrate status` em `backend/`. Não remova volumes para corrigir credenciais. [Banco](docs/backend/database.md).                                      |
+| Prisma Client desatualizado / migrations pendentes | Pare o watch, aplique migrations e gere o client; no Docker, reinicie o backend. [Migrations](docs/backend/database.md#prisma-e-sql).                                                                  |
+| API funciona no PC, mas não no celular             | Teste a URL mostrada no erro do app; confira IP, firewall e isolamento. [WSL e firewall](docs/mobile/app.md#wsl2-e-firewall).                                                                      |
+| Expo Go não abre / login falha                     | Confira SDK 57, conexão ao Metro, URL da API e conta criada. [Mobile](docs/mobile/app.md#autenticação-e-api).                                                                                      |
 
 ---
 
 ## Documentação
 
-Testes: [Cypress/API/MySQL em Docker](docs/testing.md), [backend](docs/backend.md#verificações), [mobile](docs/mobile.md#configuração-e-verificações) e [checklist no celular](docs/mobile.md#validação-manual-no-celular). Builds: [EAS](docs/mobile.md#builds-com-eas). Projeto: [índice](docs/README.md), [Engenharia de Software III](docs/engenharia-de-software-iii.md), [arquitetura](docs/architecture.md), [design](docs/design.md), [Lux Agent](docs/lux-integration.md), [segurança](docs/security.md) e [validação](docs/validation.md).
+Testes: [Cypress/API/MySQL em Docker](docs/testing/test-suite.md), [backend](docs/backend/api.md#verificações), [mobile](docs/mobile/app.md#configuração-e-verificações) e [checklist no celular](docs/mobile/app.md#validação-manual-no-celular). Builds: [EAS](docs/mobile/app.md#builds-com-eas). Projeto: [índice](docs/README.md), [Engenharia de Software III](docs/product/engenharia-de-software-iii.md), [arquitetura](docs/architecture/overview.md), [design](docs/product/design.md), [Lux Agent](docs/lux/integration.md), [segurança](docs/architecture/security.md) e [validação](docs/testing/validation.md).
 
 ---
 

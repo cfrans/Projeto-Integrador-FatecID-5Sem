@@ -1,6 +1,6 @@
 # Mobile
 
-Expo + React Native + TypeScript estrito + Expo Router; Button, Input e Card são adaptações locais de React Native Reusables, conforme [Design](design.md#react-native-reusables). Dependências e comandos vivem em `mobile/`; instalação reproduzível com `npm ci`. Consulte o README da raiz para execução. O mobile é a interface remota do responsável: restrições só poderão ser aplicadas no computador Lux pelo GNOME/agente, após a integração ser validada.
+Expo + React Native + TypeScript estrito + Expo Router; Button, Input e Card são adaptações locais de React Native Reusables, conforme [Design](../product/design.md#react-native-reusables). Dependências e comandos vivem em `mobile/`; instalação reproduzível com `npm ci`. Consulte o README da raiz para execução. O mobile é a interface remota do responsável: restrições só poderão ser aplicadas no computador Lux pelo GNOME/agente, após a integração ser validada.
 
 ## Organização
 
@@ -40,7 +40,7 @@ $env:EXPO_PUBLIC_API_URL = 'http://127.0.0.1:3000'
 npm run web
 ```
 
-Use a conta responsável por um PC demonstrativo já pareado. Envie um pedido de instalação de qualquer aplicativo do [client simulado](simulated-client.md) e abra o pedido na Home do app web. A aba **Instalação** também dá acesso ao cartão pelo botão **Detalhes de…**. Para consultar um app já instalado, abra **Restrições → Aplicativos** e toque no ícone de informação na linha do item. A ficha abre em um modal com conteúdo rolável; o X no topo, o toque fora e o retorno do sistema fecham o modal. Com o vínculo existente, essa validação dispensa a câmera.
+Use a conta responsável por um PC demonstrativo já pareado. Envie um pedido de instalação de qualquer aplicativo do [client simulado](../simulated/client.md) e abra o pedido na Home do app web. A aba **Instalação** também dá acesso ao cartão pelo botão **Detalhes de…**. Para consultar um app já instalado, abra **Restrições → Aplicativos** e toque no ícone de informação na linha do item. A ficha abre em um modal com conteúdo rolável; o X no topo, o toque fora e o retorno do sistema fecham o modal. Com o vínculo existente, essa validação dispensa a câmera.
 
 O app associa os nomes conhecidos ao ID do Flathub e consulta a ficha pública no idioma da interface. Na aba Rede do navegador, filtre por `api/v2/appstream` para conferir a chamada. O cartão exibe resumo, versão estável e captura com legenda quando disponíveis. O selo no canto usa a classificação regional do catálogo. A classificação informada pelo simulador aparece separadamente nos dados do pedido. Os botões expandem os indicadores de conteúdo e a descrição. Pedidos antigos com nomes desconhecidos mantêm o fluxo de decisão sem consulta externa.
 
@@ -50,7 +50,7 @@ Em português do Brasil, o app complementa as fichas do Flathub com traduções 
 
 `/`, `/home`, `/computers` e `/qr-scan` formam o fluxo de login, início, computadores e pareamento pela API. Os cartões com vínculo ativo abrem `/restrictions/browsers?deviceId=<UUID>`. As quatro abas compartilham a seleção em `RestrictionDeviceProvider`; somente computadores com vínculo ativo podem ser selecionados. Um único vínculo é selecionado automaticamente; vários vínculos exigem escolha. Um identificador ausente da lista ou revogado não é substituído por outro computador. A seleção fica somente em memória no fluxo de restrições e não é salva entre sessões. O seletor modal mostra nome e conta; trocar o PC preserva a aba. As abas usam `backBehavior="none"`: o retorno do sistema Android é encaminhado à Stack para sair das restrições para a tela anterior, como o botão do cabeçalho, em vez de selecionar Navegadores. O navegador das abas permanece montado durante carregamento e troca de seleção; somente o conteúdo de cada rota aguarda computador/configurações, evitando retornar à primeira aba.
 
-`/restrictions/apps` consulta o inventário persistido do computador selecionado, e `/restrictions/install` consulta seus pedidos pendentes. A lista de aplicativos mostra o prazo local do último pedido aprovado correspondente, quando disponível neste aparelho; a consulta do histórico não transforma prazo local em restrição aplicada. Os contratos e a diferença entre relatório ausente e lista vazia estão em [Backend](backend.md#consultas-de-aplicativos-e-pedidos-de-instalação). As telas descartam respostas após perda de foco ou troca do computador. As abas persistem configurações em `SimulationProvider` (`GET`/`PATCH /simulation/devices/:id`), com consulta periódica e revisão. A confirmação vem do [client simulado](simulated-client.md) ou, no computador real, do Agent ([abaixo](#computador-real)). `/pairing-done` continua placeholder, fora do fluxo implementado.
+`/restrictions/apps` consulta o inventário persistido do computador selecionado, e `/restrictions/install` consulta seus pedidos pendentes. A lista de aplicativos mostra o prazo local do último pedido aprovado correspondente, quando disponível neste aparelho; a consulta do histórico não transforma prazo local em restrição aplicada. Os contratos e a diferença entre relatório ausente e lista vazia estão em [Backend](../backend/api.md#consultas-de-aplicativos-e-pedidos-de-instalação). As telas descartam respostas após perda de foco ou troca do computador. As abas persistem configurações em `SimulationProvider` (`GET`/`PATCH /simulation/devices/:id`), com consulta periódica e revisão. A confirmação vem do [client simulado](../simulated/client.md) ou, no computador real, do Agent ([abaixo](#computador-real)). `/pairing-done` continua placeholder, fora do fluxo implementado.
 
 `/access-request?deviceId=<UUID>&requestId=<UUID>` usa pedidos de instalação pendentes (`GET /devices/:id/installation-requests`); permitir ou recusar grava `installationDecisions` pela simulação (`PATCH /simulation/devices/:id`), apenas para PCs demonstrativos. A aprovação enviada não comprova aplicação no Lux. O backend não oferece justificativa, prazo ou encerramento automático.
 
@@ -84,7 +84,7 @@ Configurações e aprovação/recusa de instalação são persistidas para PCs d
 
 ### Computador real
 
-Apps, navegadores e bloqueio de instalação usam o mesmo `PATCH` do simulado; o backend converte a revisão em `parental.app_filter.set` ([contrato](agent-protocol.md#comandos-parentais-contrato)). O estado vem de `realPolicyStatus` (`services/simulation.ts`), nesta ordem:
+Apps, navegadores e bloqueio de instalação usam o mesmo `PATCH` do simulado; o backend converte a revisão em `parental.app_filter.set` ([contrato](../lux/agent-protocol.md#comandos-parentais-contrato)). O estado vem de `realPolicyStatus` (`services/simulation.ts`), nesta ordem:
 
 - **aplicado:** `appliedRevision === revision`, confirmado pelo Agent por releitura;
 - **desativado:** `enforcement: 'disabled'` (`ENABLE_PARENTAL_COMMANDS` desligado): nada será aplicado;
@@ -92,7 +92,7 @@ Apps, navegadores e bloqueio de instalação usam o mesmo `PATCH` do simulado; o
 - **nenhuma alteração enviada:** revisão 1 sem confirmação, pois o vínculo nasce com a revisão 1 e nenhum comando;
 - **pendente:** "será aplicado quando o computador estiver ligado e conectado". Se o Agent está offline (sem contato há mais de 60 s), a Sincronização mostra "Computador offline" em vez de pendente. A alteração fica na fila do backend: o app pode ser fechado, e a Home avisa o resultado na próxima abertura ([aviso](#aviso-de-alterações-aplicadas)). Depois de um período sem backend, o Agent pode levar até ~5 min para buscá-la (as tentativas se espaçam até `--max-backoff`, 300 s).
 
-A lista de apps usa `blockable`/`executable` do inventário (`configureApplications`): app não bloqueável aparece "indisponível", sem interruptor, e fica fora de "Restringir todos"; app com o mesmo `executable` mostra "bloqueia junto: …", e o grupo aparece bloqueado se **algum** membro tiver regra de bloqueio (regras anteriores ao LUX-16 podem cobrir só um atalho). O toque envia a regra de um app; o backend a grava no grupo e, se recusar, o `400` traz a mensagem exibida. O bloqueio vale para novas aberturas e não impede rodar o binário pelo terminal ([limites](lux-integration.md)); o Terminal pode ser bloqueado na própria lista.
+A lista de apps usa `blockable`/`executable` do inventário (`configureApplications`): app não bloqueável aparece "indisponível", sem interruptor, e fica fora de "Restringir todos"; app com o mesmo `executable` mostra "bloqueia junto: …", e o grupo aparece bloqueado se **algum** membro tiver regra de bloqueio (regras anteriores ao LUX-16 podem cobrir só um atalho). O toque envia a regra de um app; o backend a grava no grupo e, se recusar, o `400` traz a mensagem exibida. O bloqueio vale para novas aberturas e não impede rodar o binário pelo terminal ([limites](../lux/integration.md)); o Terminal pode ser bloqueado na própria lista.
 
 ## Autenticação e API
 
@@ -172,7 +172,7 @@ Para o Metro, `npx expo start` usa LAN e normalmente a porta `8081`; essa porta 
 
 ## Validação manual no celular
 
-1. Inicie o backend pelo modo escolhido; prepare a conta/fixtures conforme o [tutorial](../README.md).
+1. Inicie o backend pelo modo escolhido; prepare a conta/fixtures conforme o [tutorial](../../README.md).
 2. Com celular e computador na mesma rede, abra `http://<IP_LAN>:<PORT>/health` no navegador do aparelho. Espere `{ "status": "ok", "database": "ok" }`. No WSL, use o IP LAN do Windows e confira a exposição da porta acima.
 3. Inicie Expo em `mobile/`, abra o QR no Expo Go e faça login com a conta criada. Confira a lista de dispositivos demonstrativos (ou a lista vazia se não criou fixtures).
 4. Reabra o aplicativo e confira a restauração da sessão; a sessão expira após 30 minutos.
@@ -207,7 +207,7 @@ Este roteiro usa Docker e um registro fictício com `isDemo: true`. O trecho Pyt
 
 ### 1. Preparar API e celular
 
-Na raiz, com `.env` e a conta do responsável já preparados conforme [Backend](backend.md):
+Na raiz, com `.env` e a conta do responsável já preparados conforme [Backend](../backend/api.md):
 
 ```bash
 docker compose up -d --build
@@ -314,11 +314,11 @@ O QR expira em cinco minutos. Para renová-lo, repita somente a etapa 4 e atuali
 | Remover vínculo na lista | Dispositivo deixa de aparecer para esse responsável. |
 | Gerar sessão após remover o vínculo | Novo QR permite novo pareamento. |
 
-`FileNotFoundError` para `agent-credential` indica que o provisionamento não concluiu ou que o arquivo temporário não existe mais. Resolva primeiro a etapa 2. Remover o vínculo mantém a identidade do dispositivo; para invalidar também essa credencial, use a ferramenta administrativa de revogação descrita em [Backend](backend.md).
+`FileNotFoundError` para `agent-credential` indica que o provisionamento não concluiu ou que o arquivo temporário não existe mais. Resolva primeiro a etapa 2. Remover o vínculo mantém a identidade do dispositivo; para invalidar também essa credencial, use a ferramenta administrativa de revogação descrita em [Backend](../backend/api.md).
 
 ## UI e segurança
 
-Antes de implementar UI, consultar [design](design.md) e o protótipo correspondente. Verificar React Native Reusables antes de criar componentes genéricos. Usar tokens existentes, padrões mobile e compatibilidade Android/iOS. O armazenamento da sessão usa `expo-secure-store`, compatível com Expo Go; a câmera/QR usa `expo-camera` nesta etapa, com permissão apenas de câmera para leitura. Se uma futura dependência nativa não estiver incluída no Expo Go, será necessário configurar um development build e ajustar o fluxo EAS conforme a documentação Expo da versão instalada. Os perfis EAS existentes são configuração, não evidência de build publicado ou de funcionalidade nativa disponível.
+Antes de implementar UI, consultar [design](../product/design.md) e o protótipo correspondente. Verificar React Native Reusables antes de criar componentes genéricos. Usar tokens existentes, padrões mobile e compatibilidade Android/iOS. O armazenamento da sessão usa `expo-secure-store`, compatível com Expo Go; a câmera/QR usa `expo-camera` nesta etapa, com permissão apenas de câmera para leitura. Se uma futura dependência nativa não estiver incluída no Expo Go, será necessário configurar um development build e ajustar o fluxo EAS conforme a documentação Expo da versão instalada. Os perfis EAS existentes são configuração, não evidência de build publicado ou de funcionalidade nativa disponível.
 
 Nunca armazenar senha root/admin ou tratar QR como credencial administrativa permanente. A sessão usa armazenamento seguro nativo e não persiste credenciais no navegador.
 

@@ -1,6 +1,6 @@
 # Protocolo de comandos do Lux Agent — versão 1
 
-Implementado para `agent.ping` e para os [comandos parentais](#comandos-parentais-contrato), entre NestJS, MySQL e Agent Python no Lux por HTTPS. O mobile não cria comandos: edita as configurações do computador e mostra o estado da política. O que já foi validado no Lux está em [Validação](validation.md).
+Implementado para `agent.ping` e para os [comandos parentais](#comandos-parentais-contrato), entre NestJS, MySQL e Agent Python no Lux por HTTPS. O mobile não cria comandos: edita as configurações do computador e mostra o estado da política. O que já foi validado no Lux está em [Validação](../testing/validation.md).
 
 ## Escopo e revisão da proposta
 
@@ -23,7 +23,7 @@ Decisões resolvidas antes da implementação:
 
 A reserva não torna a execução e a revogação uma transação distribuída. Revogar antes do claim impede a reserva. Depois do claim, não é possível garantir interrupção de execução local já autorizada/iniciada: a transação marca reservas sem resultado como `unknown` e bloqueia novos claims/resultados daquele vínculo. Nenhum resultado passa para novo responsável, inclusive se o mesmo responsável parear novamente.
 
-O schema também inclui inventário, pedidos de instalação e `SimulationState` para o [client demonstrativo](simulated-client.md). Esse estado é separado do protocolo de `agent.ping`; a presença demonstrativa não é alimentada pelo polling do Agent real. A presença do Agent real vem de qualquer requisição autenticada (associações, comandos, relatórios), sem endpoint de heartbeat ([backend](backend.md#presença-do-agent-real)).
+O schema também inclui inventário, pedidos de instalação e `SimulationState` para o [client demonstrativo](../simulated/client.md). Esse estado é separado do protocolo de `agent.ping`; a presença demonstrativa não é alimentada pelo polling do Agent real. A presença do Agent real vem de qualquer requisição autenticada (associações, comandos, relatórios), sem endpoint de heartbeat ([backend](../backend/api.md#presença-do-agent-real)).
 
 ## Endpoints
 
@@ -69,7 +69,7 @@ Erros: 400 contrato inválido; 401 autenticação/identidade revogada; 404 recur
 
 Estado: contrato e backend implementados e cobertos por testes unitários e por um teste MySQL com um Agent simulado (`backend/test/parental-commands.mysql-test.mjs`). O Lux Agent executa `set` ([execução no Agent](#execução-no-agent)), coberto por testes Python com malcontent substituído e validado no Lux; `read` não é implementado e recebe `UNSUPPORTED_OPERATION`. Enquanto `ENABLE_PARENTAL_COMMANDS` não for `true` (padrão), o backend não gera `set` a partir das configurações e recusa `read` com `501`. Reutilizam o ciclo criação, polling, claim e resultado do ping, sem novos endpoints de Agent.
 
-A escrita só cobre o filtro de aplicativos, a única operação com prova técnica de escrita no Lux ([provas](lux-integration.md#provas-que-sustentam-as-decisões)). A conta gerenciada é definida localmente pelo Agent, nunca pelo backend ou pelo mobile; contas administrativas são recusadas localmente.
+A escrita só cobre o filtro de aplicativos, a única operação com prova técnica de escrita no Lux ([provas](integration.md#provas-que-sustentam-as-decisões)). A conta gerenciada é definida localmente pelo Agent, nunca pelo backend ou pelo mobile; contas administrativas são recusadas localmente.
 
 | `type` (versão 1) | `parameters` | Resultado de sucesso |
 | --- | --- | --- |
@@ -119,7 +119,7 @@ Para computador real, `GET`/`PATCH /simulation/devices/:id` mantêm o formato do
 
 Gravar o mesmo filtro de novo é inofensivo, então a reemissão (novo `requestId`) é simplesmente reaplicada. Queda entre `started` e o resultado salvo não reexecuta: o backend marca `unknown` e reemite. Com o vínculo revogado a fila fica vazia: o Agent mantém o filtro aplicado e não limpa nada; limpar exige `uninstall.sh --reset-policies` ou `malcontent-client` pelo administrador.
 
-Pendência: verificar no Lux o efeito do bloqueio de instalação (exige flatpak na VM; ver [provas](lux-integration.md#provas-que-sustentam-as-decisões)).
+Pendência: verificar no Lux o efeito do bloqueio de instalação (exige flatpak na VM; ver [provas](integration.md#provas-que-sustentam-as-decisões)).
 
 ## Contrato de relatórios do Agent
 
@@ -182,7 +182,7 @@ O corpo de `PUT /agent/reports` é JSON, limitado a 16 KiB inicialmente:
 
 `reportId` é um UUID v4 criado pelo Agent e identifica uma coleta. `collectedAt` é o horário UTC informado pelo computador; `receivedAt` é sempre definido pelo servidor e não é confiável para substituir o horário da coleta. `sourceId` é estável para o mesmo aplicativo ou pedido no computador e é obrigatório para reconciliar uma repetição sem duplicar linhas.
 
-O relatório representa um retrato completo de aplicativos, não um conjunto de eventos: a lista `applications` substitui o inventário anterior. A lista `installationRequests` só insere ou atualiza os pedidos enviados; pedidos ausentes não são removidos, porque outros fluxos (como o [client simulado](simulated-client.md)) também criam pedidos `PENDING` no mesmo dispositivo. O Agent real envia lista vazia enquanto não houver fonte Linux validada; mesmo assim, o backend atualiza `installationRequestsReportedAt`. O Agent não envia decisões do responsável como se fossem observações locais; estados `APPROVED` e `DENIED` continuam sendo decisões do backend e só retornam ao computador por comandos próprios.
+O relatório representa um retrato completo de aplicativos, não um conjunto de eventos: a lista `applications` substitui o inventário anterior. A lista `installationRequests` só insere ou atualiza os pedidos enviados; pedidos ausentes não são removidos, porque outros fluxos (como o [client simulado](../simulated/client.md)) também criam pedidos `PENDING` no mesmo dispositivo. O Agent real envia lista vazia enquanto não houver fonte Linux validada; mesmo assim, o backend atualiza `installationRequestsReportedAt`. O Agent não envia decisões do responsável como se fossem observações locais; estados `APPROVED` e `DENIED` continuam sendo decisões do backend e só retornam ao computador por comandos próprios.
 
 `blockable` e `executable` (LUX-16) vêm juntos ou não vêm. `executable` é o caminho absoluto resolvido a partir do `Exec` do `.desktop`, no mesmo `PATH` da sessão usado na execução (`/` inicial, até 191 code points), ou `null` quando `blockable=false`: `Exec` ausente ou não resolvido, lançador genérico ou caminho longo demais. Apps com o mesmo `executable` formam um grupo bloqueado junto. Combinação inconsistente → 422; `executable` relativo → 400. Sem os campos (Agent anterior), o app é gravado como bloqueável e sem grupo. O backend que não conhece os campos recusa o relatório com 400 (`forbidNonWhitelisted`): atualize o backend antes do Agent.
 
@@ -269,7 +269,7 @@ Cadência/backoff/jitter/`Retry-After` e sinais são os do polling existente. 42
 
 ## Validação e limites
 
-[Testes MySQL](../backend/test/commands.mysql-test.mjs): vínculo/identidade, fixture legada, isolamento, criação/claim/resultado idempotentes, concorrência, expiração após espera por lock, revogação administrativa/do responsável e resultado tardio. [Testes Python](../lux-agent/tests/test_commands.py): diário, exclusão, permissões, corrupção, troca de identidade/origem, respostas perdidas, reinício ambíguo e contratos não suportados.
+[Testes MySQL](../../backend/test/commands.mysql-test.mjs): vínculo/identidade, fixture legada, isolamento, criação/claim/resultado idempotentes, concorrência, expiração após espera por lock, revogação administrativa/do responsável e resultado tardio. [Testes Python](../../lux-agent/tests/test_commands.py): diário, exclusão, permissões, corrupção, troca de identidade/origem, respostas perdidas, reinício ambíguo e contratos não suportados.
 
 Ficam pendentes: quotas/retenção do diário, hospedagem HTTPS definitiva e `parental.app_filter.read` no Agent. Sucesso de ping não comprova política aplicada ou identidade física do equipamento.
 

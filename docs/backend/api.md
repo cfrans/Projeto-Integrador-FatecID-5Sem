@@ -33,7 +33,7 @@ Para novos scaffolds, use os comandos oficiais compatíveis com as versões adot
 
 `PrismaService` conecta e executa `SELECT 1` durante a inicialização. `GET /health` consulta o banco novamente, retorna `{ "status": "ok", "database": "ok" }` ou HTTP 503 se a consulta falhar. Uma falha de conexão inicial impede a aplicação de iniciar. Shutdown hooks encerram a conexão ao receber sinais de término.
 
-Swagger fica em `/docs`; OpenAPI em `/docs-json`; ambos ficam desligados com `NODE_ENV=production`. O ambiente local usa HTTP em localhost. O [HTTPS de desenvolvimento](lux-https-development.md) usa um proxy temporário e CA explícita no Agent, sem alterar NestJS/Compose. A hospedagem HTTPS definitiva não foi decidida.
+Swagger fica em `/docs`; OpenAPI em `/docs-json`; ambos ficam desligados com `NODE_ENV=production`. O ambiente local usa HTTP em localhost. O [HTTPS de desenvolvimento](../lux/https-development.md) usa um proxy temporário e CA explícita no Agent, sem alterar NestJS/Compose. A hospedagem HTTPS definitiva não foi decidida.
 
 ## Executar com Docker
 
@@ -72,7 +72,7 @@ docker compose down
 
 ## Desenvolvimento no host
 
-Use Node 24.15+ na linha 24 e npm, com MySQL 8.4 já saudável. No Windows, siga primeiro o [fluxo recomendado](../README.md#3a-recomendado-no-windows-mysql-no-docker-e-backend-pelo-npm) para iniciar somente o MySQL no Docker. Também é possível usar MySQL instalado diretamente ou servidor de desenvolvimento acessível. Prepare banco/usuário conforme [Banco](database.md), configure `.env` na raiz e execute em `backend/`:
+Use Node 24.15+ na linha 24 e npm, com MySQL 8.4 já saudável. No Windows, siga primeiro o [fluxo recomendado](../../README.md#3a-recomendado-no-windows-mysql-no-docker-e-backend-pelo-npm) para iniciar somente o MySQL no Docker. Também é possível usar MySQL instalado diretamente ou servidor de desenvolvimento acessível. Prepare banco/usuário conforme [Banco](database.md), configure `.env` na raiz e execute em `backend/`:
 
 ```bash
 cd backend
@@ -127,7 +127,7 @@ O bloco de autenticação e conta está implementado para responsáveis. `POST /
 
 Sucesso retorna `{ "accessToken", "expiresIn": 1800, "guardian": { "id", "name", "email" } }`. `GET /auth/me` usa Bearer JWT para restaurar o perfil público. `PATCH /auth/me/email` atualiza o email do responsável autenticado (HTTP 409 em conflito) e `PATCH /auth/me/password` exige `{ "currentPassword", "newPassword" }`, validando a senha atual com Argon2id antes de atualizar o hash (HTTP 204). `GET /auth/me/security-question` e `PUT /auth/me/security-question` consultam e salvam a pergunta de segurança com resposta normalizada e hash Argon2id em `Guardian`. `POST /auth/recovery/question`, `POST /auth/recovery/verify` e `POST /auth/recovery/reset` permitem consultar a pergunta por email, verificar a resposta e redefinir a senha. Para não revelar se o email existe, `question` sempre retorna 200: sem conta ou sem pergunta, devolve uma pergunta fictícia escolhida por HMAC do email com `JWT_SECRET` (estável para o mesmo email); `verify` e `reset` respondem o mesmo 400 genérico para email inexistente, conta sem pergunta e resposta errada. A resposta precisa de pelo menos 4 caracteres ao ser definida; respostas antigas mais curtas continuam válidas. Tokens usam HS256, emissor `piplup-api`, audiência `piplup-mobile` e validade de 30 minutos. Cada request protegido valida assinatura, expiração e emissor/audiência, então consulta o responsável atual no MySQL; responsável removido perde acesso imediatamente. Falha operacional na consulta de autenticação retorna HTTP 503. Swagger documenta autenticação Bearer em `/docs`.
 
-`JWT_SECRET` é obrigatório em todos os ambientes de execução e deve conter pelo menos 32 bytes UTF-8. Não há valor padrão ou fallback. O arquivo `.env.example` deixa o campo vazio de propósito; configure um segredo aleatório local antes de iniciar backend ou Compose. JWT não possui endpoint de logout ou revogação: remover o token do cliente encerra a sessão local, mas um token copiado continua utilizável até expirar, salvo remoção do responsável ([limitações](security.md#limitações)).
+`JWT_SECRET` é obrigatório em todos os ambientes de execução e deve conter pelo menos 32 bytes UTF-8. Não há valor padrão ou fallback. O arquivo `.env.example` deixa o campo vazio de propósito; configure um segredo aleatório local antes de iniciar backend ou Compose. JWT não possui endpoint de logout ou revogação: remover o token do cliente encerra a sessão local, mas um token copiado continua utilizável até expirar, salvo remoção do responsável ([limitações](../architecture/security.md#limitações)).
 
 Limite de tentativas (`@nestjs/throttler`, registrado no `AppModule` e aplicado por rota com `ThrottlerGuard`): `login` e `register` aceitam 20 por minuto (a suíte Cypress faz cerca de 11 logins por minuto do mesmo IP), cada rota `recovery/*` 5 por minuto e `POST /agent/registrations` 5 por minuto, por IP e por rota; o excesso recebe `429`. A contagem fica em memória por instância e zera ao reiniciar; sem `trust proxy`, atrás de um proxy vale para o IP do proxy.
 
@@ -135,7 +135,7 @@ O seed de responsável é explícito e exclusivo para `NODE_ENV=development`. `D
 
 ## Listagem de dispositivos implementada
 
-`GET /devices` exige Bearer JWT e consulta a view `vw_device_overview`, com filtro SQL parametrizado por `guardianId` do responsável validado pelo guard. A ordenação por nome e UUID é determinística e não há parâmetro de responsável no endpoint. A resposta é uma lista `{ id, name, managedUser, status, lastSeen, isDemo, paired, associationId? }`; erro operacional retorna HTTP 503. PCs sem contato ficam `unverified`/`null`. PCs reais seguem a [presença do Agent real](#presença-do-agent-real). PCs demonstrativos com vínculo e identidade ativos usam `online` por até 15 segundos após heartbeat autenticado, depois `offline`, com `lastSeen` ISO. O horário pertence a `SimulationState.lastSeenAt`; leitura pelo responsável não o renova. Presença e confirmação de configuração são independentes, conforme o [contrato da simulação](simulated-client.md#contrato-da-simulação).
+`GET /devices` exige Bearer JWT e consulta a view `vw_device_overview`, com filtro SQL parametrizado por `guardianId` do responsável validado pelo guard. A ordenação por nome e UUID é determinística e não há parâmetro de responsável no endpoint. A resposta é uma lista `{ id, name, managedUser, status, lastSeen, isDemo, paired, associationId? }`; erro operacional retorna HTTP 503. PCs sem contato ficam `unverified`/`null`. PCs reais seguem a [presença do Agent real](#presença-do-agent-real). PCs demonstrativos com vínculo e identidade ativos usam `online` por até 15 segundos após heartbeat autenticado, depois `offline`, com `lastSeen` ISO. O horário pertence a `SimulationState.lastSeenAt`; leitura pelo responsável não o renova. Presença e confirmação de configuração são independentes, conforme o [contrato da simulação](../simulated/client.md#contrato-da-simulação).
 
 `Device.guardianId` registra o escopo de propriedade/acesso da API. Nas fixtures legadas, esse campo não comprova pareamento. O campo `paired` só é verdadeiro quando há uma associação ativa; identidade do Lux e conexão Linux não são comprovadas pela listagem. Todos os registros criados pelo seed de desenvolvimento são demonstrativos (`isDemo: true`) e usam nomes/contas fictícios. O seed é separado: após aplicar migrations e já existir um responsável, configure `DEV_GUARDIAN_EMAIL` com o email dele e `NODE_ENV=development` na `.env`, e execute `npm run prisma:seed:devices` antes do servidor em watch. Ele não cria responsáveis nem altera dados existentes e pode ser repetido.
 
@@ -145,7 +145,7 @@ O schema e migrations aditivas de responsável e dispositivos estão versionados
 
 ## Responsabilidades do backend
 
-O backend implementa autenticação de responsáveis e leitura de registros de dispositivos limitada ao responsável autenticado. O módulo Pairing implementa autorregistro, sessões e vínculos revogáveis; a ferramenta administrativa provisiona e invalida identidades individuais. O [Lux Agent](../lux-agent/README.md) consulta vínculos, envia relatórios e processa comandos pelo [protocolo v1](agent-protocol.md). O backend gera e reconcilia [comandos parentais](agent-protocol.md#comandos-parentais-contrato), executados pelo Agent com releitura. A aplicação das restrições pertence ao GNOME; sucesso de transporte não deve ser confundido com aplicação confirmada no computador.
+O backend implementa autenticação de responsáveis e leitura de registros de dispositivos limitada ao responsável autenticado. O módulo Pairing implementa autorregistro, sessões e vínculos revogáveis; a ferramenta administrativa provisiona e invalida identidades individuais. O [Lux Agent](../../lux-agent/README.md) consulta vínculos, envia relatórios e processa comandos pelo [protocolo v1](../lux/agent-protocol.md). O backend gera e reconcilia [comandos parentais](../lux/agent-protocol.md#comandos-parentais-contrato), executados pelo Agent com releitura. A aplicação das restrições pertence ao GNOME; sucesso de transporte não deve ser confundido com aplicação confirmada no computador.
 
 ## Integração do mobile
 
@@ -159,7 +159,7 @@ O fluxo de QR utiliza os endpoints de validação e consumo descritos abaixo, se
 
 ## Contratos de pareamento
 
-O MVP permite um responsável ativo por computador. A identidade do Agent é independente do JWT do responsável: uma credencial aleatória exclusiva, gerada pelo Agent no autorregistro ou pela ferramenta administrativa. A API armazena somente o hash da credencial; o `deviceId` não autentica o Agent. A decisão e a obrigação de autorização administrativa local estão em [Integração Lux](lux-integration.md).
+O MVP permite um responsável ativo por computador. A identidade do Agent é independente do JWT do responsável: uma credencial aleatória exclusiva, gerada pelo Agent no autorregistro ou pela ferramenta administrativa. A API armazena somente o hash da credencial; o `deviceId` não autentica o Agent. A decisão e a obrigação de autorização administrativa local estão em [Integração Lux](../lux/integration.md).
 
 | Endpoint | Autenticação e finalidade |
 | --- | --- |
@@ -172,7 +172,7 @@ O MVP permite um responsável ativo por computador. A identidade do Agent é ind
 | `GET /devices` | JWT do responsável; lista somente os dispositivos atualmente acessíveis. |
 | `DELETE /devices/:id/association` | JWT do responsável; revoga seu vínculo ativo, sem excluir o computador. |
 
-Os contratos estão implementados; o Agent os usa em `lux-agent pair` ([Integração Lux](lux-integration.md#pareamento-pelo-agent)). O token de pareamento contém 32 bytes aleatórios codificados em base64url, expira em cinco minutos e só pode ser consumido uma vez. Seu hash SHA-256 é único no banco; o token original não aparece em consultas de sessões ou associações. O QR usa `piplup://pair?token=<token>` e não transporta URL da API, senha Linux ou credencial do Agent. O cliente utiliza exclusivamente a API já configurada.
+Os contratos estão implementados; o Agent os usa em `lux-agent pair` ([Integração Lux](../lux/integration.md#pareamento-pelo-agent)). O token de pareamento contém 32 bytes aleatórios codificados em base64url, expira em cinco minutos e só pode ser consumido uma vez. Seu hash SHA-256 é único no banco; o token original não aparece em consultas de sessões ou associações. O QR usa `piplup://pair?token=<token>` e não transporta URL da API, senha Linux ou credencial do Agent. O cliente utiliza exclusivamente a API já configurada.
 
 `POST /agent/registrations` recebe `{ credentialHash, name, managedUser }` (64 hex minúsculos; 1–100 caracteres; sem campos extras) e `POST /agent/pairing-sessions` recebe corpo vazio; ambos retornam `{ token, expiresAt, qrPayload }`. `POST /pairing/validate` retorna `{ valid: true, expiresAt, device: { id, name, managedUser, isDemo } }`; `POST /pairing/complete` retorna a representação de dispositivo com `paired: true` e `associationId`. `GET /agent/associations` retorna histórico `{ id, createdAt, revokedAt, guardian: { id, name } }`, sem tokens, hashes ou email do responsável. As operações DELETE bem-sucedidas retornam `204`.
 
@@ -197,18 +197,18 @@ O provisionamento cria o computador sem responsável e grava a credencial em arq
 
 Para uma fixture de desenvolvimento, acrescente `--demo` ao provisionamento, com `NODE_ENV=development`. O computador recebe `isDemo: true`; essa identidade não autentica em produção. A ferramenta não implementa o Agent, autorização Linux ou exibição de QR. Não provisione fixtures como computadores reais.
 
-O [roteiro mobile](mobile.md) documenta o teste manual completo com Docker/WSL: provisionamento da fixture, solicitação autenticada de sessão, geração local do QR e validação no celular.
+O [roteiro mobile](../mobile/app.md) documenta o teste manual completo com Docker/WSL: provisionamento da fixture, solicitação autenticada de sessão, geração local do QR e validação no celular.
 
 ## Consultas de aplicativos e pedidos de instalação
 
-- `GET /devices/:deviceId/applications`: lista `{ id, name, category, allowed, blockable, executable }`, ordenada por nome e UUID. `blockable=false` indica app que não pode ser bloqueado; apps com o mesmo `executable` (não nulo) são bloqueados juntos ([regras](agent-protocol.md#origem-dos-comandos)).
+- `GET /devices/:deviceId/applications`: lista `{ id, name, category, allowed, blockable, executable }`, ordenada por nome e UUID. `blockable=false` indica app que não pode ser bloqueado; apps com o mesmo `executable` (não nulo) são bloqueados juntos ([regras](../lux/agent-protocol.md#origem-dos-comandos)).
 - `GET /devices/:deviceId/installation-requests`: lista somente pedidos `PENDING`, com `{ id, applicationName, requesterName, requestedAt, ageRating }`, ordenados por data e UUID. `requestedAt` é uma data ISO 8601 UTC.
 
 Ambos exigem JWT do responsável, UUID válido e associação ativa com aquele computador. Dispositivo inexistente, pertencente a outro responsável ou sem vínculo ativo retorna o mesmo HTTP 404. UUID inválido retorna 400; falha operacional retorna 503, sem detalhes internos.
 
 Os dados vêm de `InstalledApplication` e `InstallationRequest`. `Device.applicationsReportedAt` e `Device.installationRequestsReportedAt` indicam se cada relatório já foi recebido. Sem o marcador correspondente, a consulta retorna 503 com mensagem de dados ainda não recebidos; com relatório e nenhum registro, retorna `[]`. O retorno é a última informação persistida, sem garantia de presença ou atualização do computador.
 
-O Agent real publica aplicativos por `PUT /agent/reports` ([protocolo](agent-protocol.md#contrato-de-relatórios-do-agent)), sem pedidos de instalação e sem remover pedidos de outros fluxos. O [client simulado](simulated-client.md) publica relatórios demonstrativos autenticados por um módulo separado. Seeds atuais não inventam inventário nem pedidos. Pedidos de instalação reais estão fora do escopo: só a simulação persiste decisões e confirma sua própria aplicação. Para o computador real, `allowed` reflete a política desejada, aplicada pelo comando parental. Os estados `APPROVED` e `DENIED` apenas permitem excluir pedidos já decididos da consulta.
+O Agent real publica aplicativos por `PUT /agent/reports` ([protocolo](../lux/agent-protocol.md#contrato-de-relatórios-do-agent)), sem pedidos de instalação e sem remover pedidos de outros fluxos. O [client simulado](../simulated/client.md) publica relatórios demonstrativos autenticados por um módulo separado. Seeds atuais não inventam inventário nem pedidos. Pedidos de instalação reais estão fora do escopo: só a simulação persiste decisões e confirma sua própria aplicação. Para o computador real, `allowed` reflete a política desejada, aplicada pelo comando parental. Os estados `APPROVED` e `DENIED` apenas permitem excluir pedidos já decididos da consulta.
 
 ## Pendências
 
@@ -222,11 +222,11 @@ O override de MariaDB 3.5.4 fica restrito ao adapter Prisma para corrigir vulner
 
 ## Comandos do Agent
 
-O módulo `Commands` implementa criação/consulta por responsável e polling/claim/resultado por Agent. O responsável só cria `agent.ping`; `parental.app_filter.set` nasce das configurações do computador real. Exige vínculo original ativo e identidade válida, com transações serializadas por dispositivo e índices de idempotência ([contrato completo](agent-protocol.md)). O bootstrap limita corpos JSON a 16 KiB.
+O módulo `Commands` implementa criação/consulta por responsável e polling/claim/resultado por Agent. O responsável só cria `agent.ping`; `parental.app_filter.set` nasce das configurações do computador real. Exige vínculo original ativo e identidade válida, com transações serializadas por dispositivo e índices de idempotência ([contrato completo](../lux/agent-protocol.md)). O bootstrap limita corpos JSON a 16 KiB.
 
 ## Simulação para demonstração
 
-O módulo isolado `src/simulation` reutiliza JWT, identidade do Agent, pareamento e tabelas de inventário/pedidos. A única tabela nova, `SimulationState`, guarda configurações versionadas por vínculo e confirmação simulada. Cadastro autenticado e operações desse módulo são restritos a demonstração em `development`/`test`; não habilitam registro ou controle de PCs reais. Contratos e execução ficam em [Client simulado](simulated-client.md).
+O módulo isolado `src/simulation` reutiliza JWT, identidade do Agent, pareamento e tabelas de inventário/pedidos. A única tabela nova, `SimulationState`, guarda configurações versionadas por vínculo e confirmação simulada. Cadastro autenticado e operações desse módulo são restritos a demonstração em `development`/`test`; não habilitam registro ou controle de PCs reais. Contratos e execução ficam em [Client simulado](../simulated/client.md).
 
 ## Histórico de pedidos de instalação
 

@@ -6,7 +6,7 @@ O cabeçalho e o favicon usam os dois pinguins do `PenguinLogo` do mobile, com a
 
 ## Executar
 
-Siga primeiro o [passo 3A do README](../README.md#3a-recomendado-no-windows-mysql-no-docker-e-backend-pelo-npm): MySQL saudável **antes** de aplicar migrations, gerar o Prisma Client e iniciar o backend. Use `NODE_ENV=development` e uma conta criada pelo seed. Para client e celular, siga os passos 4 e 5 do mesmo guia.
+Siga primeiro o [passo 3A do README](../../README.md#3a-recomendado-no-windows-mysql-no-docker-e-backend-pelo-npm): MySQL saudável **antes** de aplicar migrations, gerar o Prisma Client e iniciar o backend. Use `NODE_ENV=development` e uma conta criada pelo seed. Para client e celular, siga os passos 4 e 5 do mesmo guia.
 
 Em outro terminal, com Node 24.15+ na linha 24:
 
@@ -46,7 +46,7 @@ Falhas na API preservam a identidade local e não são apresentadas como exclus�
 | `PIPLUP_CLIENT_STATE` | Caminho para outra identidade local; use também outra porta para demonstrar vários PCs |
 | `PIPLUP_ALLOW_LAN_HTTP` | `true` permite HTTP para API em outro computador numa rede de desenvolvimento confiável; fora disso, use HTTPS |
 
-PowerShell: `$env:PIPLUP_API_URL = 'http://127.0.0.1:3000'` antes de `npm start`. O celular usa a URL LAN da API descrita em [Mobile](mobile.md); ele não acessa a porta local do client. Ao trocar a origem do backend, use outro arquivo de estado para não enviar a identidade ao servidor errado.
+PowerShell: `$env:PIPLUP_API_URL = 'http://127.0.0.1:3000'` antes de `npm start`. O celular usa a URL LAN da API descrita em [Mobile](../mobile/app.md); ele não acessa a porta local do client. Ao trocar a origem do backend, use outro arquivo de estado para não enviar a identidade ao servidor errado.
 
 Fechar somente a aba do navegador mantém o programa rodando. Ctrl+C no terminal interrompe a sincronização. Sem o client, alterações ficam pendentes; não há fila de ações no celular. A cada consulta, o client envia um heartbeat autenticado: a presença é online por até 15 segundos desde o último contato e depois offline. Antes do primeiro contato fica não validada. Home/lista consultam a cada cinco segundos; restrições a cada dois. Esse estado comprova comunicação do simulador, não funcionamento de um PC real ou do GNOME. A confirmação de aplicação e seu horário são independentes da presença.
 
@@ -56,13 +56,13 @@ Revogar o vínculo no app retira o acesso, e o client descarta as configuraçõe
 
 As respostas de estado incluem `connection: { status, lastSeen }`; leitura pelo responsável não renova a presença. Heartbeats de vínculos antigos são rejeitados. O servidor usa seu próprio horário.
 
-Os endpoints abaixo recusam execução fora de `development`/`test` e exigem dispositivo `isDemo: true`, identidade válida e vínculo ativo; a criação exige JWT de responsável. Exceção: `GET`/`PATCH /simulation/devices/:id` também atendem computador real pareado em qualquer ambiente, e nele cada revision gera um [comando parental](agent-protocol.md#comandos-parentais-contrato). Os endpoints reais de pareamento e autenticação foram reutilizados.
+Os endpoints abaixo recusam execução fora de `development`/`test` e exigem dispositivo `isDemo: true`, identidade válida e vínculo ativo; a criação exige JWT de responsável. Exceção: `GET`/`PATCH /simulation/devices/:id` também atendem computador real pareado em qualquer ambiente, e nele cada revision gera um [comando parental](../lux/agent-protocol.md#comandos-parentais-contrato). Os endpoints reais de pareamento e autenticação foram reutilizados.
 
 | Endpoint | Autenticação e finalidade |
 | --- | --- |
 | `POST /simulation/devices` | JWT; `{ name, managedUser? }` → `{ device, credential }`; cria somente PC demonstrativo, sem parear |
 | `DELETE /agent/simulation` | Credencial do próprio PC demonstrativo; exclui seus registros em transação e retorna `{ deletedDeviceId }`, mesmo sem vínculo ativo; indisponível em produção |
-| `GET /simulation/devices/:id` | JWT do responsável vinculado; consulta configurações e confirmação (computador real: confirmação do Agent, `error` e `enforcement`, ver [contrato](agent-protocol.md#reconciliação)) |
+| `GET /simulation/devices/:id` | JWT do responsável vinculado; consulta configurações e confirmação (computador real: confirmação do Agent, `error` e `enforcement`, ver [contrato](../lux/agent-protocol.md#reconciliação)) |
 | `PATCH /simulation/devices/:id` | Mesmo JWT; `{ revision, settings }`, com alteração parcial e controle de concorrência |
 | `GET /agent/simulation` | Credencial do próprio client; consulta configurações do vínculo ativo |
 | `POST /agent/simulation/heartbeat` | Mesma credencial; `{ associationId }`; registra contato no vínculo ativo sem confirmar configurações |
@@ -72,12 +72,12 @@ Os endpoints abaixo recusam execução fora de `development`/`test` e exigem dis
 
 O relatório reutiliza `InstalledApplication`, `InstallationRequest` e os marcadores de relatório de `Device`. Atualização e confirmação são transacionais, usando o mesmo lock de computador do pareamento/revogação. Revisão ou vínculo antigo retorna `409`, sem substituir relatórios; recurso sem acesso retorna `404`; falha operacional retorna `503`. Reenviar a mesma revisão não duplica registros. Uma confirmação vale exclusivamente para a simulação, sem comprovar aplicação Linux.
 
-Este contrato de estado demonstrativo é separado da [protocolo de comandos do Agent real](agent-protocol.md). O Agent Python e sua leitura malcontent foram preservados.
+Este contrato de estado demonstrativo é separado da [protocolo de comandos do Agent real](../lux/agent-protocol.md). O Agent Python e sua leitura malcontent foram preservados.
 
 ## Verificações
 
-Em `simulated-client/`, `npm test` verifica cadastro, QR, sigilo da identidade, sincronização, revisão antiga, pedidos, revogação, origens locais e respostas inválidas; `npm run lint` verifica sintaxe. O backend inclui testes unitários e `test/simulation.mysql-test.mjs`, executado por `npm run test:mysql` somente com `NODE_ENV=test` e banco exclusivo terminado em `_test`. Use os comandos de [Backend](backend.md#verificações), incluindo build antes da suíte MySQL. Os testes de contrato mobile fazem parte de `npm run test:api`.
+Em `simulated-client/`, `npm test` verifica cadastro, QR, sigilo da identidade, sincronização, revisão antiga, pedidos, revogação, origens locais e respostas inválidas; `npm run lint` verifica sintaxe. O backend inclui testes unitários e `test/simulation.mysql-test.mjs`, executado por `npm run test:mysql` somente com `NODE_ENV=test` e banco exclusivo terminado em `_test`. Use os comandos de [Backend](../backend/api.md#verificações), incluindo build antes da suíte MySQL. Os testes de contrato mobile fazem parte de `npm run test:api`.
 
 `npm run test:integration` em `simulated-client/` usa os serviços HTTP reais do mobile, API, banco de teste e programa local juntos. Requer dependências nos três diretórios, backend compilado e o mesmo ambiente MySQL exclusivo terminado em `_test`.
 
-A última validação registrada está em [Validação](validation.md).
+A última validação registrada está em [Validação](../testing/validation.md).

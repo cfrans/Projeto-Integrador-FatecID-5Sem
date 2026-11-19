@@ -2,7 +2,7 @@
 
 ## Fonte e limites
 
-Referências autorizadas: [Controle Parental Lux.pdf](../prototypes/Controle%20Parental%20Lux.pdf), 11 páginas, e o protótipo HTML agrupado em [`prototypes/Controle Parental Lux.html`](../prototypes/Controle%20Parental%20Lux.html). O HTML foi decodificado do bundle para conferir textos e hierarquia das telas; seu CSS e as interações simuladas não são código de produção nem definem medidas React Native. As telas preservam os tokens existentes.
+Referências autorizadas: [Controle Parental Lux.pdf](../../prototypes/Controle%20Parental%20Lux.pdf), 11 páginas, e o protótipo HTML agrupado em [`prototypes/Controle Parental Lux.html`](../../prototypes/Controle%20Parental%20Lux.html). O HTML foi decodificado do bundle para conferir textos e hierarquia das telas; seu CSS e as interações simuladas não são código de produção nem definem medidas React Native. As telas preservam os tokens existentes.
 
 ## Variantes e convenção inicial
 
@@ -106,13 +106,13 @@ TODO: validar contraste, fonte ampliada e leitores de tela em dispositivo. Não 
 
 O retorno fica somente no cabeçalho nativo. O computador e a conta aparecem uma vez, em um cartão compacto; com múltiplos vínculos, **Trocar** abre uma lista modal e preserva a aba atual. O status de aplicação simulada fica abaixo do seletor, com texto e indicador discreto. Cada aba exibe seu título, sem repetir nome/conta ou badge de simulação. A barra inferior respeita o inset do sistema.
 
-Navegadores usam [logos locais das fontes oficiais](../mobile/assets/browsers/README.md), preservando proporção e cores, sem downloads em tempo de execução ou dependência gráfica adicional.
+Navegadores usam [logos locais das fontes oficiais](../../mobile/assets/browsers/README.md), preservando proporção e cores, sem downloads em tempo de execução ou dependência gráfica adicional.
 
 ## Identidade de aplicativos e computadores
 
-`ApplicationIcon` compartilha logos locais entre navegadores, inventário e pedidos de instalação; nomes conhecidos e IDs Linux têm aliases explícitos, e desconhecidos mantêm a inicial. [Fontes dos aplicativos](../mobile/assets/applications/README.md).
+`ApplicationIcon` compartilha logos locais entre navegadores, inventário e pedidos de instalação; nomes conhecidos e IDs Linux têm aliases explícitos, e desconhecidos mantêm a inicial. [Fontes dos aplicativos](../../mobile/assets/applications/README.md).
 
-Computadores usam monitor por padrão, com opções Notebook, PC gamer e Servidor. Toque no ícone com o indicador de edição no cartão da Home ou da lista para personalizar; o seletor das restrições usa a mesma escolha. A preferência é local, separada por responsável e UUID do computador; não altera hardware, presença ou dados no backend. [Assets e licença](../mobile/assets/computers/README.md).
+Computadores usam monitor por padrão, com opções Notebook, PC gamer e Servidor. Toque no ícone com o indicador de edição no cartão da Home ou da lista para personalizar; o seletor das restrições usa a mesma escolha. A preferência é local, separada por responsável e UUID do computador; não altera hardware, presença ou dados no backend. [Assets e licença](../../mobile/assets/computers/README.md).
 
 ## Melhorias de usabilidade no mobile
 

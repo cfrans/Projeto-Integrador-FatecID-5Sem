@@ -8,7 +8,7 @@ Alternativas: TLS diretamente no NestJS exigiria mudar sua inicialização e con
 
 ## Preparação
 
-Requisitos: backend/MySQL preparados conforme o [README](../README.md), Docker Compose v2, OpenSSL 3, Python 3.12+ no Linux e SSH para o Lux. Execute na raiz do repositório, em Bash. Confira os serviços antes de iniciá-los; não reinicie ou interrompa serviços compartilhados para este teste.
+Requisitos: backend/MySQL preparados conforme o [README](../../README.md), Docker Compose v2, OpenSSL 3, Python 3.12+ no Linux e SSH para o Lux. Execute na raiz do repositório, em Bash. Confira os serviços antes de iniciá-los; não reinicie ou interrompa serviços compartilhados para este teste.
 
 ```bash
 docker compose config --quiet
@@ -84,7 +84,7 @@ Esperado: HTTP 200 com `database: "ok"`. Se o nome do container ou a porta já e
 
 ## Identidade e consultas reais
 
-O provisionamento abaixo é ferramenta de desenvolvimento para testar o transporte com o Agent dos fontes; o serviço instalado obtém a credencial por `lux-agent pair` ([pareamento](../lux-agent/README.md#parear-com-um-responsável)), usando a mesma CA em `install.sh --ca-file`. Use uma identidade demonstrativa exclusiva, sem vínculos. O backend saudável já possui o código compilado pelo watch. Registre o UUID retornado como `LUX_DEVICE_ID`, sem imprimir o conteúdo da credencial.
+O provisionamento abaixo é ferramenta de desenvolvimento para testar o transporte com o Agent dos fontes; o serviço instalado obtém a credencial por `lux-agent pair` ([pareamento](../../lux-agent/README.md#parear-com-um-responsável)), usando a mesma CA em `install.sh --ca-file`. Use uma identidade demonstrativa exclusiva, sem vínculos. O backend saudável já possui o código compilado pelo watch. Registre o UUID retornado como `LUX_DEVICE_ID`, sem imprimir o conteúdo da credencial.
 
 ```bash
 docker compose exec -T backend node dist/src/agent/agent-admin.js provision \
@@ -101,7 +101,7 @@ PYTHONPATH=lux-agent python3 -B -m lux_agent poll --backend-url https://localhos
 
 Esperado: diagnóstico e três consultas com HTTP 200, histórico vazio e saída 0. `--ca-file` está disponível nos dois comandos: seleciona um arquivo PEM de CAs confiáveis somente para o processo. Omitido, usa a confiança padrão do Python; informado, usa o conjunto indicado. Não desativa a validação de certificado ou hostname. Arquivo ausente/inválido retorna código 2 com erro controlado. Não há fallback HTTP nem redirecionamento.
 
-Para o Lux, [sincronize os fontes](../lux-agent/README.md#sincronizar-e-executar-no-lux), usando `deploy-files.txt`, que inclui `tests/test_https_transport.py`. Crie um diretório temporário privado e transfira separadamente apenas a credencial e a CA pública:
+Para o Lux, [sincronize os fontes](../../lux-agent/README.md#sincronizar-e-executar-no-lux), usando `deploy-files.txt`, que inclui `tests/test_https_transport.py`. Crie um diretório temporário privado e transfira separadamente apenas a credencial e a CA pública:
 
 ```bash
 LUX_REMOTE_TLS_DIR=$(ssh -o BatchMode=yes lux 'umask 077; mktemp -d /tmp/lux-https.XXXXXX')

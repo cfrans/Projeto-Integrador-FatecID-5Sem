@@ -6,7 +6,7 @@ O Lenovo Lux Parental (PIPLUP, identificado como `piplup` no código) é um proj
 
 ## Estado atual
 
-O aplicativo Expo usa autenticação real de responsáveis e consulta e configura computadores pela API NestJS, com persistência em MySQL via Prisma. Um computador Lux real é pareado por QR com autorização do administrador local; o Lux Agent, instalado como serviço, aplica o bloqueio de aplicativos, navegadores e instalação definido no app e confirma por releitura. O [client simulado](simulated-client.md) permite cadastrar e parear PCs demonstrativos; a confirmação dele vale somente para a simulação. Estado detalhado em [Arquitetura](architecture.md#etapas-de-implementação).
+O aplicativo Expo usa autenticação real de responsáveis e consulta e configura computadores pela API NestJS, com persistência em MySQL via Prisma. Um computador Lux real é pareado por QR com autorização do administrador local; o Lux Agent, instalado como serviço, aplica o bloqueio de aplicativos, navegadores e instalação definido no app e confirma por releitura. O [client simulado](../simulated/client.md) permite cadastrar e parear PCs demonstrativos; a confirmação dele vale somente para a simulação. Estado detalhado em [Arquitetura](../architecture/overview.md#etapas-de-implementação).
 
 ## Usuários
 
@@ -23,7 +23,7 @@ O foco principal do projeto acadêmico é a experiência mobile e sua integraç�
 
 ## MVP planejado
 
-O primeiro MVP deverá reunir autenticação real, gerenciamento de dispositivos e pareamento seguro. A integração parental real será incremental após a prova técnica no Lux; os controles candidatos não são todos requisitos obrigatórios do MVP. Consulte as etapas em [Arquitetura](architecture.md).
+O primeiro MVP deverá reunir autenticação real, gerenciamento de dispositivos e pareamento seguro. A integração parental real será incremental após a prova técnica no Lux; os controles candidatos não são todos requisitos obrigatórios do MVP. Consulte as etapas em [Arquitetura](../architecture/overview.md).
 
 ## Fora de escopo
 
