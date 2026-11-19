@@ -80,7 +80,7 @@ export class AuthService {
     try {
       guardian = await this.prisma.guardian.findUnique({
         where: { email },
-        select: { id: true, name: true, email: true, passwordHash: true },
+        select: { id: true, name: true, email: true, passwordHash: true, tokenVersion: true },
       });
     } catch {
       throw new ServiceUnavailableException('Serviço de autenticação indisponível.');
@@ -95,9 +95,24 @@ export class AuthService {
     }
 
     const guardianView = { id: guardian.id, name: guardian.name, email: guardian.email };
-    const accessToken = await this.jwtService.signAsync({ sub: guardian.id });
+    const accessToken = await this.jwtService.signAsync({ sub: guardian.id, ver: guardian.tokenVersion });
 
     return { accessToken, expiresIn: JWT_EXPIRES_IN_SECONDS, guardian: guardianView };
+  }
+
+  async logout(guardianId: string) {
+    try {
+      await this.prisma.guardian.update({
+        where: { id: guardianId },
+        data: { tokenVersion: { increment: 1 } },
+        select: { id: true },
+      });
+    } catch (error) {
+      if (prismaErrorCode(error) === 'P2025') {
+        throw new UnauthorizedException('Credenciais inválidas.');
+      }
+      throw new ServiceUnavailableException('Serviço de autenticação indisponível.');
+    }
   }
 
   async updateEmail(guardianId: string, dto: UpdateEmailDto) {
@@ -144,7 +159,7 @@ export class AuthService {
     try {
       await this.prisma.guardian.update({
         where: { id: guardianId },
-        data: { passwordHash },
+        data: { passwordHash, tokenVersion: { increment: 1 } },
         select: { id: true },
       });
     } catch (error) {
@@ -241,7 +256,7 @@ export class AuthService {
     try {
       await this.prisma.guardian.update({
         where: { email },
-        data: { passwordHash },
+        data: { passwordHash, tokenVersion: { increment: 1 } },
         select: { id: true },
       });
     } catch (error) {

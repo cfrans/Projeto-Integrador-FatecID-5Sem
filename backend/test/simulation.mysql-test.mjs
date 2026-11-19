@@ -20,7 +20,7 @@ test('demo registration, secure pairing, policy acknowledgement and revocation w
   const devices = [];
   try {
     for (let i = 0; i < 2; i += 1) guardians.push(await prisma.guardian.create({ data: { email: `${randomUUID()}@example.test`, name: 'Simulation test', passwordHash: 'unused-test-hash' } }));
-    const tokens = await Promise.all(guardians.map((guardian) => app.get(JwtService).signAsync({ sub: guardian.id })));
+    const tokens = await Promise.all(guardians.map((guardian) => app.get(JwtService).signAsync({ sub: guardian.id, ver: 0 })));
     const auth = (token) => `Bearer ${token}`;
     await http.post('/simulation/devices').send({ name: 'PC' }).expect(401);
     await http.post('/simulation/devices').set('Authorization', auth(tokens[0])).send({ name: 'PC', isDemo: false }).expect(400);

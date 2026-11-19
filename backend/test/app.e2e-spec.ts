@@ -14,12 +14,14 @@ describe('AppController (e2e)', () => {
     name: 'Responsável',
     email: 'guardian@example.com',
     passwordHash: '',
+    tokenVersion: 0,
   };
   const guardianTwo = {
     id: '946ec23b-4fb8-4faa-94dd-471d67588c84',
     name: 'Outro responsável',
     email: 'guardian-two@example.com',
     passwordHash: '',
+    tokenVersion: 0,
   };
   const devices = [
     {
@@ -208,7 +210,7 @@ describe('AppController (e2e)', () => {
       .expect({ question: 'Qual o nome do seu primeiro pet?' });
   });
 
-  it('rejects missing, tampered, expired, and deleted-guardian tokens', async () => {
+  it('rejects missing, tampered, expired, stale-version, and deleted-guardian tokens', async () => {
     await request(app.getHttpServer()).get('/auth/me').expect(401);
     await request(app.getHttpServer())
       .get('/auth/me')
@@ -216,14 +218,22 @@ describe('AppController (e2e)', () => {
       .expect(401);
 
     const jwt = app.get(JwtService);
-    const expired = await jwt.signAsync({ sub: guardian.id }, { expiresIn: -1 });
+    const expired = await jwt.signAsync({ sub: guardian.id, ver: 0 }, { expiresIn: -1 });
     await request(app.getHttpServer())
       .get('/auth/me')
       .set('Authorization', `Bearer ${expired}`)
       .expect(401);
 
+    for (const payload of [{ sub: guardian.id }, { sub: guardian.id, ver: 1 }]) {
+      const stale = await jwt.signAsync(payload);
+      await request(app.getHttpServer())
+        .get('/auth/me')
+        .set('Authorization', `Bearer ${stale}`)
+        .expect(401);
+    }
+
     prisma.guardian.findUnique.mockResolvedValueOnce(null);
-    const valid = await jwt.signAsync({ sub: guardian.id });
+    const valid = await jwt.signAsync({ sub: guardian.id, ver: 0 });
     await request(app.getHttpServer())
       .get('/auth/me')
       .set('Authorization', `Bearer ${valid}`)
@@ -270,7 +280,7 @@ describe('AppController (e2e)', () => {
   it('authenticates and validates restriction and history query routes', async () => {
     const http = request(app.getHttpServer());
     const jwt = app.get(JwtService);
-    const token = await jwt.signAsync({ sub: guardian.id });
+    const token = await jwt.signAsync({ sub: guardian.id, ver: 0 });
     for (const endpoint of ['applications', 'installation-requests', 'installation-requests/history']) {
       await http.get(`/devices/${devices[0].id}/${endpoint}`).expect(401);
       await http.get(`/devices/not-a-uuid/${endpoint}`).set('Authorization', `Bearer ${token}`).expect(400);

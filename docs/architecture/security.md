@@ -4,7 +4,7 @@ O que o sistema protege e o que fica como limitação conhecida. Detalhes de cad
 
 ## Controles implementados
 
-- **Senhas e sessão.** Senhas e respostas de segurança com Argon2id. JWT HS256 de 30 minutos com emissor e audiência validados; `JWT_SECRET` obrigatório, com pelo menos 32 bytes e sem valor padrão. Cada requisição confere se o responsável ainda existe ([Backend](../backend/api.md#autenticação-implementada)).
+- **Senhas e sessão.** Senhas e respostas de segurança com Argon2id. JWT HS256 de 30 minutos com emissor e audiência validados; `JWT_SECRET` obrigatório, com pelo menos 32 bytes e sem valor padrão. Cada requisição confere se o responsável ainda existe e se o token não foi revogado: sair, trocar ou redefinir a senha invalida na hora todos os tokens já emitidos ([Backend](../backend/api.md#autenticação-implementada)).
 - **Rotas públicas.** Limite de tentativas por IP: login e cadastro 20/min, cada rota de recuperação 5/min, autorregistro do Agent 5/min. Login usa a mesma mensagem e o mesmo custo de Argon2id para conta inexistente e senha errada.
 - **Recuperação de senha.** Não revela se o e-mail existe: e-mail sem conta ou sem pergunta recebe uma pergunta fictícia estável, e toda resposta errada recebe o mesmo `400`.
 - **Entrada da API.** `ValidationPipe` com `whitelist` e `forbidNonWhitelisted`, corpo JSON limitado a 16 KiB. Respostas nunca trazem hashes. O backend não registra corpos nem segredos em log. Swagger fica desligado com `NODE_ENV=production`.
@@ -17,7 +17,6 @@ O que o sistema protege e o que fica como limitação conhecida. Detalhes de cad
 
 | Limitação | Efeito | Por que fica |
 | --- | --- | --- |
-| JWT sem revogação | Sair do app só apaga o token local; trocar ou redefinir a senha não derruba sessões abertas. Uma cópia do token vale até expirar (30 min). | Planejado à parte (versão do token no responsável e `POST /auth/logout`). |
 | Credencial do Agent sem expiração | A credencial vale até o vínculo ou a identidade serem revogados. Copiá-la exige root no Lux. | Rotação automática exigiria mudar o protocolo; a revogação cobre o caso de comprometimento. |
 | malcontent bloqueia só no GNOME | O app some do menu e da busca, mas abre pelo terminal (`/usr/bin/...`); janelas já abertas continuam. | Comportamento do malcontent. Mitigação: bloquear também o app de terminal. |
 | Regra polkit ampla | A regra deixa o usuário `lux-agent` alterar o filtro de apps de qualquer conta; quem restringe à conta gerenciada é o código do Agent. Só importa se o processo do Agent for comprometido; não dá root nem acesso a arquivos. | O polkit não informa à regra qual conta está sendo alterada. |

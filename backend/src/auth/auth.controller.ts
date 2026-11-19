@@ -94,6 +94,18 @@ export class AuthController {
     return request.user;
   }
 
+  @Post('logout')
+  @HttpCode(204)
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Encerra todas as sessões do responsável autenticado' })
+  @ApiResponse({ status: 204, description: 'Tokens emitidos até agora deixam de valer.' })
+  @ApiResponse({ status: 401, description: 'Token inválido, expirado ou responsável removido.' })
+  @ApiResponse({ status: 503, description: 'Serviço de autenticação indisponível.' })
+  logout(@Req() request: AuthenticatedRequest) {
+    return this.authService.logout(request.user.id);
+  }
+
   @Patch('me/email')
   @UseGuards(JwtAuthGuard)
   @ApiBearerAuth()
@@ -114,7 +126,7 @@ export class AuthController {
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Atualiza a senha do responsável autenticado' })
   @ApiBody({ type: UpdatePasswordDto })
-  @ApiResponse({ status: 204, description: 'Senha atualizada.' })
+  @ApiResponse({ status: 204, description: 'Senha atualizada; tokens emitidos até agora deixam de valer.' })
   @ApiResponse({ status: 400, description: 'Corpo inválido ou senha atual incorreta.' })
   @ApiResponse({ status: 401, description: 'Token inválido, expirado ou responsável removido.' })
   @ApiResponse({ status: 503, description: 'Serviço de autenticação indisponível.' })
@@ -180,7 +192,7 @@ export class AuthController {
   @HttpCode(204)
   @ApiOperation({ summary: 'Redefine a senha após verificar a resposta da pergunta de segurança' })
   @ApiBody({ type: ResetPasswordDto })
-  @ApiResponse({ status: 204, description: 'Senha redefinida.' })
+  @ApiResponse({ status: 204, description: 'Senha redefinida; tokens emitidos até agora deixam de valer.' })
   @ApiResponse({ status: 400, description: 'Corpo inválido ou resposta incorreta.' })
   @ApiResponse({ status: 503, description: 'Serviço de autenticação indisponível.' })
   @ApiResponse({ status: 429, description: 'Muitas tentativas deste endereço.' })

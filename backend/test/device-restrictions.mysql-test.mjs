@@ -26,7 +26,7 @@ test('restriction queries isolate active links and distinguish absent reports in
       deviceIds.push(device.id);
       await prisma.deviceAssociation.create({ data: { guardianId: guardian.id, deviceId: device.id, activeDeviceId: device.id } });
     }
-    const token = await app.get(JwtService).signAsync({ sub: guardianIds[0] });
+    const token = await app.get(JwtService).signAsync({ sub: guardianIds[0], ver: 0 });
     const http = request(app.getHttpServer());
     const get = (deviceId, endpoint) => http.get(`/devices/${deviceId}/${endpoint}`).set('Authorization', `Bearer ${token}`);
     const endpoints = ['applications', 'installation-requests'];

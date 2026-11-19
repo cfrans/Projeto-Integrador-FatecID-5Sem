@@ -54,7 +54,7 @@ A CHECK `PairingSession_target_check` exige exatamente um dos alvos; por isso a 
 
 Migrations Prisma são versionadas junto ao código e aplicadas de forma controlada entre ambientes. Prisma é o caminho padrão para acesso e alterações de dados. Os requisitos acadêmicos incluem views, funções, procedures, triggers, transações e tratamento de erros SQL; implemente-os quando os casos de uso e o schema estiverem definidos. SQL direto via Prisma é permitido para esses recursos, com consultas parametrizadas e sem concatenar dados de usuário.
 
-`backend/prisma/schema.prisma` define `Guardian` com UUID, email único, nome, hash Argon2id da senha e campos opcionais de pergunta/hash Argon2id da resposta de segurança, e `Device` com UUID, nome, usuário gerenciado opcional, `guardianId` e `isDemo`. As migrations versionadas criam esses modelos. A relação usa comportamento restritivo para exclusão e índice simples por `guardianId`; nomes não são identidade única. `prisma:generate` gera código ignorado pelo Git, sem alterar o banco. Comandos e execução estão em [Backend](api.md).
+`backend/prisma/schema.prisma` define `Guardian` com UUID, email único, nome, hash Argon2id da senha e campos opcionais de pergunta/hash Argon2id da resposta de segurança e `tokenVersion` (inteiro, padrão 0, comparado com o `ver` do JWT para revogar sessões), e `Device` com UUID, nome, usuário gerenciado opcional, `guardianId` e `isDemo`. As migrations versionadas criam esses modelos. A relação usa comportamento restritivo para exclusão e índice simples por `guardianId`; nomes não são identidade única. `prisma:generate` gera código ignorado pelo Git, sem alterar o banco. Comandos e execução estão em [Backend](api.md).
 
 ### Objetos SQL programáveis
 

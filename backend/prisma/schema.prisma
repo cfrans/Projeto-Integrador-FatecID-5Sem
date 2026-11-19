@@ -14,6 +14,7 @@ model Guardian {
   passwordHash       String              @db.VarChar(255)
   securityQuestion   String?             @db.VarChar(255)
   securityAnswerHash String?             @db.VarChar(255)
+  tokenVersion       Int                 @default(0)
   devices            Device[]
   associations       DeviceAssociation[]
   pairingSessions    PairingSession[]

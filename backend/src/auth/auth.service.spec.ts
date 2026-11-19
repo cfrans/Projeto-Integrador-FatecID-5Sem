@@ -20,6 +20,7 @@ describe('AuthService', () => {
     passwordHash: '',
     securityQuestion: null as string | null,
     securityAnswerHash: null as string | null,
+    tokenVersion: 3,
   };
   const prisma = {
     guardian: {
@@ -48,9 +49,9 @@ describe('AuthService', () => {
 
     expect(prisma.guardian.findUnique).toHaveBeenCalledWith({
       where: { email: 'guardian@example.com' },
-      select: { id: true, name: true, email: true, passwordHash: true },
+      select: { id: true, name: true, email: true, passwordHash: true, tokenVersion: true },
     });
-    expect(jwtService.signAsync).toHaveBeenCalledWith({ sub: guardian.id });
+    expect(jwtService.signAsync).toHaveBeenCalledWith({ sub: guardian.id, ver: 3 });
     expect(result).toEqual({
       accessToken: 'signed-token',
       expiresIn: 1800,
@@ -124,8 +125,26 @@ describe('AuthService', () => {
       newPassword: 'new-password-123',
     } as UpdatePasswordDto);
 
-    const passwordUpdate = prisma.guardian.update.mock.calls.at(-1)?.[0] as { data: { passwordHash: string } };
+    const passwordUpdate = prisma.guardian.update.mock.calls.at(-1)?.[0] as {
+      data: { passwordHash: string; tokenVersion: unknown };
+    };
     expect(await argon2.verify(passwordUpdate.data.passwordHash, 'new-password-123')).toBe(true);
+    expect(passwordUpdate.data.tokenVersion).toEqual({ increment: 1 });
+  });
+
+  it('revokes issued tokens on logout and maps missing guardian or database failure', async () => {
+    prisma.guardian.update.mockResolvedValueOnce({ id: guardian.id });
+    await expect(service.logout(guardian.id)).resolves.toBeUndefined();
+    expect(prisma.guardian.update).toHaveBeenLastCalledWith({
+      where: { id: guardian.id },
+      data: { tokenVersion: { increment: 1 } },
+      select: { id: true },
+    });
+
+    prisma.guardian.update.mockRejectedValueOnce({ code: 'P2025' });
+    await expect(service.logout(guardian.id)).rejects.toMatchObject({ status: 401 });
+    prisma.guardian.update.mockRejectedValueOnce(new Error('connection lost'));
+    await expect(service.logout(guardian.id)).rejects.toMatchObject({ status: 503 });
   });
 
   it('stores, verifies and resets password via normalized security question answers', async () => {
@@ -164,8 +183,11 @@ describe('AuthService', () => {
       newPassword: 'recovered-password',
     } as ResetPasswordDto);
 
-    const resetCall = prisma.guardian.update.mock.calls.at(-1)?.[0] as { data: { passwordHash: string } };
+    const resetCall = prisma.guardian.update.mock.calls.at(-1)?.[0] as {
+      data: { passwordHash: string; tokenVersion: unknown };
+    };
     expect(await argon2.verify(resetCall.data.passwordHash, 'recovered-password')).toBe(true);
+    expect(resetCall.data.tokenVersion).toEqual({ increment: 1 });
   });
   it('does not reveal whether an email has an account or a security question', async () => {
     prisma.guardian.findUnique.mockResolvedValue(null);

@@ -44,11 +44,11 @@ test('authentication persists and protects HTTP resources with MySQL', async () 
     assert.deepEqual(me.body, login.body.guardian);
     await http.get('/auth/me').set('Authorization', `${authorization}tampered`).expect(401);
     const jwt = app.get(JwtService);
-    const expired = await jwt.signAsync({ sub: guardian.id }, { expiresIn: -1 });
+    const expired = await jwt.signAsync({ sub: guardian.id, ver: 0 }, { expiresIn: -1 });
     await http.get('/auth/me').set('Authorization', `Bearer ${expired}`).expect(401);
-    const wrongAudience = await jwt.signAsync({ sub: guardian.id }, { audience: 'different-client' });
+    const wrongAudience = await jwt.signAsync({ sub: guardian.id, ver: 0 }, { audience: 'different-client' });
     await http.get('/auth/me').set('Authorization', `Bearer ${wrongAudience}`).expect(401);
-    const wrongIssuer = await jwt.signAsync({ sub: guardian.id }, { issuer: 'different-server' });
+    const wrongIssuer = await jwt.signAsync({ sub: guardian.id, ver: 0 }, { issuer: 'different-server' });
     await http.get('/auth/me').set('Authorization', `Bearer ${wrongIssuer}`).expect(401);
 
     const registeredEmail = `${randomUUID()}@example.test`;
@@ -88,8 +88,14 @@ test('authentication persists and protects HTTP resources with MySQL', async () 
       .set('Authorization', regAuth)
       .send({ currentPassword: 'initial-password-123', newPassword: 'updated-password-123' })
       .expect(204);
+    await http.get('/auth/me').set('Authorization', regAuth).expect(401);
     await http.post('/auth/login').send({ email: updatedEmail, password: 'initial-password-123' }).expect(401);
-    await http.post('/auth/login').send({ email: updatedEmail, password: 'updated-password-123' }).expect(200);
+    const passwordLogin = await http
+      .post('/auth/login')
+      .send({ email: updatedEmail, password: 'updated-password-123' })
+      .expect(200);
+    const updatedAuth = `Bearer ${passwordLogin.body.accessToken}`;
+    await http.get('/auth/me').set('Authorization', updatedAuth).expect(200);
 
     const decoy = await http.post('/auth/recovery/question').send({ email: updatedEmail }).expect(200);
     await http
@@ -98,12 +104,12 @@ test('authentication persists and protects HTTP resources with MySQL', async () 
       .expect(200);
     assert.equal(typeof decoy.body.question, 'string');
     await http.post('/auth/recovery/verify').send({ email: updatedEmail, answer: 'qualquer' }).expect(400);
-    const sqGetInitial = await http.get('/auth/me/security-question').set('Authorization', regAuth).expect(200);
+    const sqGetInitial = await http.get('/auth/me/security-question').set('Authorization', updatedAuth).expect(200);
     assert.deepEqual(sqGetInitial.body, { question: null });
 
     await http
       .put('/auth/me/security-question')
-      .set('Authorization', regAuth)
+      .set('Authorization', updatedAuth)
       .send({ question: 'Qual o nome do seu primeiro pet?', answer: '  Tobiás  ' })
       .expect(200)
       .expect({ question: 'Qual o nome do seu primeiro pet?' });
@@ -130,6 +136,17 @@ test('authentication persists and protects HTTP resources with MySQL', async () 
       .post('/auth/recovery/reset')
       .send({ email: updatedEmail, answer: 'TOBIÁS', newPassword: 'recovered-password-123' })
       .expect(204);
+    await http.get('/auth/me').set('Authorization', updatedAuth).expect(401);
+    const recoveredLogin = await http
+      .post('/auth/login')
+      .send({ email: updatedEmail, password: 'recovered-password-123' })
+      .expect(200);
+    const recoveredAuth = `Bearer ${recoveredLogin.body.accessToken}`;
+    await http.get('/auth/me').set('Authorization', recoveredAuth).expect(200);
+    await http.post('/auth/logout').expect(401);
+    await http.post('/auth/logout').set('Authorization', recoveredAuth).expect(204);
+    await http.get('/auth/me').set('Authorization', recoveredAuth).expect(401);
+    await http.post('/auth/logout').set('Authorization', recoveredAuth).expect(401);
     await http.post('/auth/login').send({ email: updatedEmail, password: 'recovered-password-123' }).expect(200);
     await prisma.guardian.delete({ where: { id: registered.body.id } });
 

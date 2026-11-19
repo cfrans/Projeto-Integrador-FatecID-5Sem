@@ -17,8 +17,8 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
     });
   }
 
-  async validate(payload: { sub?: unknown }) {
-    if (typeof payload.sub !== 'string') {
+  async validate(payload: { sub?: unknown; ver?: unknown }) {
+    if (typeof payload.sub !== 'string' || typeof payload.ver !== 'number') {
       throw new UnauthorizedException('Credenciais inválidas.');
     }
 
@@ -26,16 +26,16 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
     try {
       guardian = await this.prisma.guardian.findUnique({
         where: { id: payload.sub },
-        select: { id: true, name: true, email: true },
+        select: { id: true, name: true, email: true, tokenVersion: true },
       });
     } catch {
       throw new ServiceUnavailableException('Serviço de autenticação indisponível.');
     }
 
-    if (!guardian) {
+    if (!guardian || guardian.tokenVersion !== payload.ver) {
       throw new UnauthorizedException('Credenciais inválidas.');
     }
 
-    return guardian;
+    return { id: guardian.id, name: guardian.name, email: guardian.email };
   }
 }
