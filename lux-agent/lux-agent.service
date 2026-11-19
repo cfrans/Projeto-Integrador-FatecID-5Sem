@@ -19,6 +19,13 @@ NoNewPrivileges=yes
 PrivateTmp=yes
 ProtectSystem=strict
 ProtectHome=yes
+PrivateDevices=yes
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectKernelLogs=yes
+RestrictNamespaces=yes
+CapabilityBoundingSet=
+SystemCallFilter=@system-service
 ReadWritePaths=/var/lib/lux-agent
 RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6
 

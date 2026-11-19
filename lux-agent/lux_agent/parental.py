@@ -41,7 +41,7 @@ GENERIC_LAUNCHERS = frozenset({
     "env", "sh", "bash", "dash", "zsh", "xdg-open", "gio", "flatpak", "snap",
     "python", "python3", "perl", "pkexec", "sudo", "nohup", "setsid",
 })
-ADMIN_GROUPS = ("sudo",)
+ADMIN_GROUPS = ("sudo", "admin", "wheel")
 
 
 def is_admin_account(user: pwd.struct_passwd) -> bool:

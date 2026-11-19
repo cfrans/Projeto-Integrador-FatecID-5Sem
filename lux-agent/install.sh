@@ -64,8 +64,8 @@ validate_managed_user() {
     [[ $user =~ ^[a-z_][a-z0-9_-]*$ ]] || die "nome de conta inválido: '$user'."
     uid=$(id -u -- "$user" 2>/dev/null) || die "a conta '$user' não existe."
     (( uid >= 1000 && uid < 60000 )) || die "'$user' não é uma conta de pessoa (UID $uid)."
-    if id -nG -- "$user" | tr ' ' '\n' | grep -qx sudo; then
-        die "'$user' é administrativa (grupo sudo); escolha uma conta padrão."
+    if id -nG -- "$user" | tr ' ' '\n' | grep -qxE 'sudo|admin|wheel'; then
+        die "'$user' é administrativa (grupo sudo, admin ou wheel); escolha uma conta padrão."
     fi
 }
 

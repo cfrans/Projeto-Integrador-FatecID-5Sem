@@ -54,6 +54,19 @@ class AdminAccountTests(unittest.TestCase):
             self.assertTrue(is_admin_account(account("primario", 1002, 27)))
             self.assertFalse(is_admin_account(account()))
 
+    def test_admin_and_wheel_members_are_admin(self):
+        groups = {"admin": SimpleNamespace(gr_gid=4, gr_mem=[]), "wheel": SimpleNamespace(gr_gid=10, gr_mem=["operador"])}
+
+        def getgrnam(name):
+            if name not in groups:
+                raise KeyError(name)
+            return groups[name]
+
+        with patch("lux_agent.parental.grp.getgrnam", side_effect=getgrnam):
+            self.assertTrue(is_admin_account(account("primario", 1002, 4)))
+            self.assertTrue(is_admin_account(account("operador", 1003, 1003)))
+            self.assertFalse(is_admin_account(account()))
+
     def test_missing_sudo_group_is_not_admin(self):
         with patch("lux_agent.parental.grp.getgrnam", side_effect=KeyError):
             self.assertFalse(is_admin_account(account()))
