@@ -126,23 +126,16 @@ export const auth = {
     return response.question;
   },
 
-  async getRecoveryQuestion(email: string): Promise<string | null> {
-    try {
-      const response = await api.request<unknown>('/auth/recovery/question', {
-        method: 'POST',
-        body: { email },
-        authenticated: false,
-      });
-      if (!isSecurityQuestionResponse(response) || typeof response.question !== 'string') {
-        throw new ApiError('unexpected', 'A API retornou uma pergunta de segurança inválida.');
-      }
-      return response.question;
-    } catch (error) {
-      if (error instanceof ApiError && error.status === 404) {
-        return null;
-      }
-      throw error;
+  async getRecoveryQuestion(email: string): Promise<string> {
+    const response = await api.request<unknown>('/auth/recovery/question', {
+      method: 'POST',
+      body: { email },
+      authenticated: false,
+    });
+    if (!isSecurityQuestionResponse(response) || typeof response.question !== 'string') {
+      throw new ApiError('unexpected', 'A API retornou uma pergunta de segurança inválida.');
     }
+    return response.question;
   },
 
   async verifyRecoveryAnswer(email: string, answer: string): Promise<boolean> {

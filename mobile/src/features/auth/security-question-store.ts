@@ -3,7 +3,7 @@ type Record = { question: string; salt: string; answerHash: string };
 
 const STORAGE_KEY = 'piplup.security-questions';
 export const MIN_QUESTION_LENGTH = 8;
-export const MIN_ANSWER_LENGTH = 2;
+export const MIN_ANSWER_LENGTH = 4;
 
 export function normalizeEmail(email: string) {
   return email.trim().toLowerCase();

@@ -2,14 +2,14 @@ import {
   BadRequestException,
   ConflictException,
   Injectable,
-  NotFoundException,
   ServiceUnavailableException,
   UnauthorizedException,
 } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import * as argon2 from 'argon2';
+import { createHmac } from 'node:crypto';
 import { PrismaService } from '../prisma/prisma.service.js';
-import { JWT_EXPIRES_IN_SECONDS } from './jwt-config.js';
+import { getJwtSecret, JWT_EXPIRES_IN_SECONDS } from './jwt-config.js';
 import { LoginDto } from './dto/login.dto.js';
 import { RegisterDto } from './dto/register.dto.js';
 import { UpdateEmailDto } from './dto/update-email.dto.js';
@@ -23,6 +23,22 @@ import {
 } from './dto/security-question.dto.js';
 
 const DUMMY_PASSWORD = 'credential-timing-equalization-only';
+
+const DECOY_SECURITY_QUESTIONS = [
+  'Qual o nome do seu primeiro animal de estimação?',
+  'Em que cidade você nasceu?',
+  'Qual o nome da sua primeira escola?',
+  'Qual o nome de solteira da sua mãe?',
+  'Qual era o seu apelido de infância?',
+  'Qual o nome do seu melhor amigo de infância?',
+  'Qual foi o seu primeiro emprego?',
+  'Qual a sua comida favorita?',
+] as const;
+
+function decoySecurityQuestion(email: string): string {
+  const digest = createHmac('sha256', getJwtSecret()).update(`recovery-decoy:${email}`).digest();
+  return DECOY_SECURITY_QUESTIONS[digest.readUInt32BE(0) % DECOY_SECURITY_QUESTIONS.length];
+}
 
 function prismaErrorCode(error: unknown): string | undefined {
   if (typeof error === 'object' && error !== null && 'code' in error && typeof error.code === 'string') {
@@ -190,11 +206,7 @@ export class AuthService {
       throw new ServiceUnavailableException('Serviço de autenticação indisponível.');
     }
 
-    if (!guardian?.securityQuestion) {
-      throw new NotFoundException('Nenhuma pergunta de segurança definida para este e-mail.');
-    }
-
-    return { question: guardian.securityQuestion };
+    return { question: guardian?.securityQuestion ?? decoySecurityQuestion(email) };
   }
 
   async verifyRecoveryAnswer(dto: VerifyRecoveryAnswerDto) {
@@ -214,11 +226,7 @@ export class AuthService {
       ? await argon2.verify(guardian.securityAnswerHash, answer)
       : await argon2.verify(await this.dummyHash, answer);
 
-    if (!guardian?.securityQuestion || !guardian.securityAnswerHash) {
-      throw new NotFoundException('Nenhuma pergunta de segurança definida para este e-mail.');
-    }
-
-    if (!answerMatches) {
+    if (!guardian?.securityQuestion || !answerMatches) {
       throw new BadRequestException('Resposta de segurança incorreta.');
     }
 
@@ -238,7 +246,7 @@ export class AuthService {
       });
     } catch (error) {
       if (prismaErrorCode(error) === 'P2025') {
-        throw new NotFoundException('Nenhuma pergunta de segurança definida para este e-mail.');
+        throw new BadRequestException('Resposta de segurança incorreta.');
       }
       throw new ServiceUnavailableException('Serviço de autenticação indisponível.');
     }

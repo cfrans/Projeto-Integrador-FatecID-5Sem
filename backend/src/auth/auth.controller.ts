@@ -152,9 +152,8 @@ export class AuthController {
   @HttpCode(200)
   @ApiOperation({ summary: 'Consulta a pergunta de segurança associada a um e-mail' })
   @ApiBody({ type: RecoveryQuestionDto })
-  @ApiResponse({ status: 200, description: 'Pergunta de segurança configurada.', type: SecurityQuestionResponseDto })
+  @ApiResponse({ status: 200, description: 'Pergunta configurada ou, para e-mail sem pergunta, uma pergunta fictícia estável.', type: SecurityQuestionResponseDto })
   @ApiResponse({ status: 400, description: 'Corpo inválido.' })
-  @ApiResponse({ status: 404, description: 'Nenhuma pergunta de segurança definida para o e-mail.' })
   @ApiResponse({ status: 503, description: 'Serviço de autenticação indisponível.' })
   @ApiResponse({ status: 429, description: 'Muitas tentativas deste endereço.' })
   getRecoveryQuestion(@Body() dto: RecoveryQuestionDto) {
@@ -169,7 +168,6 @@ export class AuthController {
   @ApiBody({ type: VerifyRecoveryAnswerDto })
   @ApiResponse({ status: 200, description: 'Resposta validada.', type: VerifyRecoveryResponseDto })
   @ApiResponse({ status: 400, description: 'Corpo inválido ou resposta incorreta.' })
-  @ApiResponse({ status: 404, description: 'Nenhuma pergunta de segurança definida para o e-mail.' })
   @ApiResponse({ status: 503, description: 'Serviço de autenticação indisponível.' })
   @ApiResponse({ status: 429, description: 'Muitas tentativas deste endereço.' })
   verifyRecoveryAnswer(@Body() dto: VerifyRecoveryAnswerDto) {
@@ -184,7 +182,6 @@ export class AuthController {
   @ApiBody({ type: ResetPasswordDto })
   @ApiResponse({ status: 204, description: 'Senha redefinida.' })
   @ApiResponse({ status: 400, description: 'Corpo inválido ou resposta incorreta.' })
-  @ApiResponse({ status: 404, description: 'Nenhuma pergunta de segurança definida para o e-mail.' })
   @ApiResponse({ status: 503, description: 'Serviço de autenticação indisponível.' })
   @ApiResponse({ status: 429, description: 'Muitas tentativas deste endereço.' })
   resetPassword(@Body() dto: ResetPasswordDto) {

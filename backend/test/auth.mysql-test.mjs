@@ -91,7 +91,13 @@ test('authentication persists and protects HTTP resources with MySQL', async () 
     await http.post('/auth/login').send({ email: updatedEmail, password: 'initial-password-123' }).expect(401);
     await http.post('/auth/login').send({ email: updatedEmail, password: 'updated-password-123' }).expect(200);
 
-    await http.post('/auth/recovery/question').send({ email: updatedEmail }).expect(404);
+    const decoy = await http.post('/auth/recovery/question').send({ email: updatedEmail }).expect(200);
+    await http
+      .post('/auth/recovery/question')
+      .send({ email: `${randomUUID()}@example.test` })
+      .expect(200);
+    assert.equal(typeof decoy.body.question, 'string');
+    await http.post('/auth/recovery/verify').send({ email: updatedEmail, answer: 'qualquer' }).expect(400);
     const sqGetInitial = await http.get('/auth/me/security-question').set('Authorization', regAuth).expect(200);
     assert.deepEqual(sqGetInitial.body, { question: null });
 

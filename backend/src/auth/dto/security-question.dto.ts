@@ -14,10 +14,10 @@ export class SetSecurityQuestionDto {
   @MaxLength(255)
   question!: string;
 
-  @ApiProperty({ minLength: 2, maxLength: 128, writeOnly: true })
+  @ApiProperty({ minLength: 4, maxLength: 128, writeOnly: true })
   @Transform(({ value }) => typeof value === 'string' ? normalizeSecurityAnswer(value) : value)
   @IsString()
-  @MinLength(2)
+  @MinLength(4)
   @MaxLength(128)
   answer!: string;
 }

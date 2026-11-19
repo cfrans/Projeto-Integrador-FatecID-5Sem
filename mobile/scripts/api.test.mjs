@@ -250,10 +250,6 @@ test('auth service handles registration, account updates and password recovery c
       return Response.json({ question: 'Qual o nome do seu primeiro pet?' }, { status: 200 });
     }
     if (url.endsWith('/auth/recovery/question')) {
-      const parsed = JSON.parse(init.body);
-      if (parsed.email === 'missing@example.com') {
-        return Response.json({ message: 'Nenhuma pergunta de segurança definida para este e-mail.' }, { status: 404 });
-      }
       return Response.json({ question: 'Qual o nome do seu primeiro pet?' }, { status: 200 });
     }
     if (url.endsWith('/auth/recovery/verify')) {
@@ -281,7 +277,6 @@ test('auth service handles registration, account updates and password recovery c
   assert.equal(await auth.getSecurityQuestion(), null);
   assert.equal(await auth.setSecurityQuestion('Qual o nome do seu primeiro pet?', 'Tobias'), 'Qual o nome do seu primeiro pet?');
 
-  assert.equal(await auth.getRecoveryQuestion('missing@example.com'), null);
   assert.equal(await auth.getRecoveryQuestion('nova@example.com'), 'Qual o nome do seu primeiro pet?');
   assert.equal(await auth.verifyRecoveryAnswer('nova@example.com', 'wrong'), false);
   assert.equal(await auth.verifyRecoveryAnswer('nova@example.com', 'Tobias'), true);

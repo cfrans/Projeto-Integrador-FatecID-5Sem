@@ -167,4 +167,32 @@ describe('AuthService', () => {
     const resetCall = prisma.guardian.update.mock.calls.at(-1)?.[0] as { data: { passwordHash: string } };
     expect(await argon2.verify(resetCall.data.passwordHash, 'recovered-password')).toBe(true);
   });
+  it('does not reveal whether an email has an account or a security question', async () => {
+    prisma.guardian.findUnique.mockResolvedValue(null);
+    const unknown = await service.getRecoveryQuestion({ email: 'unknown@example.com' } as RecoveryQuestionDto);
+    expect(unknown.question).toEqual(expect.any(String));
+    await expect(service.getRecoveryQuestion({ email: ' UNKNOWN@example.com ' } as RecoveryQuestionDto))
+      .resolves.toEqual(unknown);
+
+    prisma.guardian.findUnique.mockResolvedValue({ ...guardian, securityQuestion: null, securityAnswerHash: null });
+    await expect(service.getRecoveryQuestion({ email: 'unknown@example.com' } as RecoveryQuestionDto))
+      .resolves.toEqual(unknown);
+
+    const incorrect = { status: 400, response: { message: 'Resposta de segurança incorreta.' } };
+    for (const found of [null, { ...guardian, securityQuestion: null, securityAnswerHash: null }, { ...guardian }]) {
+      prisma.guardian.findUnique.mockResolvedValue(found);
+      await expect(service.verifyRecoveryAnswer({
+        email: 'guardian@example.com',
+        answer: 'rex',
+      } as VerifyRecoveryAnswerDto)).rejects.toMatchObject(incorrect);
+    }
+
+    prisma.guardian.findUnique.mockResolvedValue(null);
+    await expect(service.resetPasswordWithSecurityAnswer({
+      email: 'unknown@example.com',
+      answer: 'rex',
+      newPassword: 'recovered-password',
+    } as ResetPasswordDto)).rejects.toMatchObject(incorrect);
+    expect(prisma.guardian.update).not.toHaveBeenCalled();
+  });
 });
