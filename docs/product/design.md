@@ -114,6 +114,8 @@ Navegadores usam [logos locais das fontes oficiais](../../mobile/assets/browsers
 
 Computadores usam monitor por padrão, com opções Notebook, PC gamer e Servidor. Toque no ícone com o indicador de edição no cartão da Home ou da lista para personalizar; o seletor das restrições usa a mesma escolha. A preferência é local, separada por responsável e UUID do computador; não altera hardware, presença ou dados no backend. [Assets e licença](../../mobile/assets/computers/README.md).
 
+O ícone do app deriva de [`org.piplup.Pairing.svg`](../../lux-agent/desktop/org.piplup.Pairing.svg), o ícone de pareamento no Lux: QR vermelho `#E5483D` sobre `#1A1C25`. No Android adaptativo, o QR vai no foreground dentro da zona segura de 66dp e o fundo é a cor sólida `adaptiveIcon.backgroundColor`; `favicon.png` usa o SVG original. Sem `expo-splash-screen`, a splash do Android 12+ mostra o ícone adaptativo.
+
 ## Melhorias de usabilidade no mobile
 
 Aplicativos oferece limpeza de busca, nova tentativa de carregamento e confirmação de restrição em lote em modal local com paleta ativa, fundo escurecido e ações de cancelar/confirmar, explicitando computador e alcance sobre toda a lista, inclusive fora do filtro. A busca cresce com a fonte do sistema; ações têm área mínima de 44 e a chave visual não duplica o anúncio da linha pelo leitor de tela.
