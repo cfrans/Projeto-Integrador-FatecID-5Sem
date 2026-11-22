@@ -97,11 +97,10 @@ O Agent roda como usuário de sistema `lux-agent` (sem login, sem home, sem shel
 
 ## Verificações pendentes
 
-- Efeito real do bloqueio de instalação (exige flatpak na VM) e `uninstall.sh --reset-policies` com filtro aplicado: LUX-10.
 - Permissões polkit e efeito de horários (SessionLimits, `ReadAny/ChangeAny`) e classificação etária (OARS): LUX-11/12. O `set` atual zera o filtro OARS; o LUX-12 precisa mesclar com a classificação etária.
 - Login de conta com limite de horário ativo falha nesta VM (ver [provas](#provas-que-sustentam-as-decisões)); investigar antes do LUX-11.
 - UTC, fronteiras de dia e encerramento automático de sessões.
-- Hospedagem HTTPS definitiva e indisponibilidade real do backend (LUX-10).
+- Hospedagem HTTPS definitiva e indisponibilidade real do backend. A ligação do Lux ao backend na apresentação ainda não foi decidida; hoje só existe o túnel SSH de [HTTPS de desenvolvimento](https-development.md).
 
 ## Provas que sustentam as decisões
 
@@ -109,6 +108,6 @@ Resumo do que foi observado no Lux real e embasa as decisões acima. Data e ambi
 
 - **Leitura.** A própria conta é lida sem sudo. Ler outra conta é negado (`Not allowed to query parental controls data`) mesmo para membro de `sudo` por SSH: a policy instalada exige `auth_admin_keep` para `ReadAny`. Negação é falha, nunca "sem restrições".
 - **Escrita via polkit.** Sem a regra `50-lux-agent.rules`, o usuário `lux-agent` recebe a mesma negação e nada é gravado. Com a regra, grava, relê igual e restaura. O app some da busca e do dock na hora; janela já aberta continua; pelo terminal o executável abre normalmente.
-- **Instalação.** As flags são gravadas e relidas, mas o efeito não foi observado: o repositório Lux não publica catálogo AppStream, não há flatpak e conta sem privilégio já depende de administrador para apt/PackageKit.
+- **Instalação.** As flags são gravadas e relidas, mas o efeito não foi observado: o repositório Lux não publica catálogo AppStream (a Central de Programas abre vazia), o flatpak não existe nos repositórios do Lux e conta sem privilégio já depende de administrador para apt/PackageKit.
 - **Limite de horário.** Com `LimitType=1`, o login gráfico da conta gerenciada falha nesta VM (`pam_systemd`: `Failed to create session: Device or resource busy`) desde a atualização para systemd 261. Causa não investigada; o limite da conta de teste fica desligado.
 - **Fronteiras UTC.** `SessionLimits.check_time_remaining()` em memória trata início como inclusivo e fim como exclusivo, em UTC.

@@ -165,7 +165,7 @@ sudo ~/lux-agent-poc/uninstall.sh [--reset-policies] [--yes]
 - **Dependências:** `python3-qrcode`, `pkexec`, `python3-gi`, `gir1.2-gtk-4.0` e `gir1.2-adw-1`, instalados com `apt-get` quando faltam (o papel do `Depends` de um futuro pacote).
 - **Reexecução:** idempotente. Atualiza código, unit e regra, reaproveita URL, opções e conta já gravadas e reinicia o serviço.
 - **Reinício:** `Restart=on-failure`, exceto códigos 2 (configuração), 3 (credencial revogada) e 6 (incompatibilidade), que param o serviço sem loop (`RestartPreventExitStatus`). Falhas de rede e TLS continuam reiniciando ou repetindo com backoff.
-- **Isolamento:** a unit usa `NoNewPrivileges`, `ProtectSystem=strict`, `ProtectHome`, `PrivateTmp`, `PrivateDevices`, `ProtectKernel*`, `RestrictNamespaces`, `RestrictAddressFamilies`, `CapabilityBoundingSet=` vazio e `SystemCallFilter=@system-service`. As diretivas após `PrivateTmp` ainda precisam ser validadas no Lux (LUX-10).
+- **Isolamento:** a unit usa `NoNewPrivileges`, `ProtectSystem=strict`, `ProtectHome`, `PrivateTmp`, `PrivateDevices`, `ProtectKernel*`, `RestrictNamespaces`, `RestrictAddressFamilies`, `CapabilityBoundingSet=` vazio e `SystemCallFilter=@system-service`. Validado no Lux: com todas ativas, o serviço fala com o AccountsService e com o backend.
 - **Logs:** journald (`journalctl -u lux-agent`), sem credencial, Bearer ou corpo HTTP.
 - **Desinstalação:** remove tudo da tabela, inclusive a credencial, e o usuário. As políticas da criança são mantidas; `--reset-policies` limpa o filtro de aplicativos via `malcontent-client set-app-filter`. A identidade continua válida no backend até ser revogada.
 - **Coleta:** o serviço não lê `$HOME` (`ProtectHome=yes`); o relatório lista aplicativos de `/usr/local/share` e `/usr/share`.
@@ -183,7 +183,7 @@ Um administrador abre **Piplup** no menu de aplicativos (ou roda `piplup` no ter
 | 5 | Backend indisponível ou limite de registros (429) |
 | 6 | Resposta incompatível |
 
-Na primeira vez, ou quando o backend recusa a credencial (`401`, revogada ou nunca confirmada), o auxiliar gera outra e faz o autorregistro; com credencial válida, só abre uma nova sessão. O fluxo, as garantias e os limites estão em [Pareamento pelo Agent](../docs/lux/integration.md#pareamento-pelo-agent). Revogado o vínculo, o serviço para com código 3 e um novo `lux-agent pair` gera outra identidade.
+Na primeira vez, ou quando o backend recusa a credencial (`401`, revogada ou nunca confirmada), o auxiliar gera outra e faz o autorregistro; com credencial válida, só abre uma nova sessão. O fluxo, as garantias e os limites estão em [Pareamento pelo Agent](../docs/lux/integration.md#pareamento-pelo-agent). Revogado só o vínculo (pelo app), o serviço continua consultando sem receber trabalho e um novo `lux-agent pair` reaproveita a identidade. Revogada a identidade (ferramenta administrativa), o serviço para com código 3 e um novo `lux-agent pair` gera outra.
 
 ## Diagnóstico autenticado
 
